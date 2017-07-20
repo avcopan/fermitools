@@ -5,7 +5,7 @@ from . import elements
 
 
 # Public
-def energy(labels: tuple, coords: numpy.ndarray) -> float:
+def energy(labels, coords):
     """the coulomb energy of a system of nuclei
 
     :param labels: atomic symbols
@@ -20,7 +20,7 @@ def energy(labels: tuple, coords: numpy.ndarray) -> float:
     return _inverse_law(weights=charges, coords=coords)
 
 
-def electric_dipole(labels: tuple, coords: numpy.ndarray) -> numpy.ndarray:
+def electric_dipole(labels, coords):
     """the electric dipole moment of a system of nuclei
 
     :param labels: atomic symbols
@@ -36,7 +36,7 @@ def electric_dipole(labels: tuple, coords: numpy.ndarray) -> numpy.ndarray:
 
 
 # Private
-def _inverse_law(weights: tuple, coords: numpy.ndarray) -> float:
+def _inverse_law(weights, coords):
     """the weighted sum of inverse distances for a system of nuclei
 
     :param weights: weights
@@ -52,7 +52,7 @@ def _inverse_law(weights: tuple, coords: numpy.ndarray) -> float:
                for (w1, w2), (r1, r2) in zip(w_pairs, r_pairs))
 
 
-def _moment(weights: tuple, coords: numpy.ndarray) -> numpy.ndarray:
+def _moment(weights, coords):
     """the weighted moment of a system of nuclei
 
     :param weights: weights

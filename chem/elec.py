@@ -1,7 +1,7 @@
 from . import elements
 
 
-def count(labels: tuple, charge: int=0) -> int:
+def count(labels, charge):
     """the number of electrons in a chemical system
 
     :param labels: nuclear labels
@@ -16,7 +16,7 @@ def count(labels: tuple, charge: int=0) -> int:
     return nuc_charge - charge
 
 
-def count_alpha(labels: tuple, charge: int=0, spin: int=0) -> int:
+def count_alpha(labels, charge, spin):
     """the number of alpha electrons in a high-spin chemical system
 
     :param labels: nuclear labels
@@ -33,7 +33,7 @@ def count_alpha(labels: tuple, charge: int=0, spin: int=0) -> int:
     return (nelec - spin) // 2 + spin
 
 
-def count_beta(labels: tuple, charge: int=0, spin: int=0) -> int:
+def count_beta(labels, charge, spin):
     """the number of beta electrons in a high-spin chemical system
 
     :param labels: nuclear labels

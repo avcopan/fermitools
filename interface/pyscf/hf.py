@@ -4,10 +4,8 @@ import numpy
 
 
 # Public
-def unrestricted_orbitals(basis: str, labels: tuple, coords: numpy.ndarray,
-                          charge: int=0, spin: int=0, niter: int=100,
-                          e_thresh: float=1e-12,
-                          r_thresh: float=1e-9) -> numpy.ndarray:
+def unrestricted_orbitals(basis, labels, coords, charge=0, spin=0, niter=100,
+                          e_thresh=1e-12, r_thresh=1e-9):
     """urestricted alpha and beta Hartree-Fock orbital coefficients
 
     :param basis: basis set name
@@ -44,10 +42,8 @@ def unrestricted_orbitals(basis: str, labels: tuple, coords: numpy.ndarray,
     return uhf.mo_coeff
 
 
-def restricted_orbitals(basis: str, labels: tuple, coords: numpy.ndarray,
-                        charge: int=0, spin: int=0, niter: int=100,
-                        e_thresh: float=1e-12,
-                        r_thresh: float=1e-9) -> numpy.ndarray:
+def restricted_orbitals(basis, labels, coords, charge=0, spin=0, niter=100,
+                        e_thresh=1e-12, r_thresh=1e-9):
     """restricted Hartree-Fock orbital coefficients
 
     :param basis: basis set name

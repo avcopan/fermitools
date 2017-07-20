@@ -4,7 +4,7 @@ import numpy
 
 
 # Public
-def overlap(basis: str, labels: tuple, coords: numpy.ndarray) -> numpy.ndarray:
+def overlap(basis, labels, coords):
     """overlap integrals
 
     :param basis: basis set name
@@ -21,7 +21,7 @@ def overlap(basis: str, labels: tuple, coords: numpy.ndarray) -> numpy.ndarray:
     return mol.intor('cint1e_ovlp_sph')
 
 
-def kinetic(basis: str, labels: tuple, coords: numpy.ndarray) -> numpy.ndarray:
+def kinetic(basis, labels, coords):
     """kinetic energy integrals
 
     :param basis: basis set name
@@ -38,7 +38,7 @@ def kinetic(basis: str, labels: tuple, coords: numpy.ndarray) -> numpy.ndarray:
     return mol.intor('cint1e_kin_sph')
 
 
-def nuclear(basis: str, labels: tuple, coords: numpy.ndarray) -> numpy.ndarray:
+def nuclear(basis, labels, coords):
     """nuclear attraction integrals
 
     :param basis: basis set name
@@ -55,7 +55,7 @@ def nuclear(basis: str, labels: tuple, coords: numpy.ndarray) -> numpy.ndarray:
     return mol.intor('cint1e_nuc_sph')
 
 
-def dipole(basis: str, labels: tuple, coords: numpy.ndarray) -> numpy.ndarray:
+def dipole(basis, labels, coords):
     """electric dipole integrals
 
     :param basis: basis set name
@@ -72,8 +72,7 @@ def dipole(basis: str, labels: tuple, coords: numpy.ndarray) -> numpy.ndarray:
     return -mol.intor('cint1e_r_sph', comp=3)
 
 
-def repulsion(basis: str, labels: tuple,
-              coords: numpy.ndarray) -> numpy.ndarray:
+def repulsion(basis, labels, coords):
     """electron-electron repulsion integrals in physicist's notation
 
     :param basis: basis set name
@@ -93,8 +92,7 @@ def repulsion(basis: str, labels: tuple,
 
 
 # Private
-def _pyscf_molecule_object(basis: str, labels: tuple,
-                           coords: numpy.ndarray) -> pyscf.gto.Mole:
+def _pyscf_molecule_object(basis, labels, coords):
     """build a pyscf.gto.Mole object
 
     :param basis: basis set name
@@ -103,10 +101,6 @@ def _pyscf_molecule_object(basis: str, labels: tuple,
     :type labels: tuple
     :param coords: nuclear coordinates in Bohr
     :type coords: numpy.ndarray
-    :param charge: total molecular charge
-    :type charge: int
-    :param spin: number of unpaired electrons
-    :type spin: int
 
     :rtype: pyscf.gto.Mole
     """
@@ -115,18 +109,3 @@ def _pyscf_molecule_object(basis: str, labels: tuple,
                          basis=basis)
     mol.build()
     return mol
-
-
-# Testing
-def _main():
-    BASIS = 'STO-3G'
-    LABELS = ('O', 'H', 'H')
-    COORDS = ((0.000000000000,  0.000000000000, -0.143225816552),
-              (0.000000000000,  1.638036840407,  1.136548822547),
-              (0.000000000000, -1.638036840407,  1.136548822547))
-    s = repulsion(basis=BASIS, labels=LABELS, coords=COORDS)
-    print(numpy.linalg.norm(s))
-
-
-if __name__ == "__main__":
-    _main()

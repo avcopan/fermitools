@@ -1,5 +1,5 @@
 # Public
-def charge(label: str) -> int:
+def charge(label):
     """the charge of a nucleus
 
     :param label: an atomic symbol
