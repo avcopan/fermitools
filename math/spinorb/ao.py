@@ -9,7 +9,7 @@ def expand(i, brakets):
     :param i: integral array
     :type i: numpy.ndarray
     :param brakets: the 1e-integrals in `i`, as bra/ket axis pairs
-    :type brakets: tuple[tuple[int, int]]
+    :type brakets: tuple[tuple[int, int], ...]
 
     :rtype: numpy.ndarray
     """
@@ -21,7 +21,7 @@ def expander(brakets):
     """expands integral arrays in terms of spin-orbitals
 
     :param brakets: 1e-integrals, as bra/ket axis pairs
-    :type brakets: tuple[tuple[int, int]]
+    :type brakets: tuple[tuple[int, int], ...]
 
     :rtype: typing.Callable
     """

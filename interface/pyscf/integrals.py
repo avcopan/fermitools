@@ -55,6 +55,24 @@ def nuclear(basis, labels, coords):
     return mol.intor('cint1e_nuc_sph')
 
 
+def core_hamiltonian(basis, labels, coords):
+    """kinetic energy plus nuclear attraction integrals
+
+    :param basis: basis set name
+    :type basis: str
+    :param labels: atomic symbols labeling the nuclei
+    :type labels: tuple
+    :param coords: nuclear coordinates in Bohr
+    :type coords: numpy.ndarray
+
+    :return: a square matrix
+    :rtype: numpy.ndarray
+    """
+    t = kinetic(basis=basis, labels=labels, coords=coords)
+    v = nuclear(basis=basis, labels=labels, coords=coords)
+    return t + v
+
+
 def dipole(basis, labels, coords):
     """electric dipole integrals
 

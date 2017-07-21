@@ -12,44 +12,43 @@ COORDS = ((0.000000000000,  0.000000000000, -0.143225816552),
           (0.000000000000,  1.638036840407,  1.136548822547),
           (0.000000000000, -1.638036840407,  1.136548822547))
 
+s_ao = interface.integrals.overlap(basis=BASIS, labels=LABELS,
+                                   coords=COORDS)
+h_ao = interface.integrals.core_hamiltonian(basis=BASIS, labels=LABELS,
+                                            coords=COORDS)
+g_ao = interface.integrals.repulsion(basis=BASIS, labels=LABELS,
+                                     coords=COORDS)
+
+na = simplehf.chem.elec.count_alpha(labels=LABELS, charge=CHARGE, spin=SPIN)
+nb = simplehf.chem.elec.count_beta(labels=LABELS, charge=CHARGE, spin=SPIN)
 ac, bc = interface.hf.unrestricted_orbitals(basis=BASIS, labels=LABELS,
                                             coords=COORDS, charge=CHARGE,
                                             spin=SPIN)
+ad_ao = simplehf.hf.orb.density(na, ac)
+bd_ao = simplehf.hf.orb.density(nb, bc)
 
-naocc = simplehf.chem.elec.count_alpha(labels=LABELS, charge=CHARGE, spin=SPIN)
-nbocc = simplehf.chem.elec.count_beta(labels=LABELS, charge=CHARGE, spin=SPIN)
-sort_order = simplehf.math.spinorb.mo.sort_order(dim=7, na=naocc, nb=nbocc)
 
-c = spla.block_diag(ac, bc)[:, sort_order]
+af_ao, bf_ao = simplehf.hf.uhf.fock(h_ao, g_ao, ad_ao, bd_ao)
 
-t_ao = interface.integrals.kinetic(basis=BASIS, labels=LABELS,
-                                   coords=COORDS)
-v_ao = interface.integrals.nuclear(basis=BASIS, labels=LABELS,
-                                   coords=COORDS)
-r_ao = interface.integrals.repulsion(basis=BASIS, labels=LABELS,
-                                     coords=COORDS)
+ae = simplehf.hf.orb.energies(s_ao, af_ao)
+be = simplehf.hf.orb.energies(s_ao, bf_ao)
 
-h_ao = t_ao + v_ao
-h_so = simplehf.math.spinorb.ao.expand(h_ao, ((0, 1),))
-r_so = simplehf.math.spinorb.ao.expand(r_ao, ((0, 2), (1, 3)))
+srt = simplehf.math.spinorb.mo.sort_order(7, na=na, nb=nb)
+e = numpy.concatenate((ae, be))[srt, ]
+c = spla.block_diag(ac, bc)[:, srt]
 
-h = simplehf.math.trans.transform(h_so, {0: c, 1: c})
-r = simplehf.math.trans.transform(r_so, {0: c, 1: c, 2: c, 3: c})
+g_so = simplehf.math.spinorb.ao.expand(g_ao, ((0, 2), (1, 3)))
+g = simplehf.math.trans.transform(g_so, {0: c, 1: c, 2: c, 3: c})
 
-g = r - r.transpose((0, 1, 3, 2))
+g = g - g.transpose((0, 1, 3, 2))
 
-nocc = naocc + nbocc
-
-o = slice(None, nocc)
-v = slice(nocc, None)
+o = slice(None, na + nb)
+v = slice(na + nb, None)
 x = numpy.newaxis
-
-f = h + numpy.einsum('piqi->pq', g[:, o, :, o])
-e = numpy.diag(f)
 
 t = (g[o, o, v, v]
      / (e[o, x, x, x] + e[x, o, x, x] - e[x, x, v, x] - e[x, x, x, v]))
 
-energy = 1. / 4 * numpy.sum(g[o, o, v, v] * t)
+corr_energy = 1. / 4 * numpy.sum(g[o, o, v, v] * t)
 
-print(energy)
+print(corr_energy)

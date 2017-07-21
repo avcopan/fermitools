@@ -13,6 +13,7 @@ COORDS = ((0.000000000000,  0.000000000000, -0.143225816552),
 OVERLAP_NORM = 2.87134489728
 KINETIC_NORM = 29.3665362237
 NUCLEAR_NORM = 66.4857540061
+HCORE_NORM = 39.0837944394
 DIPOLE_NORM = 3.54727809028
 REPULSION_NORM = 7.77961419893
 
@@ -42,6 +43,15 @@ def test__nuclear():
 
     assert nuclear.shape == (N, N)
     assert_almost_equal(nuclear_norm, NUCLEAR_NORM, decimal=10)
+
+
+def test__core_hamiltonian():
+    hcore = interface.integrals.core_hamiltonian(basis=BASIS, labels=LABELS,
+                                                 coords=COORDS)
+    hcore_norm = numpy.linalg.norm(hcore)
+
+    assert hcore.shape == (N, N)
+    assert_almost_equal(hcore_norm, HCORE_NORM, decimal=10)
 
 
 def test__dipole():
