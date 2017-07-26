@@ -3,6 +3,21 @@ from ._proj import projection, complementary_projection
 
 
 def effective_fock(s, af, bf, ad, bd):
+    """spin-restricted open-shell effective fock matrix
+
+    :param s: basis function overlap matrix
+    :type s: numpy.ndarray
+    :param af: alpha fock matrix
+    :type af: numpy.ndarray
+    :param bf: beta fock matrix
+    :type bf: numpy.ndarray
+    :param ad: hartree-fock alpha density matrix
+    :type ad: numpy.ndarray
+    :param bd: hatree-fock beta density matrix
+    :type bd: numpy.ndarray
+
+    :rtype: numpy.ndarray
+    """
     p_docc = projection(s, bd)
     p_socc = projection(s, ad - bd)
     p_uocc = complementary_projection(s, ad)
