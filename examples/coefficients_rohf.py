@@ -1,6 +1,6 @@
 import numpy
-import simplehf
-import simplehf.interface.pyscf as interface
+import fermitools
+import fermitools.interface.pyscf as interface
 from numpy.testing import assert_almost_equal
 
 
@@ -17,19 +17,19 @@ def main():
     h = interface.integrals.core_hamiltonian(BASIS, LABELS, COORDS)
     g = interface.integrals.repulsion(BASIS, LABELS, COORDS)
 
-    na = simplehf.chem.elec.count_alpha(LABELS, CHARGE, SPIN)
-    nb = simplehf.chem.elec.count_beta(LABELS, CHARGE, SPIN)
+    na = fermitools.chem.elec.count_alpha(LABELS, CHARGE, SPIN)
+    nb = fermitools.chem.elec.count_beta(LABELS, CHARGE, SPIN)
 
     c_ref = interface.hf.restricted_orbitals(BASIS, LABELS, COORDS,
                                              CHARGE, SPIN)
 
-    ad = simplehf.hf.orb.density(na, c_ref)
-    bd = simplehf.hf.orb.density(nb, c_ref)
+    ad = fermitools.hf.orb.density(na, c_ref)
+    bd = fermitools.hf.orb.density(nb, c_ref)
 
-    af, bf = simplehf.hf.uhf.fock(h, g, ad, bd)
-    f = simplehf.hf.rohf.effective_fock(s, af, bf, ad, bd)
+    af, bf = fermitools.hf.uhf.fock(h, g, ad, bd)
+    f = fermitools.hf.rohf.effective_fock(s, af, bf, ad, bd)
 
-    c = simplehf.hf.orb.coefficients(s, f)
+    c = fermitools.hf.orb.coefficients(s, f)
 
     assert_almost_equal(numpy.abs(c), numpy.abs(c_ref), decimal=10)
     print(c.round(2))

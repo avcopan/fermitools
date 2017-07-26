@@ -1,4 +1,4 @@
-import simplehf.math.spinorb.mo as mo
+import fermitools.math.spinorb.mo as mo
 
 
 def test__sort_order():

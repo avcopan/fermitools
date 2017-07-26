@@ -1,4 +1,4 @@
-from simplehf.math import trans
+from fermitools.math import trans
 
 import numpy
 from numpy.testing import assert_array_equal

@@ -1,4 +1,4 @@
-import simplehf.examples.coefficients_rohf as example
+import fermitools.examples.coefficients_rohf as example
 
 
 def test__main():

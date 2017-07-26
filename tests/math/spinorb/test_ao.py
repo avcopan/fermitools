@@ -1,4 +1,4 @@
-from simplehf.math.spinorb import ao
+from fermitools.math.spinorb import ao
 
 import numpy
 from numpy.testing import assert_array_equal

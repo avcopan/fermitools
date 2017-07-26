@@ -1,5 +1,5 @@
-import simplehf
-import simplehf.interface.pyscf as interface
+import fermitools
+import fermitools.interface.pyscf as interface
 from numpy.testing import assert_almost_equal
 
 
@@ -15,20 +15,20 @@ def main():
     h = interface.integrals.core_hamiltonian(BASIS, LABELS, COORDS)
     g = interface.integrals.repulsion(BASIS, LABELS, COORDS)
 
-    na = simplehf.chem.elec.count_alpha(LABELS, CHARGE, SPIN)
-    nb = simplehf.chem.elec.count_beta(LABELS, CHARGE, SPIN)
+    na = fermitools.chem.elec.count_alpha(LABELS, CHARGE, SPIN)
+    nb = fermitools.chem.elec.count_beta(LABELS, CHARGE, SPIN)
 
     ac, bc = interface.hf.unrestricted_orbitals(BASIS, LABELS, COORDS,
                                                 CHARGE, SPIN)
 
-    ad = simplehf.hf.orb.density(na, ac)
-    bd = simplehf.hf.orb.density(nb, bc)
+    ad = fermitools.hf.orb.density(na, ac)
+    bd = fermitools.hf.orb.density(nb, bc)
 
-    af, bf = simplehf.hf.uhf.fock(h, g, ad, bd)
+    af, bf = fermitools.hf.uhf.fock(h, g, ad, bd)
 
-    energy = simplehf.hf.uhf.energy(h, af, bf, ad, bd)
+    energy = fermitools.hf.uhf.energy(h, af, bf, ad, bd)
 
-    nuc_energy = simplehf.chem.nuc.energy(LABELS, COORDS)
+    nuc_energy = fermitools.chem.nuc.energy(LABELS, COORDS)
 
     assert_almost_equal(energy, -82.664151422266826)
     print(energy + nuc_energy)

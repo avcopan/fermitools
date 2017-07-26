@@ -1,5 +1,5 @@
-import simplehf
-import simplehf.interface.pyscf as interface
+import fermitools
+import fermitools.interface.pyscf as interface
 from numpy.testing import assert_almost_equal
 
 
@@ -14,17 +14,17 @@ def main():
     h = interface.integrals.core_hamiltonian(BASIS, LABELS, COORDS)
     g = interface.integrals.repulsion(BASIS, LABELS, COORDS)
 
-    n = simplehf.chem.elec.count(LABELS, CHARGE) // 2
+    n = fermitools.chem.elec.count(LABELS, CHARGE) // 2
 
     c = interface.hf.restricted_orbitals(BASIS, LABELS, COORDS)
 
-    d = simplehf.hf.orb.density(n, c)
+    d = fermitools.hf.orb.density(n, c)
 
-    f = simplehf.hf.rhf.fock(h, g, d)
+    f = fermitools.hf.rhf.fock(h, g, d)
 
-    energy = simplehf.hf.rhf.energy(h, f, d)
+    energy = fermitools.hf.rhf.energy(h, f, d)
 
-    nuc_energy = simplehf.chem.nuc.energy(LABELS, COORDS)
+    nuc_energy = fermitools.chem.nuc.energy(LABELS, COORDS)
 
     assert_almost_equal(energy, -82.94444699000312, decimal=10)
     print(energy + nuc_energy)

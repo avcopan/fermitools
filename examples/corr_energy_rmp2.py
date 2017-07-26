@@ -1,6 +1,6 @@
 import numpy
-import simplehf
-import simplehf.interface.pyscf as interface
+import fermitools
+import fermitools.interface.pyscf as interface
 from numpy.testing import assert_almost_equal
 
 
@@ -16,16 +16,16 @@ def main():
     h_ao = interface.integrals.core_hamiltonian(BASIS, LABELS, COORDS)
     g_ao = interface.integrals.repulsion(BASIS, LABELS, COORDS)
 
-    n = simplehf.chem.elec.count(LABELS, CHARGE) // 2
+    n = fermitools.chem.elec.count(LABELS, CHARGE) // 2
 
     c = interface.hf.restricted_orbitals(BASIS, LABELS, COORDS)
 
-    d_ao = simplehf.hf.orb.density(n, c)
-    f_ao = simplehf.hf.rhf.fock(h_ao, g_ao, d_ao)
+    d_ao = fermitools.hf.orb.density(n, c)
+    f_ao = fermitools.hf.rhf.fock(h_ao, g_ao, d_ao)
 
-    e = simplehf.hf.orb.energies(s_ao, f_ao)
+    e = fermitools.hf.orb.energies(s_ao, f_ao)
 
-    g = simplehf.math.trans.transform(g_ao, {0: c, 1: c, 2: c, 3: c})
+    g = fermitools.math.trans.transform(g_ao, {0: c, 1: c, 2: c, 3: c})
 
     o = slice(None, n)
     v = slice(n, None)

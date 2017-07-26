@@ -1,4 +1,4 @@
-from simplehf.chem import elec
+from fermitools.chem import elec
 
 
 CHARGE = +1

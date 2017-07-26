@@ -1,4 +1,4 @@
-import simplehf.examples.energy_rhf as example
+import fermitools.examples.energy_rhf as example
 
 
 def test__main():

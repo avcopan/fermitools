@@ -1,4 +1,4 @@
-import simplehf.hf.orb as orb
+import fermitools.hf.orb as orb
 
 import os
 import numpy

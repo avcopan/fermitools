@@ -1,4 +1,4 @@
-import simplehf.examples.energy_uhf as example
+import fermitools.examples.energy_uhf as example
 
 
 def test__main():

@@ -1,4 +1,4 @@
-import simplehf.examples.corr_energy_rmp2 as example
+import fermitools.examples.corr_energy_rmp2 as example
 
 
 def test__main():

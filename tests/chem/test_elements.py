@@ -1,4 +1,4 @@
-from simplehf.chem import elements
+from fermitools.chem import elements
 
 
 def test__charge():

@@ -1,4 +1,4 @@
-import simplehf.interface.pyscf as interface
+import fermitools.interface.pyscf as interface
 
 import numpy
 from numpy.testing import assert_almost_equal
