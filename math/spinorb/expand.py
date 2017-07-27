@@ -13,11 +13,12 @@ def expand(i, brakets):
 
     :rtype: numpy.ndarray
     """
-    exp = expander(brakets)
+    exp = _expander(brakets)
     return exp(i)
 
 
-def expander(brakets):
+# Private
+def _expander(brakets):
     """expands integral arrays in terms of spin-orbitals
 
     :param brakets: 1e-integrals, as bra/ket axis pairs
@@ -29,7 +30,6 @@ def expander(brakets):
     return ftz.compose(*braket_expanders)
 
 
-# Private
 def _braket_expander(braket):
     """expands a one-electron integral in terms of spin-orbitals
 
