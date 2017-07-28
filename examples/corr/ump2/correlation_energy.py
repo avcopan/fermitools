@@ -40,17 +40,6 @@ def main():
     assert_almost_equal(corr_energy, -0.03588729135033, decimal=10)
     print(corr_energy)
 
-    import numpy
-
-    numpy.save('na', na)
-    numpy.save('nb', nb)
-    numpy.save('aag', aag)
-    numpy.save('abg', abg)
-    numpy.save('bbg', bbg)
-    numpy.save('ae', ae)
-    numpy.save('be', be)
-    numpy.save('corr_energy', corr_energy)
-
 
 if __name__ == '__main__':
     main()
