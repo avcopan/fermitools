@@ -1,0 +1,3 @@
+[submodule "corr/asym"]
+	path = corr/asym
+	url = git@github.com:avcopan/asym.git
