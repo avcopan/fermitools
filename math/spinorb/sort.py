@@ -39,6 +39,7 @@ def sort(a, order, axes):
 
     :rtype: numpy.ndarray
     """
-    args = (order if ax in axes else slice(None) for ax in range(a.ndim))
+    args = tuple(order if ax in axes else range(a.shape[ax])
+                 for ax in range(a.ndim))
     ix = numpy.ix_(*args)
     return a[ix]

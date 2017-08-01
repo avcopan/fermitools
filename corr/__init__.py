@@ -1,3 +1,3 @@
-from . import rmp2, ump2
+from . import restricted, integrated, spinorb
 
-__all__ = ['rmp2', 'ump2']
+__all__ = ['restricted', 'integrated', 'spinorb']
