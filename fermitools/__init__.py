@@ -1,3 +1,3 @@
-from . import interface, chem, math, hf, corr
+from . import interface, chem, math, hf
 
-__all__ = ['interface', 'chem', 'math', 'hf', 'corr']
+__all__ = ['interface', 'chem', 'math', 'hf']
