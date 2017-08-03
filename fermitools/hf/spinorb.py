@@ -30,4 +30,4 @@ def energy(h, f, d):
 
     :rtype: float
     """
-    return 1. / 2 * numpy.tensordot(h + f, d, axes=((0, 1), (1, 0)))
+    return numpy.vdot(h + f, d) / 2.

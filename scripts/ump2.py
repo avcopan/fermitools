@@ -3,9 +3,18 @@ import fermitools
 import fermitools.interface.pyscf as interface
 
 
+def t2_amplitudes(w, eo1, eo2, ev1, ev2):
+    return w / fermitools.math.broadcast_sum({0: +eo1, 1: +eo2,
+                                              2: -ev1, 3: -ev2})
+
+
 def ump2_correlation_energy(basis, labels, coords, charge, spin):
     na = fermitools.chem.elec.count_alpha(labels, charge, spin)
     nb = fermitools.chem.elec.count_beta(labels, charge, spin)
+    ao = slice(None, na)
+    bo = slice(None, nb)
+    av = slice(na, None)
+    bv = slice(nb, None)
 
     ac, bc = interface.hf.unrestricted_orbitals(basis, labels, coords,
                                                 charge, spin)
@@ -13,8 +22,8 @@ def ump2_correlation_energy(basis, labels, coords, charge, spin):
     h_ao = interface.integrals.core_hamiltonian(basis, labels, coords)
     g_ao = interface.integrals.repulsion(basis, labels, coords)
 
-    ad_ao = fermitools.hf.orb.density(na, ac)
-    bd_ao = fermitools.hf.orb.density(nb, bc)
+    ad_ao = fermitools.hf.density(ac[:, ao])
+    bd_ao = fermitools.hf.density(bc[:, bo])
     af_ao, bf_ao = fermitools.hf.uhf.fock(h_ao, g_ao, ad_ao, bd_ao)
 
     af = fermitools.math.trans.transform(af_ao, {0: ac, 1: ac})
@@ -26,24 +35,9 @@ def ump2_correlation_energy(basis, labels, coords, charge, spin):
     ae = numpy.diagonal(af)
     be = numpy.diagonal(bf)
 
-    ao = slice(None, na)
-    bo = slice(None, nb)
-    av = slice(na, None)
-    bv = slice(nb, None)
-
-    aat2 = aag[ao, ao, av, av] * fermitools.corr.resolvent((ae[ao], ae[ao]),
-                                                           (ae[av], ae[av]))
-    abt2 = abg[ao, bo, av, bv] * fermitools.corr.resolvent((ae[ao], be[bo]),
-                                                           (ae[av], be[bv]))
-    bbt2 = bbg[bo, bo, bv, bv] * fermitools.corr.resolvent((be[bo], be[bo]),
-                                                           (be[bv], be[bv]))
-
-    res = fermitools.corr.resolvent((ae[ao], be[bo]), (ae[av], be[bv]))
-    numpy.save('ae_o', ae[ao])
-    numpy.save('ae_v', ae[av])
-    numpy.save('be_o', be[bo])
-    numpy.save('be_v', be[bv])
-    numpy.save('res', res)
+    aat2 = t2_amplitudes(aag[ao, ao, av, av], ae[ao], ae[ao], ae[av], ae[av])
+    abt2 = t2_amplitudes(abg[ao, bo, av, bv], ae[ao], be[bo], ae[av], be[bv])
+    bbt2 = t2_amplitudes(bbg[bo, bo, bv, bv], be[bo], be[bo], be[bv], be[bv])
 
     aau2 = aat2 - numpy.transpose(aat2, (0, 1, 3, 2))
     bbu2 = bbt2 - numpy.transpose(bbt2, (0, 1, 3, 2))
@@ -53,7 +47,9 @@ def ump2_correlation_energy(basis, labels, coords, charge, spin):
             numpy.vdot(bbg[bo, bo, bv, bv], bbu2) / 2.)
 
 
-if __name__ == '__main__':
+def main():
+    from numpy.testing import assert_almost_equal
+
     CHARGE = +1
     SPIN = 1
     BASIS = 'STO-3G'
@@ -64,3 +60,9 @@ if __name__ == '__main__':
 
     corr_energy = ump2_correlation_energy(BASIS, LABELS, COORDS, CHARGE, SPIN)
     print(corr_energy)
+
+    assert_almost_equal(corr_energy, -0.03588729135033, decimal=10)
+
+
+if __name__ == '__main__':
+    main()

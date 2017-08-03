@@ -2,17 +2,14 @@ import numpy
 import scipy.linalg as spla
 
 
-def density(n, c):
+def density(c_o):
     """hf density matrix
 
-    :param n: number of occupied orbitals
-    :type n: int
-    :param c: orbital coefficients
-    :type c: numpy.ndarray
+    :param c_o: occupied orbital coefficients
+    :type c_o: numpy.ndarray
 
     :rtype: numpy.ndarray
     """
-    c_o = c[:, :n]
     return numpy.dot(c_o, c_o.T)
 
 
@@ -30,7 +27,7 @@ def coefficients(s, f):
     return c
 
 
-def energies(s, f):
+def orbital_energies(s, f):
     """orbital energies
 
     :param s: basis function overlap matrix

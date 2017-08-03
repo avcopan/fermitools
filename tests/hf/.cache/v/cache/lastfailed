@@ -1,1 +1,6 @@
-{}
+{
+  "test_rhf.py": true,
+  "test_rohf.py": true,
+  "test_spinorb.py": true,
+  "test_uhf.py": true
+}

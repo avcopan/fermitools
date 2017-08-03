@@ -1,6 +1,7 @@
+"""Provides broadcasting operations."""
 import numpy
-import functools as ft
 import itertools as it
+import more_itertools as mit
 
 
 # Public
@@ -12,27 +13,29 @@ def broadcast_sum(vecd):
 
     :rtype: numpy.ndarray
     """
-    ndim = max(vecd) + 1
-    expand = ft.partial(_expand, ndim)
-    return sum(it.starmap(expand, vecd.items()))
+    axkeys, arrays = zip(*vecd.items())
+    axtups = tuple(map(tuple, map(mit.always_iterable, axkeys)))
+    ndim = max(it.chain(*axtups)) + 1
+    return sum(_expand(a, axes, ndim) for a, axes in zip(arrays, axtups))
 
 
 # Private
-def _expand(ndim, axis, v):
-    """expand a vector for n-dimensional broadcasting along an axis
+def _expand(a, axes, ndim):
+    """expand an array over n dimensions for broadcasting
 
-    :param axis: axis
-    :type axis: int
+    :param axis: axes along which to broadcast the array
+    :type axis: tuple
     :param ndim: number of dimensions
     :type ndim: int
-    :param v: vector
-    :type v: numpy.ndarray
+    :param a: array
+    :type a: numpy.ndarray
 
     :rtype: numpy.ndarray
     """
-    ix = tuple(numpy.newaxis if not ax == axis else slice(None,)
+    atrans = numpy.transpose(a, numpy.argsort(axes))
+    ix = tuple(numpy.newaxis if ax not in axes else slice(None,)
                for ax in range(ndim))
-    return numpy.array(v)[ix]
+    return atrans[ix]
 
 
 if __name__ == '__main__':
