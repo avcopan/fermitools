@@ -1,19 +1,18 @@
+"""Hartree-Fock spin-integrated coulomb and exchange fields."""
 import numpy
 
 
-def coulomb(g, ad, bd):
+def coulomb(g, d):
     """coulomb repulsion matrix
 
     :param g: electron repulsion integrals, in bra-ket notation
     :type g: numpy.ndarray
-    :param ad: hartree-fock alpha density matrix
-    :type ad: numpy.ndarray
-    :param bd: hatree-fock beta density matrix
-    :type bd: numpy.ndarray
+    :param d: density matrix
+    :type d: numpy.ndarray
 
     :rtype: numpy.ndarray
     """
-    return numpy.tensordot(g, ad + bd, axes=((1, 3), (1, 0)))
+    return numpy.tensordot(g, d, axes=((1, 3), (1, 0)))
 
 
 def exchange(g, d):

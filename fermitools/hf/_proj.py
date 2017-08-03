@@ -1,3 +1,4 @@
+"""Hartree-Fock non-orthogonal projection operators"""
 import numpy
 
 

@@ -1,3 +1,4 @@
+"""spin-orbital Hartree-Fock"""
 import numpy
 
 

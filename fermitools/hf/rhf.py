@@ -1,3 +1,4 @@
+"""restricted closed-shell Hartree-Fock"""
 import numpy
 from ._field import coulomb, exchange
 
@@ -14,7 +15,7 @@ def fock(h, g, d):
 
     :rtype: numpy.ndarray
     """
-    j = coulomb(g, ad=d, bd=d)
+    j = coulomb(g, d=2.*d)
     k = exchange(g, d=d)
     return h + j - k
 
@@ -31,5 +32,4 @@ def energy(h, f, d):
 
     :rtype: float
     """
-    energy = float(numpy.tensordot(h + f, d, axes=((0, 1), (1, 0))))
-    return energy
+    return numpy.vdot(h + f, d)

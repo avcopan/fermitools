@@ -1,3 +1,4 @@
+"""restricted open-shell Hartree-Fock"""
 import numpy.linalg as npla
 from ._proj import projection, complementary_projection
 

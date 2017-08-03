@@ -1,3 +1,4 @@
+"""unrestricted open-shell Hartree-Fock"""
 import numpy
 from ._field import coulomb, exchange
 
@@ -16,7 +17,7 @@ def fock(h, g, ad, bd):
 
     :rtype: tuple[numpy.ndarray, numpy.ndarray]
     """
-    j = coulomb(g=g, ad=ad, bd=bd)
+    j = coulomb(g=g, d=ad+bd)
     ak = exchange(g=g, d=ad)
     bk = exchange(g=g, d=bd)
     return h + j - ak, h + j - bk
@@ -38,6 +39,4 @@ def energy(h, af, bf, ad, bd):
 
     :rtype: float
     """
-    aenergy = numpy.tensordot(h + af, ad, axes=((0, 1), (1, 0)))
-    benergy = numpy.tensordot(h + bf, bd, axes=((0, 1), (1, 0)))
-    return (aenergy + benergy) / 2.
+    return (numpy.vdot(h + af, ad) + numpy.vdot(h + bf, bd)) / 2.

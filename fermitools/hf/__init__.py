@@ -1,3 +1,3 @@
-from . import orb, rhf, uhf, rohf, spohf
+from . import orb, rhf, uhf, rohf, spinorb
 
-__all__ = ['orb', 'rhf', 'uhf', 'rohf', 'spohf']
+__all__ = ['orb', 'rhf', 'uhf', 'rohf', 'spinorb']
