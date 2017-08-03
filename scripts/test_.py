@@ -11,3 +11,7 @@ def test__ump2():
 
 def test__mp2():
     scripts.mp2.main()
+
+
+def test__cepao():
+    scripts.cepa0.main()

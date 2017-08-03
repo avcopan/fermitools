@@ -3,6 +3,7 @@ import fermitools.interface.pyscf as interface
 from fermitools.math.asym import antisymmetrizer
 
 import numpy
+import functools as ft
 import toolz.functoolz as ftz
 
 A = ftz.compose(antisymmetrizer((0, 1)), antisymmetrizer((2, 3)))
@@ -12,7 +13,7 @@ def t2_resolvent_denominator(eo, ev):
     return fermitools.math.broadcast_sum({0: +eo, 1: +eo, 2: -ev, 3: -ev})
 
 
-def t2_residual(o, v, g, eps, t2):
+def cepa0_t2_residual(o, v, g, eps, t2):
     return (- t2 * eps
             + g[o, o, v, v]
             + 1. / 2 * numpy.einsum("abcd,ijcd->ijab", g[v, v, v, v], t2)
@@ -20,7 +21,19 @@ def t2_residual(o, v, g, eps, t2):
             + A(numpy.einsum("akic,jkbc->ijab", g[v, o, o, v], t2)))
 
 
-def ump2_correlation_energy(basis, labels, coords, charge, spin):
+def cepa0_t2_amplitudes(o, v, g, e, t2_guess):
+    eps = t2_resolvent_denominator(e[o], e[v])
+
+    t2 = t2_guess
+    residual = ft.partial(cepa0_t2_residual, o, v, g, eps)
+    for _ in range(100):
+        r2 = residual(t2)
+        t2 = t2 + r2 / eps
+
+    return t2
+
+
+def cepa0_correlation_energy(basis, labels, coords, charge, spin):
     na = fermitools.chem.elec.count_alpha(labels, charge, spin)
     nb = fermitools.chem.elec.count_beta(labels, charge, spin)
     n = na + nb
@@ -53,17 +66,9 @@ def ump2_correlation_energy(basis, labels, coords, charge, spin):
 
     e = numpy.diagonal(f)
 
-    eps = t2_resolvent_denominator(e[o], e[v])
+    t2_guess = numpy.zeros((n, n, 2*nbf-n, 2*nbf-n))
 
-    import functools as ft
-
-    residual = ft.partial(t2_residual, o, v, g, eps)
-
-    t2 = numpy.zeros((n, n, 2*nbf-n, 2*nbf-n))
-
-    r2 = residual(t2)
-
-    t2 = t2 + r2 / eps
+    t2 = cepa0_t2_amplitudes(o, v, g, e, t2_guess)
 
     return numpy.vdot(g[o, o, v, v], t2) / 4.
 
@@ -79,10 +84,10 @@ def main():
               (0.000000000000,  1.638036840407,  1.136548822547),
               (0.000000000000, -1.638036840407,  1.136548822547))
 
-    corr_energy = ump2_correlation_energy(BASIS, LABELS, COORDS, CHARGE, SPIN)
+    corr_energy = cepa0_correlation_energy(BASIS, LABELS, COORDS, CHARGE, SPIN)
     print(corr_energy)
 
-    assert_almost_equal(corr_energy, -0.03588729135033, decimal=10)
+    assert_almost_equal(corr_energy, -0.051366040361627, decimal=10)
 
 
 if __name__ == '__main__':
