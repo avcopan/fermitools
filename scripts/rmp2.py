@@ -16,8 +16,8 @@ def correlation_energy(basis, labels, coords, charge):
     h_ao = interface.integrals.core_hamiltonian(basis, labels, coords)
     g_ao = interface.integrals.repulsion(basis, labels, coords)
 
-    d_ao = fermitools.hf.density(c[:, o])
-    f_ao = fermitools.hf.rhf.fock(h=h_ao, g=g_ao, d=d_ao)
+    d_ao = fermitools.scf.density(c[:, o])
+    f_ao = fermitools.scf.rhf.fock(h=h_ao, g=g_ao, d=d_ao)
 
     foo = fermitools.math.transform(f_ao, {0: co, 1: co})
     fvv = fermitools.math.transform(f_ao, {0: cv, 1: cv})

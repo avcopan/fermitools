@@ -22,9 +22,9 @@ def correlation_energy(basis, labels, coords, charge, spin):
     h_ao = interface.integrals.core_hamiltonian(basis, labels, coords)
     g_ao = interface.integrals.repulsion(basis, labels, coords)
 
-    ad_ao = fermitools.hf.density(ac[:, ao])
-    bd_ao = fermitools.hf.density(bc[:, bo])
-    af_ao, bf_ao = fermitools.hf.uhf.fock(h_ao, g_ao, ad_ao, bd_ao)
+    ad_ao = fermitools.scf.density(ac[:, ao])
+    bd_ao = fermitools.scf.density(bc[:, bo])
+    af_ao, bf_ao = fermitools.scf.uhf.fock(h_ao, g_ao, ad_ao, bd_ao)
 
     afvv = fermitools.math.transform(af_ao, {0: acv, 1: acv})
     afoo = fermitools.math.transform(af_ao, {0: aco, 1: aco})

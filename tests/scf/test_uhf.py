@@ -1,4 +1,4 @@
-import fermitools.hf.uhf as uhf
+import fermitools.scf.uhf as uhf
 
 import os
 import numpy

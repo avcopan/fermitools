@@ -1,4 +1,4 @@
-import fermitools.hf as hf
+import fermitools.scf as scf
 
 import os
 import numpy
@@ -14,17 +14,17 @@ E = numpy.load(os.path.join(data_path, 'rhf/e.npy'))
 
 
 def test__density():
-    d = hf.density(c_o=C_O)
+    d = scf.density(c_o=C_O)
     assert_almost_equal(d, D, decimal=10)
 
 
 def test__coefficients():
-    c = hf.coefficients(s=S, f=F)
+    c = scf.coefficients(s=S, f=F)
     assert_almost_equal(numpy.abs(c), numpy.abs(C), decimal=10)
 
 
 def test__orbital_energies():
-    e = hf.orbital_energies(s=S, f=F)
+    e = scf.orbital_energies(s=S, f=F)
     assert_almost_equal(e, E, decimal=10)
 
 

@@ -1,4 +1,4 @@
-import fermitools.hf.rohf as rohf
+import fermitools.scf.rohf as rohf
 
 import os
 import numpy
