@@ -1,3 +1,4 @@
+"""restricted closed-shell coupled-cluster"""
 import numpy
 
 

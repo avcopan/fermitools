@@ -1,3 +1,4 @@
+"""second-order Møller-Plesset perturbation theory"""
 import numpy
 
 

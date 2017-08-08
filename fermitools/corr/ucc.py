@@ -1,3 +1,4 @@
+"""unrestricted coupled-cluster"""
 import numpy
 
 

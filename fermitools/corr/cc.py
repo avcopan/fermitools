@@ -1,3 +1,4 @@
+"""spin-orbital coupled-cluster"""
 import numpy
 
 

@@ -1,7 +1,8 @@
+"""spin-orbital linearized coupled-cluster doubles"""
 import numpy
 import toolz.functoolz as ftz
 
-from .math import antisymmetrizer
+from ..math import antisymmetrizer
 
 
 asym_01_23 = ftz.compose(antisymmetrizer((0, 1)), antisymmetrizer((2, 3)))
