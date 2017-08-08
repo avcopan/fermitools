@@ -1,18 +1,17 @@
 import numpy
 import fermitools
-import fermitools.interface.pyscf as interface
+import interfaces.pyscf as interface
 
 
-def t2_amplitudes(w, eo, ev):
-    return w / fermitools.math.broadcast_sum({0: +eo, 1: +eo, 2: -ev, 3: -ev})
-
-
-def rmp2_correlation_energy(basis, labels, coords, charge):
+def correlation_energy(basis, labels, coords, charge):
     n = fermitools.chem.elec.count(labels, charge) // 2
     o = slice(None, n)
     v = slice(n, None)
 
     c = interface.hf.restricted_orbitals(basis, labels, coords, charge)
+
+    co = c[:, o]
+    cv = c[:, v]
 
     h_ao = interface.integrals.core_hamiltonian(basis, labels, coords)
     g_ao = interface.integrals.repulsion(basis, labels, coords)
@@ -20,16 +19,18 @@ def rmp2_correlation_energy(basis, labels, coords, charge):
     d_ao = fermitools.hf.density(c[:, o])
     f_ao = fermitools.hf.rhf.fock(h=h_ao, g=g_ao, d=d_ao)
 
-    f = fermitools.math.trans.transform(f_ao, {0: c, 1: c})
-    g = fermitools.math.trans.transform(g_ao, {0: c, 1: c, 2: c, 3: c})
+    foo = fermitools.math.transform(f_ao, {0: co, 1: co})
+    fvv = fermitools.math.transform(f_ao, {0: cv, 1: cv})
+    goovv = fermitools.math.transform(g_ao, {0: co, 1: co, 2: cv, 3: cv})
 
-    e = numpy.diagonal(f)
+    eo = numpy.diagonal(foo)
+    ev = numpy.diagonal(fvv)
 
-    t2 = t2_amplitudes(g[o, o, v, v], e[o], e[v])
+    e2 = fermitools.corr.doubles_resolvent_denominator(eo, eo, ev, ev)
 
-    u2 = 2. * t2 - numpy.transpose(t2, (0, 1, 3, 2))
+    t2 = fermitools.corr.mp2.doubles_amplitudes(goovv, e2)
 
-    return numpy.vdot(g[o, o, v, v], u2)
+    return fermitools.corr.rcc.doubles_correlation_energy(goovv, t2)
 
 
 def main():
@@ -42,7 +43,7 @@ def main():
               (0.000000000000,  1.638036840407,  1.136548822547),
               (0.000000000000, -1.638036840407,  1.136548822547))
 
-    corr_energy = rmp2_correlation_energy(BASIS, LABELS, COORDS, CHARGE)
+    corr_energy = correlation_energy(BASIS, LABELS, COORDS, CHARGE)
     print(corr_energy)
 
     assert_almost_equal(corr_energy, -0.04914963608816, decimal=10)

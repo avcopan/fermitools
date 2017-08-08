@@ -1,39 +1,10 @@
 import fermitools
-import fermitools.interface.pyscf as interface
-from fermitools.math.asym import antisymmetrizer
+import interfaces.pyscf as interface
 
 import numpy
-import functools as ft
-import toolz.functoolz as ftz
-
-A = ftz.compose(antisymmetrizer((0, 1)), antisymmetrizer((2, 3)))
 
 
-def t2_resolvent_denominator(eo, ev):
-    return fermitools.math.broadcast_sum({0: +eo, 1: +eo, 2: -ev, 3: -ev})
-
-
-def cepa0_t2_residual(o, v, g, eps, t2):
-    return (- t2 * eps
-            + g[o, o, v, v]
-            + 1. / 2 * numpy.einsum("abcd,ijcd->ijab", g[v, v, v, v], t2)
-            + 1. / 2 * numpy.einsum("klij,klab->ijab", g[o, o, o, o], t2)
-            + A(numpy.einsum("akic,jkbc->ijab", g[v, o, o, v], t2)))
-
-
-def cepa0_t2_amplitudes(o, v, g, e, t2_guess):
-    eps = t2_resolvent_denominator(e[o], e[v])
-
-    t2 = t2_guess
-    residual = ft.partial(cepa0_t2_residual, o, v, g, eps)
-    for _ in range(100):
-        r2 = residual(t2)
-        t2 = t2 + r2 / eps
-
-    return t2
-
-
-def cepa0_correlation_energy(basis, labels, coords, charge, spin):
+def correlation_energy(basis, labels, coords, charge, spin):
     na = fermitools.chem.elec.count_alpha(labels, charge, spin)
     nb = fermitools.chem.elec.count_beta(labels, charge, spin)
     n = na + nb
@@ -58,19 +29,32 @@ def cepa0_correlation_energy(basis, labels, coords, charge, spin):
                                      order=ab2ov(dim=nbf, na=na, nb=nb),
                                      axes=(1,))
 
-    d_aso = fermitools.hf.density(c[:, o])
+    co = c[:, o]
+    cv = c[:, v]
+
+    d_aso = fermitools.hf.density(co)
     f_aso = fermitools.hf.spinorb.fock(h=h_aso, g=g_aso, d=d_aso)
 
-    f = fermitools.math.trans.transform(f_aso, {0: c, 1: c})
-    g = fermitools.math.trans.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
+    foo = fermitools.math.transform(f_aso, {0: co, 1: co})
+    fvv = fermitools.math.transform(f_aso, {0: cv, 1: cv})
+    goooo = fermitools.math.transform(g_aso, {0: co, 1: co, 2: co, 3: co})
+    govov = fermitools.math.transform(g_aso, {0: co, 1: cv, 2: co, 3: cv})
+    goovv = fermitools.math.transform(g_aso, {0: co, 1: co, 2: cv, 3: cv})
+    gvvvv = fermitools.math.transform(g_aso, {0: cv, 1: cv, 2: cv, 3: cv})
 
-    e = numpy.diagonal(f)
+    eo = numpy.diagonal(foo)
+    ev = numpy.diagonal(fvv)
 
-    t2_guess = numpy.zeros((n, n, 2*nbf-n, 2*nbf-n))
+    e2 = fermitools.corr.doubles_resolvent_denominator(eo, eo, ev, ev)
 
-    t2 = cepa0_t2_amplitudes(o, v, g, e, t2_guess)
+    t2 = numpy.zeros_like(goovv)
 
-    return numpy.vdot(g[o, o, v, v], t2) / 4.
+    for _ in range(100):
+        t2, r2 = fermitools.corr.lccd.doubles_amplitudes_update(goooo, goovv,
+                                                                govov, gvvvv,
+                                                                e2, t2)
+
+    return fermitools.corr.cc.doubles_correlation_energy(goovv, t2)
 
 
 def main():
@@ -84,7 +68,7 @@ def main():
               (0.000000000000,  1.638036840407,  1.136548822547),
               (0.000000000000, -1.638036840407,  1.136548822547))
 
-    corr_energy = cepa0_correlation_energy(BASIS, LABELS, COORDS, CHARGE, SPIN)
+    corr_energy = correlation_energy(BASIS, LABELS, COORDS, CHARGE, SPIN)
     print(corr_energy)
 
     assert_almost_equal(corr_energy, -0.051366040361627, decimal=10)

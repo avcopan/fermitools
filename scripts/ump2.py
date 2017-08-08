@@ -1,14 +1,9 @@
 import numpy
 import fermitools
-import fermitools.interface.pyscf as interface
+import interfaces.pyscf as interface
 
 
-def t2_amplitudes(w, eo1, eo2, ev1, ev2):
-    return w / fermitools.math.broadcast_sum({0: +eo1, 1: +eo2,
-                                              2: -ev1, 3: -ev2})
-
-
-def ump2_correlation_energy(basis, labels, coords, charge, spin):
+def correlation_energy(basis, labels, coords, charge, spin):
     na = fermitools.chem.elec.count_alpha(labels, charge, spin)
     nb = fermitools.chem.elec.count_beta(labels, charge, spin)
     ao = slice(None, na)
@@ -19,6 +14,11 @@ def ump2_correlation_energy(basis, labels, coords, charge, spin):
     ac, bc = interface.hf.unrestricted_orbitals(basis, labels, coords,
                                                 charge, spin)
 
+    aco = ac[:, ao]
+    acv = ac[:, av]
+    bco = bc[:, bo]
+    bcv = bc[:, bv]
+
     h_ao = interface.integrals.core_hamiltonian(basis, labels, coords)
     g_ao = interface.integrals.repulsion(basis, labels, coords)
 
@@ -26,25 +26,30 @@ def ump2_correlation_energy(basis, labels, coords, charge, spin):
     bd_ao = fermitools.hf.density(bc[:, bo])
     af_ao, bf_ao = fermitools.hf.uhf.fock(h_ao, g_ao, ad_ao, bd_ao)
 
-    af = fermitools.math.trans.transform(af_ao, {0: ac, 1: ac})
-    bf = fermitools.math.trans.transform(bf_ao, {0: bc, 1: bc})
-    aag = fermitools.math.trans.transform(g_ao, {0: ac, 1: ac, 2: ac, 3: ac})
-    abg = fermitools.math.trans.transform(g_ao, {0: ac, 1: bc, 2: ac, 3: bc})
-    bbg = fermitools.math.trans.transform(g_ao, {0: bc, 1: bc, 2: bc, 3: bc})
+    afvv = fermitools.math.transform(af_ao, {0: acv, 1: acv})
+    afoo = fermitools.math.transform(af_ao, {0: aco, 1: aco})
+    bfvv = fermitools.math.transform(bf_ao, {0: bcv, 1: bcv})
+    bfoo = fermitools.math.transform(bf_ao, {0: bco, 1: bco})
+    aagoovv = fermitools.math.transform(g_ao, {0: aco, 1: aco, 2: acv, 3: acv})
+    abgoovv = fermitools.math.transform(g_ao, {0: aco, 1: bco, 2: acv, 3: bcv})
+    bbgoovv = fermitools.math.transform(g_ao, {0: bco, 1: bco, 2: bcv, 3: bcv})
 
-    ae = numpy.diagonal(af)
-    be = numpy.diagonal(bf)
+    aeo = numpy.diagonal(afoo)
+    aev = numpy.diagonal(afvv)
+    beo = numpy.diagonal(bfoo)
+    bev = numpy.diagonal(bfvv)
 
-    aat2 = t2_amplitudes(aag[ao, ao, av, av], ae[ao], ae[ao], ae[av], ae[av])
-    abt2 = t2_amplitudes(abg[ao, bo, av, bv], ae[ao], be[bo], ae[av], be[bv])
-    bbt2 = t2_amplitudes(bbg[bo, bo, bv, bv], be[bo], be[bo], be[bv], be[bv])
+    aae2 = fermitools.corr.doubles_resolvent_denominator(aeo, aeo, aev, aev)
+    abe2 = fermitools.corr.doubles_resolvent_denominator(aeo, beo, aev, bev)
+    bbe2 = fermitools.corr.doubles_resolvent_denominator(beo, beo, bev, bev)
 
-    aau2 = aat2 - numpy.transpose(aat2, (0, 1, 3, 2))
-    bbu2 = bbt2 - numpy.transpose(bbt2, (0, 1, 3, 2))
+    aat2 = fermitools.corr.mp2.doubles_amplitudes(aagoovv, aae2)
+    abt2 = fermitools.corr.mp2.doubles_amplitudes(abgoovv, abe2)
+    bbt2 = fermitools.corr.mp2.doubles_amplitudes(bbgoovv, bbe2)
 
-    return (numpy.vdot(aag[ao, ao, av, av], aau2) / 2. +
-            numpy.vdot(abg[ao, bo, av, bv], abt2) +
-            numpy.vdot(bbg[bo, bo, bv, bv], bbu2) / 2.)
+    return fermitools.corr.ucc.doubles_correlation_energy(aagoovv, abgoovv,
+                                                          bbgoovv, aat2, abt2,
+                                                          bbt2)
 
 
 def main():
@@ -58,7 +63,7 @@ def main():
               (0.000000000000,  1.638036840407,  1.136548822547),
               (0.000000000000, -1.638036840407,  1.136548822547))
 
-    corr_energy = ump2_correlation_energy(BASIS, LABELS, COORDS, CHARGE, SPIN)
+    corr_energy = correlation_energy(BASIS, LABELS, COORDS, CHARGE, SPIN)
     print(corr_energy)
 
     assert_almost_equal(corr_energy, -0.03588729135033, decimal=10)
