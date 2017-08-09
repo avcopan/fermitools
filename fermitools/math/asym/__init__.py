@@ -1,3 +1,3 @@
-from .asym import antisymmetrize, antisymmetrizer
+from .asym import antisymmetrize, antisymmetrizer, antisymmetrizer_product
 
-__all__ = ['antisymmetrizer', 'antisymmetrize']
+__all__ = ['antisymmetrizer', 'antisymmetrize', 'antisymmetrizer_product']
