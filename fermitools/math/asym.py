@@ -62,21 +62,3 @@ def _process_bartlett_string(bs):
                  for no in str.split(cs, ','))
                  for cs in str.split(ss, '/'))
                  for ss in str.split(bs, '|'))
-
-
-if __name__ == '__main__':
-    print(_process_bartlett_string('0,1,2,3,4'))
-    print(_process_bartlett_string('0,1,2,3/4'))
-    print(_process_bartlett_string('0,1,2,3|4'))
-    print(_process_bartlett_string('0,1,2/3/4'))
-    print(_process_bartlett_string('0,1,2/3|4'))
-    print(_process_bartlett_string('0,1,2|3|4'))
-    print(_process_bartlett_string('0,1/2/3/4'))
-    print(_process_bartlett_string('0,1/2/3|4'))
-    print(_process_bartlett_string('0,1/2|3|4'))
-    print(_process_bartlett_string('0,1|2|3|4'))
-    print(_process_bartlett_string('0/1/2/3/4'))
-    print(_process_bartlett_string('0/1/2/3|4'))
-    print(_process_bartlett_string('0/1/2|3|4'))
-    print(_process_bartlett_string('0/1|2|3|4'))
-    print(_process_bartlett_string('0|1|2|3|4'))

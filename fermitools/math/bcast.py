@@ -36,11 +36,3 @@ def _expand(a, axes, ndim):
     ix = tuple(numpy.newaxis if ax not in axes else slice(None,)
                for ax in range(ndim))
     return atrans[ix]
-
-
-if __name__ == '__main__':
-    a = [1, 2, 3]
-    b = [-3, -2, -1]
-    c = [1, 1, 1]
-    z = broadcast_sum({0: a, 1: b, 2: c})
-    print(z)
