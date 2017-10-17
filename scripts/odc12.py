@@ -5,8 +5,21 @@ import fermitools
 from fermitools.math import antisymmetrizer_product as asym
 
 
-def fock(o, h, g):
-    return h + numpy.trace(g[:, o, :, o], axis1=1, axis2=3)
+def fock(h, g, m1):
+    return h + numpy.einsum('prqs,rs->pq', g, m1)
+
+
+def fancy_fock(o, v, h, g, m1):
+    f = fock(h, g, m1)
+    no, uo = spla.eigh(m1[o, o])
+    nv, uv = spla.eigh(m1[v, v])
+    n1oo = fermitools.math.broadcast_sum({0: no, 1: no}) - 1
+    n1vv = fermitools.math.broadcast_sum({0: nv, 1: nv}) - 1
+    tfoo = numpy.dot(uo.T, numpy.dot(f[o, o], uo)) / n1oo
+    tfvv = numpy.dot(uv.T, numpy.dot(f[v, v], uv)) / n1vv
+    ffoo = numpy.dot(uo, numpy.dot(tfoo, uo.T))
+    ffvv = numpy.dot(uv, numpy.dot(tfvv, uv.T))
+    return spla.block_diag(ffoo, ffvv)
 
 
 def doubles_numerator(goooo, goovv, govov, gvvvv, foo, fvv, t2):
@@ -24,8 +37,12 @@ def doubles_numerator(goooo, goovv, govov, gvvvv, foo, fvv, t2):
 
 
 def singles_correlation_density(t2):
-    m1oo = - 1./2 * numpy.einsum('jkab,ikab->ij', t2, t2)
-    m1vv = + 1./2 * numpy.einsum('ijac,ijbc->ab', t2, t2)
+    doo = -1./2 * numpy.einsum('ikcd,jkcd->ij', t2, t2)
+    dvv = -1./2 * numpy.einsum('klac,klbc->ab', t2, t2)
+    ioo = numpy.eye(*doo.shape)
+    ivv = numpy.eye(*dvv.shape)
+    m1oo = -1./2 * ioo + spla.sqrtm(doo + 1./4 * ioo)
+    m1vv = +1./2 * ivv - spla.sqrtm(dvv + 1./4 * ivv)
     return spla.block_diag(m1oo, m1vv)
 
 
@@ -49,11 +66,8 @@ def doubles_cumulant(t2):
     return k2
 
 
-def doubles_density(m1_ref, m1_cor, k2):
-    m2 = (k2
-          + asym("0/1|2/3")(numpy.einsum('pr,qs->pqrs', m1_ref, m1_cor))
-          + asym("2/3")(numpy.einsum('pr,qs->pqrs', m1_ref, m1_ref)))
-    # + asym("2/3")(numpy.einsum('pr,qs->pqrs', m1_cor, m1_cor)))
+def doubles_density(m1, k2):
+    m2 = k2 + asym("2/3")(numpy.einsum('pr,qs->pqrs', m1, m1))
     return m2
 
 
@@ -71,15 +85,15 @@ def electronic_energy(h, g, m1, m2):
 def energy_routine(basis, labels, coords, charge, spin):
     import interfaces.psi4 as interface
 
+    # Spaces
+    nbf = interface.integrals.nbf(basis, labels)
     na = fermitools.chem.elec.count_alpha(labels, charge, spin)
     nb = fermitools.chem.elec.count_beta(labels, charge, spin)
     n_elec = na + nb
     o = slice(None, n_elec)
     v = slice(n_elec, None)
 
-    ac, bc = interface.hf.unrestricted_orbitals(basis, labels, coords,
-                                                charge, spin)
-    nbf = interface.integrals.nbf(basis, labels)
+    # Integrals
     h_ao = interface.integrals.core_hamiltonian(basis, labels, coords)
     r_ao = interface.integrals.repulsion(basis, labels, coords)
 
@@ -87,35 +101,41 @@ def energy_routine(basis, labels, coords, charge, spin):
     r_aso = fermitools.math.spinorb.expand(r_ao, brakets=((0, 2), (1, 3)))
     g_aso = r_aso - numpy.transpose(r_aso, (0, 1, 3, 2))
 
+    # MO coefficients
     from fermitools.math.spinorb import ab2ov
-
+    ac, bc = interface.hf.unrestricted_orbitals(basis, labels, coords,
+                                                charge, spin)
     c_unsrt = spla.block_diag(ac, bc)
     c = fermitools.math.spinorb.sort(c_unsrt,
                                      order=ab2ov(dim=nbf, na=na, nb=nb),
                                      axes=(1,))
+
     x1 = numpy.zeros((2 * nbf, 2 * nbf))
     m1_ref = numpy.zeros_like(x1)
     m1_ref[o, o] = numpy.eye(n_elec)
+    m1 = m1_ref
     t2 = numpy.zeros_like(g_aso[o, o, v, v])
 
     en_elec_last = 0.
     for i in range(100):
         h = fermitools.math.transform(h_aso, {0: c, 1: c})
         g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
-        f = fock(o, h, g)
+        ff = fancy_fock(o, v, h, g, m1)
 
-        e = numpy.diagonal(f)
-        e2 = fermitools.math.broadcast_sum({0: +e[o], 1: +e[o],
-                                            2: -e[v], 3: -e[v]})
+        ef = numpy.diagonal(ff)
+        ef2 = fermitools.math.broadcast_sum({0: +ef[o], 1: +ef[o],
+                                             2: +ef[v], 3: +ef[v]})
         t2 = doubles_numerator(g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
-                               g[v, v, v, v], f[o, o], f[v, v], t2) / e2
+                               g[v, v, v, v], +ff[o, o], -ff[v, v], t2) / ef2
         m1_cor = singles_correlation_density(t2)
         m1 = m1_ref + m1_cor
         k2 = doubles_cumulant(t2)
-        m2 = doubles_density(m1_ref, m1_cor, k2)
+        m2 = doubles_density(m1, k2)
 
-        r1 = singles_residual(o, v, h, g, m1, m2)
+        f = fock(h, g, m1)
+        e = numpy.diagonal(f)
         e1 = fermitools.math.broadcast_sum({0: +e[o], 1: -e[v]})
+        r1 = singles_residual(o, v, h, g, m1, m2)
         t1 = r1 / e1
         x1[o, v] = t1
         u = spla.expm(x1 - numpy.transpose(x1))
@@ -124,7 +144,7 @@ def energy_routine(basis, labels, coords, charge, spin):
         en_elec = electronic_energy(h, g, m1, m2)
         en_change = en_elec - en_elec_last
         en_elec_last = en_elec
-        print('@OLCCD {:<3d} {:20.15f} {:20.15f}'
+        print('@ODC12 {:<3d} {:20.15f} {:20.15f}'
               .format(i, en_elec, en_change))
 
     return en_elec
@@ -145,8 +165,8 @@ def main():
 
     print('{:20.15f}'.format(en_tot))
 
-    from numpy.testing import assert_almost_equal
-    assert_almost_equal(en_tot, -74.71451994543345, decimal=10)
+    # from numpy.testing import assert_almost_equal
+    # assert_almost_equal(en_tot, -74.71451994543345, decimal=10)
 
 
 if __name__ == '__main__':
