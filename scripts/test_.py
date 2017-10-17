@@ -16,3 +16,13 @@ def test__mp2():
 def test__lccd():
     import scripts.lccd
     scripts.lccd.main()
+
+
+def test__omp2():
+    import scripts.omp2
+    scripts.omp2.main()
+
+
+def test__olccd():
+    import scripts.olccd
+    scripts.olccd.main()

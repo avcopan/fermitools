@@ -4,7 +4,7 @@ import interfaces.pyscf as interface
 import numpy
 
 
-def correlation_energy(basis, labels, coords, charge, spin):
+def correlation_energy(basis, labels, coords, charge, spin, return_t2=False):
     na = fermitools.chem.elec.count_alpha(labels, charge, spin)
     nb = fermitools.chem.elec.count_beta(labels, charge, spin)
     n = na + nb
@@ -54,12 +54,12 @@ def correlation_energy(basis, labels, coords, charge, spin):
                                                                 govov, gvvvv,
                                                                 e2, t2)
 
-    return fermitools.corr.cc.doubles_correlation_energy(goovv, t2)
+    en_cor = fermitools.corr.cc.doubles_correlation_energy(goovv, t2)
+
+    return en_cor if not return_t2 else (en_cor, t2)
 
 
 def main():
-    from numpy.testing import assert_almost_equal
-
     CHARGE = +1
     SPIN = 1
     BASIS = 'STO-3G'
@@ -71,6 +71,7 @@ def main():
     corr_energy = correlation_energy(BASIS, LABELS, COORDS, CHARGE, SPIN)
     print(corr_energy)
 
+    from numpy.testing import assert_almost_equal
     assert_almost_equal(corr_energy, -0.051366040361627, decimal=10)
 
 
