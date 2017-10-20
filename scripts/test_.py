@@ -26,3 +26,8 @@ def test__omp2():
 def test__olccd():
     import scripts.olccd
     scripts.olccd.main()
+
+
+def test__uhf():
+    import scripts.uhf
+    scripts.uhf.main()

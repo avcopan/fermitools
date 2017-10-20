@@ -117,12 +117,6 @@ def main():
     assert_almost_equal(en_tot, -74.66178436045595, decimal=10)
     assert_almost_equal(gr, -mu, decimal=8)
 
-    def en_fn_alt(f):
-        return en_fn((0., 0., f))
-
-    gr_alt = fermitools.math.central_difference(en_fn_alt, 0., npts=13)
-    print(gr_alt)
-
 
 if __name__ == '__main__':
     main()
