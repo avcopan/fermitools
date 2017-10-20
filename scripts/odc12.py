@@ -165,8 +165,8 @@ def main():
 
     print('{:20.15f}'.format(en_tot))
 
-    # from numpy.testing import assert_almost_equal
-    # assert_almost_equal(en_tot, -74.71451994543345, decimal=10)
+    from numpy.testing import assert_almost_equal
+    assert_almost_equal(en_tot, -74.713706346489928, decimal=10)
 
 
 if __name__ == '__main__':

@@ -28,6 +28,11 @@ def test__olccd():
     scripts.olccd.main()
 
 
+def test__odc12():
+    import scripts.odc12
+    scripts.odc12.main()
+
+
 def test__uhf():
     import scripts.uhf
     scripts.uhf.main()
