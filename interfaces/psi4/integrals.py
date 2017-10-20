@@ -93,7 +93,7 @@ def dipole(basis, labels, coords):
     :rtype: numpy.ndarray
     """
     mints = _psi4_mints_object(basis=basis, labels=labels, coords=coords)
-    return numpy.array(map(numpy.array, mints.ao_dipole()))
+    return numpy.array(tuple(map(numpy.array, mints.ao_dipole())))
 
 
 def repulsion(basis, labels, coords):
