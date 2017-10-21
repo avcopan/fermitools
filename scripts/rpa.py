@@ -6,10 +6,6 @@ import fermitools
 import interfaces.psi4 as interface
 
 
-def fock(o, h, g):
-    return h + numpy.trace(g[:, o, :, o], axis1=1, axis2=3)
-
-
 def diagonal_orbital_hessian(govov, foo, fvv):
     no, nv, _, _ = govov.shape
     ioo = numpy.eye(no)
@@ -26,8 +22,19 @@ def offdiagonal_orbital_hessian(goovv):
     return numpy.reshape(b, (no * nv, no * nv))
 
 
-def property_gradient_vector():
-    pass
+def static_response_vector(a, b, t):
+    """
+    notes:
+    (A B) (X) (T)
+    (B A)*(Y)=(T)
+
+    returns R := (X + Y) = 2(A + B)^-1 * T
+    """
+    return spla.solve(a + b, 2 * t, sym_pos=True)
+
+
+def static_linear_response_function(t, r):
+    return numpy.dot(numpy.transpose(t), r)
 
 
 def tamm_dancoff_spectrum(a):
@@ -50,9 +57,11 @@ def driver(basis, labels, coords, charge, spin):
 
     # Integrals
     h_ao = interface.integrals.core_hamiltonian(basis, labels, coords)
+    p_ao = interface.integrals.dipole(basis, labels, coords)
     r_ao = interface.integrals.repulsion(basis, labels, coords)
 
     h_aso = fermitools.math.spinorb.expand(h_ao, brakets=((0, 1),))
+    p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
     r_aso = fermitools.math.spinorb.expand(r_ao, brakets=((0, 2), (1, 3)))
     g_aso = r_aso - numpy.transpose(r_aso, (0, 1, 3, 2))
 
@@ -68,12 +77,12 @@ def driver(basis, labels, coords, charge, spin):
     cv = c[:, v]
 
     # MO basis integrals
-
     d_aso = fermitools.scf.density(co)
     f_aso = fermitools.scf.hf.fock(h=h_aso, g=g_aso, d=d_aso)
 
     foo = fermitools.math.transform(f_aso, {0: co, 1: co})
     fvv = fermitools.math.transform(f_aso, {0: cv, 1: cv})
+    pov = fermitools.math.transform(p_aso, {1: co, 2: cv})
     govov = fermitools.math.transform(g_aso, {0: co, 1: cv, 2: co, 3: cv})
     goovv = fermitools.math.transform(g_aso, {0: co, 1: co, 2: cv, 3: cv})
 
@@ -84,6 +93,12 @@ def driver(basis, labels, coords, charge, spin):
     print(w_td)
     w_rpa = spectrum(a, b)
     print(w_rpa)
+
+    t = numpy.transpose(numpy.reshape(pov, (3, -1)))
+    r = static_response_vector(a, b, t)
+    alpha = static_linear_response_function(t, r)
+
+    print(alpha.round(10))
 
     from numpy.testing import assert_almost_equal
 
@@ -111,6 +126,16 @@ def driver(basis, labels, coords, charge, spin):
 
     assert_almost_equal(w_td, w_td_ref, decimal=10)
     assert_almost_equal(w_rpa, w_rpa_ref, decimal=10)
+
+    # Test the response function by comparing the dipole polarizability
+    # matrix to the electric field Hessian
+    from . import uhf
+
+    en_f = uhf.energy_function(basis=basis, labels=labels, coords=coords,
+                               charge=charge, spin=spin, e_thresh=1e-14)
+    en_df2 = fermitools.math.central_difference(en_f, (0., 0., 0.),
+                                                step=0.005, nder=2, npts=13)
+    assert_almost_equal(numpy.diag(alpha), -en_df2, decimal=8)
 
 
 def main():

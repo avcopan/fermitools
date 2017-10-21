@@ -36,3 +36,8 @@ def test__odc12():
 def test__uhf():
     import scripts.uhf
     scripts.uhf.main()
+
+
+def test__rpa():
+    import scripts.rpa
+    scripts.rpa.main()

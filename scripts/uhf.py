@@ -96,26 +96,26 @@ def main():
     print('{:20.15f}'.format(en_tot))
 
     # Evaluate dipole moment as expectation value
-    m = interface.integrals.dipole(BASIS, LABELS, COORDS)
+    p = interface.integrals.dipole(BASIS, LABELS, COORDS)
     na = fermitools.chem.elec.count_alpha(LABELS, CHARGE, SPIN)
     nb = fermitools.chem.elec.count_beta(LABELS, CHARGE, SPIN)
     ad = fermitools.scf.density(ac[:, :na])
     bd = fermitools.scf.density(bc[:, :nb])
-    mu = numpy.array([numpy.vdot(mx, ad) + numpy.vdot(mx, bd) for mx in m])
+    mu = numpy.array([numpy.vdot(px, ad) + numpy.vdot(px, bd) for px in p])
 
     # Evaluate dipole moment as energy derivative
-    en_fn = energy_function(BASIS, LABELS, COORDS, CHARGE, SPIN,
-                            e_thresh=1e-15)
-    gr = fermitools.math.central_difference(en_fn, (0., 0., 0.),
-                                            step=0.0025, npts=13)
+    en_f = energy_function(BASIS, LABELS, COORDS, CHARGE, SPIN,
+                           e_thresh=1e-15)
+    en_df = fermitools.math.central_difference(en_f, (0., 0., 0.),
+                                               step=0.0025, npts=13)
 
     print(mu.round(11))
-    print(gr.round(11))
+    print(en_df.round(11))
 
     # Tests
     from numpy.testing import assert_almost_equal
     assert_almost_equal(en_tot, -74.66178436045595, decimal=10)
-    assert_almost_equal(gr, -mu, decimal=8)
+    assert_almost_equal(en_df, -mu, decimal=8)
 
 
 if __name__ == '__main__':
