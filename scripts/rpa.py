@@ -23,17 +23,30 @@ def offdiagonal_orbital_hessian(goovv):
 
 
 def static_response_vector(a, b, t):
-    """
-    notes:
-    (A B) (X) (T)
-    (B A)*(Y)=(T)
+    """solve for the static response vector
 
-    returns R := (X + Y) = 2(A + B)^-1 * T
+    :param a: diagonal orbital hessian
+    :type a: numpy.ndarray
+    :param b: off-diagonal orbital hessian
+    :type b: numpy.ndarray
+    :param t: property gradient vector(s)
+    :type t: numpy.ndarray
+    :returns: the response vector(s), (x + y) = 2 * (a + b)^-1 * t
+    :rtype: numpy.ndarray
     """
     return spla.solve(a + b, 2 * t, sym_pos=True)
 
 
 def static_linear_response_function(t, r):
+    """the linear response function, evaluated at zero field strength (=static)
+
+    :param t: property gradient vector(s)
+    :type t: numpy.ndarray
+    :param r: the response vector(s), (x + y) = 2 * (a + b)^-1 * t
+    :type r: numpy.ndarray
+    :returns: the response function(s)
+    :rtype: float or numpy.ndarray
+    """
     return numpy.dot(numpy.transpose(t), r)
 
 
