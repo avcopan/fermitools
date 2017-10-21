@@ -13,9 +13,9 @@ def test__mp2():
     scripts.mp2.main()
 
 
-def test__lccd():
-    import scripts.lccd
-    scripts.lccd.main()
+def test__cepa0():
+    import scripts.cepa0
+    scripts.cepa0.main()
 
 
 def test__omp2():
@@ -23,9 +23,9 @@ def test__omp2():
     scripts.omp2.main()
 
 
-def test__olccd():
-    import scripts.olccd
-    scripts.olccd.main()
+def test__ocepa0():
+    import scripts.ocepa0
+    scripts.ocepa0.main()
 
 
 def test__odc12():
