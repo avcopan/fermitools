@@ -6,7 +6,7 @@ import fermitools
 import interfaces.psi4 as interface
 
 
-def solve_uhf(oa, ob, s, h, r, d_guess=None, niter=50, e_thresh=1e-10):
+def solve_uhf(naocc, nbocc, s, h, r, d_guess=None, niter=50, e_thresh=1e-10):
     if d_guess is None:
         ad = bd = numpy.zeros_like(s)
     else:
@@ -17,8 +17,8 @@ def solve_uhf(oa, ob, s, h, r, d_guess=None, niter=50, e_thresh=1e-10):
         af, bf = fermitools.scf.uhf.fock(h, r, ad, bd)
         ae, ac = spla.eigh(af, s)
         be, bc = spla.eigh(bf, s)
-        ad = fermitools.scf.density(ac[:, oa])
-        bd = fermitools.scf.density(bc[:, ob])
+        ad = fermitools.scf.density(ac[:, :naocc])
+        bd = fermitools.scf.density(bc[:, :nbocc])
 
         af, bf = fermitools.scf.uhf.fock(h, r, ad, bd)
 
@@ -42,8 +42,6 @@ def energy_routine(basis, labels, coords, charge, spin,
     # Spaces
     na = fermitools.chem.elec.count_alpha(labels, charge, spin)
     nb = fermitools.chem.elec.count_beta(labels, charge, spin)
-    oa = slice(None, na)
-    ob = slice(None, nb)
 
     # Integrals
     s = interface.integrals.overlap(basis, labels, coords)
@@ -51,29 +49,26 @@ def energy_routine(basis, labels, coords, charge, spin,
     r = interface.integrals.repulsion(basis, labels, coords)
 
     # Call the solver
-    en_elec, c = solve_uhf(oa, ob, s, h, r, e_thresh=1e-14)
+    en_elec, c = solve_uhf(na, nb, s, h, r, e_thresh=1e-14)
 
     return en_elec if not return_coeffs else (en_elec, c)
 
 
-def energy_function(basis, labels, coords, charge, spin,
-                    niter=50, e_thresh=1e-12):
+def perturbed_energy_function(basis, labels, coords, charge, spin,
+                              niter=50, e_thresh=1e-12):
     # Spaces
     na = fermitools.chem.elec.count_alpha(labels, charge, spin)
     nb = fermitools.chem.elec.count_beta(labels, charge, spin)
-    oa = slice(None, na)
-    ob = slice(None, nb)
 
     # Integrals
     s = interface.integrals.overlap(basis, labels, coords)
-    m = interface.integrals.dipole(basis, labels, coords)
+    p = interface.integrals.dipole(basis, labels, coords)
     h = interface.integrals.core_hamiltonian(basis, labels, coords)
     r = interface.integrals.repulsion(basis, labels, coords)
 
-    # Call the solver
     def electronic_energy(f=(0., 0., 0.)):
-        h_pert = h - numpy.tensordot(f, m, axes=(0, 0))
-        en_elec, (ac, bc) = solve_uhf(oa, ob, s, h_pert, r, e_thresh=1e-14)
+        h_pert = h - numpy.tensordot(f, p, axes=(0, 0))
+        en_elec, (ac, bc) = solve_uhf(na, nb, s, h_pert, r, e_thresh=e_thresh)
         return en_elec
 
     return electronic_energy
@@ -104,17 +99,20 @@ def main():
     mu = numpy.array([numpy.vdot(px, ad) + numpy.vdot(px, bd) for px in p])
 
     # Evaluate dipole moment as energy derivative
-    en_f = energy_function(BASIS, LABELS, COORDS, CHARGE, SPIN,
-                           e_thresh=1e-15)
+    en_f = perturbed_energy_function(BASIS, LABELS, COORDS, CHARGE, SPIN,
+                                     e_thresh=1e-15)
     en_df = fermitools.math.central_difference(en_f, (0., 0., 0.),
                                                step=0.0025, npts=13)
 
-    print(mu.round(11))
     print(en_df.round(11))
+    print(mu.round(11))
 
     # Tests
     from numpy.testing import assert_almost_equal
     assert_almost_equal(en_tot, -74.66178436045595, decimal=10)
+
+    # This can be converged more tightly by including the orbital gradient
+    # as a convergence threshold, I think
     assert_almost_equal(en_df, -mu, decimal=8)
 
 

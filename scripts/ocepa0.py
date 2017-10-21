@@ -1,12 +1,19 @@
 import numpy
 import scipy.linalg as spla
 
+import warnings
+
 import fermitools
 from fermitools.math import antisymmetrizer_product as asym
 
+import interfaces.psi4 as interface
+from . import uhf
 
-def fock(o, h, g):
-    return h + numpy.trace(g[:, o, :, o], axis1=1, axis2=3)
+
+def fock(hoo, hvv, goooo, govov):
+    foo = hoo + numpy.trace(goooo, axis1=0, axis2=2)
+    fvv = hvv + numpy.trace(govov, axis1=0, axis2=2)
+    return spla.block_diag(foo, fvv)
 
 
 def doubles_numerator(goooo, goovv, govov, gvvvv, foo, fvv, t2):
@@ -21,6 +28,12 @@ def doubles_numerator(goooo, goovv, govov, gvvvv, foo, fvv, t2):
             + 1. / 2 * numpy.einsum("klij,klab->ijab", goooo, t2)
             - asym("0/1|2/3")(numpy.einsum("kaic,jkbc->ijab", govov, t2)))
     return num2
+
+
+def singles_reference_density(norb, nocc):
+    m1_ref = numpy.zeros((norb, norb))
+    m1_ref[:nocc, :nocc] = numpy.eye(nocc)
+    return m1_ref
 
 
 def singles_correlation_density(t2):
@@ -53,7 +66,6 @@ def doubles_density(m1_ref, m1_cor, k2):
     m2 = (k2
           + asym("0/1|2/3")(numpy.einsum('pr,qs->pqrs', m1_ref, m1_cor))
           + asym("2/3")(numpy.einsum('pr,qs->pqrs', m1_ref, m1_ref)))
-    # + asym("2/3")(numpy.einsum('pr,qs->pqrs', m1_cor, m1_cor)))
     return m2
 
 
@@ -68,14 +80,68 @@ def electronic_energy(h, g, m1, m2):
     return numpy.vdot(h, m1) + 1. / 4 * numpy.vdot(g, m2)
 
 
-def energy_routine(basis, labels, coords, charge, spin):
-    import interfaces.psi4 as interface
+def solve_ocepa0(norb, nocc, h_aso, g_aso, c_guess, niter=50, e_thresh=1e-10,
+                 r_thresh=1e-9, print_conv=False):
+    o = slice(None, nocc)
+    v = slice(nocc, None)
 
+    c = c_guess
+    x1 = numpy.zeros((norb, norb))
+
+    m1_ref = singles_reference_density(norb=norb, nocc=nocc)
+
+    t2_last = numpy.zeros((nocc, nocc, norb - nocc, norb - nocc))
+    en_elec_last = 0.
+    for iteration in range(niter):
+        h = fermitools.math.transform(h_aso, {0: c, 1: c})
+        g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
+        f = fock(h[o, o], h[v, v], g[o, o, o, o], g[o, v, o, v])
+
+        e = numpy.diagonal(f)
+        e2 = fermitools.math.broadcast_sum({0: +e[o], 1: +e[o],
+                                            2: -e[v], 3: -e[v]})
+        t2 = doubles_numerator(g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
+                               g[v, v, v, v], f[o, o], f[v, v], t2_last) / e2
+        r2 = (t2 - t2_last) * e2
+        t2_last = t2
+        m1_cor = singles_correlation_density(t2)
+        m1 = m1_ref + m1_cor
+        k2 = doubles_cumulant(t2)
+        m2 = doubles_density(m1_ref, m1_cor, k2)
+
+        r1 = singles_residual(o, v, h, g, m1, m2)
+        e1 = fermitools.math.broadcast_sum({0: +e[o], 1: -e[v]})
+        t1 = r1 / e1
+        x1[o, v] = t1
+        u = spla.expm(x1 - numpy.transpose(x1))
+        c = numpy.dot(c, u)
+
+        en_elec = electronic_energy(h, g, m1, m2)
+        en_change = en_elec - en_elec_last
+        en_elec_last = en_elec
+
+        r_norm = spla.norm([spla.norm(r1), spla.norm(r2)])
+
+        converged = (numpy.fabs(en_change) < e_thresh and r_norm < r_thresh)
+
+        if converged:
+            break
+
+    if not converged:
+        warnings.warn("Did not converge! (dE: {:7.1e}, r_norm: {:7.1e})"
+                      .format(en_change, r_norm))
+
+    if print_conv:
+        print("E={:20.15f} ({:-3d} iterations, dE: {:7.1e}, r_norm: {:7.1e})"
+              .format(en_elec, iteration, en_change, r_norm))
+
+    return en_elec, c, t2
+
+
+def energy_driver(basis, labels, coords, charge, spin, niter=50,
+                  e_thresh=1e-10, r_thresh=1e-9, print_conv=True):
     na = fermitools.chem.elec.count_alpha(labels, charge, spin)
     nb = fermitools.chem.elec.count_beta(labels, charge, spin)
-    n_elec = na + nb
-    o = slice(None, n_elec)
-    v = slice(n_elec, None)
 
     ac, bc = interface.hf.unrestricted_orbitals(basis, labels, coords,
                                                 charge, spin)
@@ -93,41 +159,49 @@ def energy_routine(basis, labels, coords, charge, spin):
     c = fermitools.math.spinorb.sort(c_unsrt,
                                      order=ab2ov(dim=nbf, na=na, nb=nb),
                                      axes=(1,))
-    x1 = numpy.zeros((2 * nbf, 2 * nbf))
-    m1_ref = numpy.zeros_like(x1)
-    m1_ref[o, o] = numpy.eye(n_elec)
-    t2 = numpy.zeros_like(g_aso[o, o, v, v])
 
-    en_elec_last = 0.
-    for i in range(100):
-        h = fermitools.math.transform(h_aso, {0: c, 1: c})
-        g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
-        f = fock(o, h, g)
+    en_elec, c, t2 = solve_ocepa0(norb=2*nbf, nocc=na+nb, h_aso=h_aso,
+                                  g_aso=g_aso, c_guess=c, niter=niter,
+                                  e_thresh=e_thresh, r_thresh=r_thresh,
+                                  print_conv=print_conv)
 
-        e = numpy.diagonal(f)
-        e2 = fermitools.math.broadcast_sum({0: +e[o], 1: +e[o],
-                                            2: -e[v], 3: -e[v]})
-        t2 = doubles_numerator(g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
-                               g[v, v, v, v], f[o, o], f[v, v], t2) / e2
-        m1_cor = singles_correlation_density(t2)
-        m1 = m1_ref + m1_cor
-        k2 = doubles_cumulant(t2)
-        m2 = doubles_density(m1_ref, m1_cor, k2)
+    return en_elec, c, t2
 
-        r1 = singles_residual(o, v, h, g, m1, m2)
-        e1 = fermitools.math.broadcast_sum({0: +e[o], 1: -e[v]})
-        t1 = r1 / e1
-        x1[o, v] = t1
-        u = spla.expm(x1 - numpy.transpose(x1))
-        c = numpy.dot(c, u)
 
-        en_elec = electronic_energy(h, g, m1, m2)
-        en_change = en_elec - en_elec_last
-        en_elec_last = en_elec
-        print('@OLCCD {:<3d} {:20.15f} {:20.15f}'
-              .format(i, en_elec, en_change))
+def perturbed_energy_function(basis, labels, coords, charge, spin, niter=50,
+                              e_thresh=1e-10, r_thresh=1e-9, print_conv=False):
+    # Spaces
+    na = fermitools.chem.elec.count_alpha(labels, charge, spin)
+    nb = fermitools.chem.elec.count_beta(labels, charge, spin)
 
-    return en_elec
+    # Integrals
+    nbf = interface.integrals.nbf(basis, labels)
+    s_ao = interface.integrals.overlap(basis, labels, coords)
+    p_ao = interface.integrals.dipole(basis, labels, coords)
+    h_ao = interface.integrals.core_hamiltonian(basis, labels, coords)
+    r_ao = interface.integrals.repulsion(basis, labels, coords)
+
+    h_aso = fermitools.math.spinorb.expand(h_ao, brakets=((0, 1),))
+    p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
+    r_aso = fermitools.math.spinorb.expand(r_ao, brakets=((0, 2), (1, 3)))
+    g_aso = r_aso - numpy.transpose(r_aso, (0, 1, 3, 2))
+
+    def electronic_energy(f=(0., 0., 0.)):
+        hp_ao = h_ao - numpy.tensordot(f, p_ao, axes=(0, 0))
+        en_elec_hf, (ac, bc) = uhf.solve_uhf(na, nb, s_ao, hp_ao, r_ao,
+                                             e_thresh=e_thresh)
+
+        sortvec = fermitools.math.spinorb.ab2ov(dim=nbf, na=na, nb=nb)
+        c_unsrt = spla.block_diag(ac, bc)
+        c = fermitools.math.spinorb.sort(c_unsrt, order=sortvec, axes=(1,))
+        hp_aso = h_aso - numpy.tensordot(f, p_aso, axes=(0, 0))
+        en_elec, c, t2 = solve_ocepa0(norb=2*nbf, nocc=na+nb, h_aso=hp_aso,
+                                      g_aso=g_aso, c_guess=c, niter=niter,
+                                      e_thresh=e_thresh, r_thresh=r_thresh,
+                                      print_conv=print_conv)
+        return en_elec
+
+    return electronic_energy
 
 
 def main():
@@ -140,13 +214,38 @@ def main():
               (0.000000000000, -1.638036840407,  1.136548822547))
 
     en_nuc = fermitools.chem.nuc.energy(labels=LABELS, coords=COORDS)
-    en_elec = energy_routine(BASIS, LABELS, COORDS, CHARGE, SPIN)
+    en_elec, c, t2 = energy_driver(BASIS, LABELS, COORDS, CHARGE, SPIN,
+                                   niter=100, e_thresh=1e-15, r_thresh=1e-10)
     en_tot = en_elec + en_nuc
+    print(en_tot)
+
+    # Evaluate dipole moment as expectation value
+    na = fermitools.chem.elec.count_alpha(LABELS, CHARGE, SPIN)
+    nb = fermitools.chem.elec.count_beta(LABELS, CHARGE, SPIN)
+    nbf = interface.integrals.nbf(BASIS, LABELS)
+    p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
+    p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
+    p = fermitools.math.transform(p_aso, {1: c, 2: c})
+    m1_ref = singles_reference_density(norb=2*nbf, nocc=na+nb)
+    m1_cor = singles_correlation_density(t2)
+    m1 = m1_ref + m1_cor
+    mu = numpy.array([numpy.vdot(px, m1) for px in p])
+
+    # Evaluate dipole moment as energy derivative
+    en_f = perturbed_energy_function(BASIS, LABELS, COORDS, CHARGE, SPIN,
+                                     niter=200, e_thresh=1e-14, r_thresh=1e-12,
+                                     print_conv=True)
+    en_df = fermitools.math.central_difference(en_f, (0., 0., 0.),
+                                               step=0.002, npts=17)
+
+    print(en_df.round(10))
+    print(mu.round(10))
 
     print('{:20.15f}'.format(en_tot))
 
     from numpy.testing import assert_almost_equal
     assert_almost_equal(en_tot, -74.71451994543345, decimal=10)
+    assert_almost_equal(en_df, -mu, decimal=11)
 
 
 if __name__ == '__main__':

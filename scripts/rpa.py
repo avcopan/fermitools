@@ -144,8 +144,9 @@ def driver(basis, labels, coords, charge, spin):
     # matrix to the electric field Hessian
     from . import uhf
 
-    en_f = uhf.energy_function(basis=basis, labels=labels, coords=coords,
-                               charge=charge, spin=spin, e_thresh=1e-14)
+    en_f = uhf.perturbed_energy_function(basis=basis, labels=labels,
+                                         coords=coords, charge=charge,
+                                         spin=spin, e_thresh=1e-14)
     en_df2 = fermitools.math.central_difference(en_f, (0., 0., 0.),
                                                 step=0.005, nder=2, npts=13)
     assert_almost_equal(numpy.diag(alpha), -en_df2, decimal=8)

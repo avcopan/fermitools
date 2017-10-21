@@ -1,6 +1,6 @@
 __pycache__/
 .cache/
+timer.dat
 *.py[cod]
 *.swp
-timer.dat
-
+*.clean
