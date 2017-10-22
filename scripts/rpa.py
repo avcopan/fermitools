@@ -149,6 +149,9 @@ def driver(basis, labels, coords, charge, spin):
                                          spin=spin, e_thresh=1e-14)
     en_df2 = fermitools.math.central_difference(en_f, (0., 0., 0.),
                                                 step=0.005, nder=2, npts=13)
+    print(en_df2.round(10))
+    print(numpy.diag(alpha).round(10))
+
     assert_almost_equal(numpy.diag(alpha), -en_df2, decimal=8)
 
 

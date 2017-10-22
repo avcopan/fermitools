@@ -69,10 +69,15 @@ def doubles_density(m1_ref, m1_cor, k2):
     return m2
 
 
+def first_order_orbital_variation_matrix(h, g, m1, m2):
+    fc = (numpy.einsum('px,qx->pq', h, m1)
+          + 1. / 2 * numpy.einsum('pxyz,qxyz->pq', g, m2))
+    return fc
+
+
 def singles_residual(o, v, h, g, m1, m2):
-    fcap = (numpy.einsum('px,qx->pq', h, m1)
-            + 1. / 2 * numpy.einsum('pxyz,qxyz->pq', g, m2))
-    res1 = (fcap - numpy.transpose(fcap))[o, v]
+    fc = first_order_orbital_variation_matrix(h, g, m1, m2)
+    res1 = (fc - numpy.transpose(fc))[o, v]
     return res1
 
 
@@ -233,10 +238,10 @@ def main():
 
     # Evaluate dipole moment as energy derivative
     en_f = perturbed_energy_function(BASIS, LABELS, COORDS, CHARGE, SPIN,
-                                     niter=200, e_thresh=1e-14, r_thresh=1e-12,
+                                     niter=200, e_thresh=1e-13, r_thresh=1e-5,
                                      print_conv=True)
     en_df = fermitools.math.central_difference(en_f, (0., 0., 0.),
-                                               step=0.002, npts=17)
+                                               step=0.002, npts=5)
 
     print(en_df.round(10))
     print(mu.round(10))
@@ -245,7 +250,7 @@ def main():
 
     from numpy.testing import assert_almost_equal
     assert_almost_equal(en_tot, -74.71451994543345, decimal=10)
-    assert_almost_equal(en_df, -mu, decimal=11)
+    assert_almost_equal(en_df, -mu, decimal=10)
 
 
 if __name__ == '__main__':
