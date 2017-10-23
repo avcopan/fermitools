@@ -1,5 +1,4 @@
 import numpy
-import itertools
 import scipy.linalg as spla
 
 import fermitools
@@ -45,54 +44,9 @@ def offdiagonal_orbital_hessian(nocc, norb, h, g, m1, m2):
     return numpy.reshape(a, (no * nv, no * nv))
 
 
-def join(t):
-    return sum(t, ())
-
-
-def amplitude_gradient_unique_indices(no, nv):
-    ij = itertools.combinations(range(no), 2)
-    ab = itertools.combinations(range(nv), 2)
-    return tuple(map(join, itertools.product(ij, ab)))
-
-
-def amplitude_hessian_unique_indices(no, nv):
-    ij = itertools.combinations(range(no), 2)
-    ab = itertools.combinations(range(nv), 2)
-    kl = itertools.combinations(range(no), 2)
-    cd = itertools.combinations(range(nv), 2)
-    return tuple(map(join, itertools.product(ij, ab, kl, cd)))
-
-
-def mixed_hessian_unique_indices(no, nv):
-    ij = itertools.combinations(range(no), 2)
-    ab = itertools.combinations(range(nv), 2)
-    k = itertools.combinations(range(no), 1)
-    c = itertools.combinations(range(nv), 1)
-    return tuple(map(join, itertools.product(ij, ab, k, c)))
-
-
-def reshape_amplitude_gradient(no, nv, t):
-    ix = amplitude_gradient_unique_indices(no, nv)
-    return t[list(zip(*ix))]
-
-
-def reshape_amplitude_hessian(no, nv, a):
-    dim = no * (no - 1) * nv * (nv - 1) // 4
-    ix = amplitude_hessian_unique_indices(no, nv)
-    a_flat = a[list(zip(*ix))]
-    return numpy.reshape(a_flat, (dim, dim))
-
-
-def reshape_mixed_hessian(no, nv, a):
-    dim1 = no * (no - 1) * nv * (nv - 1) // 4
-    dim2 = no * nv
-    ix = mixed_hessian_unique_indices(no, nv)
-    a_flat = a[list(zip(*ix))]
-    return numpy.reshape(a_flat, (dim1, dim2))
-
-
 def diagonal_amplitude_hessian(foo, fvv, goooo, govov, gvvvv):
     no, nv, _, _ = govov.shape
+    ndoubles = no * (no - 1) * nv * (nv - 1) // 4
     io = numpy.eye(*foo.shape)
     iv = numpy.eye(*fvv.shape)
     a = (+ asym('2/3|4/5|6/7')(
@@ -105,11 +59,15 @@ def diagonal_amplitude_hessian(foo, fvv, goooo, govov, gvvvv):
                numpy.einsum('ijkl,ac,bd->ijabklcd', goooo, iv, iv))
          - asym('0/1|2/3|4/5|6/7')(
                numpy.einsum('ik,jcla,bd->ijabklcd', io, govov, iv)))
-    return reshape_amplitude_hessian(no, nv, a)
+    a_cmp = fermitools.math.asym.compound_index(a, {0: (0, 1), 1: (2, 3),
+                                                    2: (4, 5), 3: (6, 7)})
+    return numpy.reshape(a_cmp, (ndoubles, ndoubles))
 
 
 def diagonal_mixed_hessian(o, v, g, t2):
     no, _, nv, _ = t2.shape
+    nsingles = no * nv
+    ndoubles = no * (no - 1) * nv * (nv - 1) // 4
     io = numpy.eye(no)
     iv = numpy.eye(nv)
     a = (+ asym('0/1')(
@@ -128,11 +86,14 @@ def diagonal_mixed_hessian(o, v, g, t2):
                numpy.einsum('imab,mkjc->ijabkc', t2, g[o, o, o, v]))
          + asym('2/3')(
                numpy.einsum('ijae,bkec->ijabkc', t2, g[v, o, v, v])))
-    return reshape_mixed_hessian(no, nv, a)
+    a_cmp = fermitools.math.asym.compound_index(a, {0: (0, 1), 1: (2, 3)})
+    return numpy.reshape(a_cmp, (ndoubles, nsingles))
 
 
 def offdiagonal_mixed_hessian(o, v, g, t2):
     no, _, nv, _ = t2.shape
+    nsingles = no * nv
+    ndoubles = no * (no - 1) * nv * (nv - 1) // 4
     b = (- numpy.einsum('ijec,abek->ijabkc', t2, g[v, v, v, o])
          + numpy.einsum('mkab,mcij->ijabkc', t2, g[o, v, o, o])
          + asym('0/1')(
@@ -143,7 +104,8 @@ def offdiagonal_mixed_hessian(o, v, g, t2):
                numpy.einsum('ikae,bcje->ijabkc', t2, g[v, v, o, v]))
          - asym('0/1|2/3')(
                numpy.einsum('imac,bmjk->ijabkc', t2, g[v, o, o, o])))
-    return reshape_mixed_hessian(no, nv, b)
+    b_cmp = fermitools.math.asym.compound_index(b, {0: (0, 1), 1: (2, 3)})
+    return numpy.reshape(b_cmp, (ndoubles, nsingles))
 
 
 def orbital_property_gradient(o, v, p, m1):
@@ -157,7 +119,8 @@ def amplitude_property_gradient(poo, pvv, t2):
                numpy.einsum('ac,ijcb->ijab', pvv, t2))
          - asym('0/1')(
                numpy.einsum('ik,kjab->ijab', poo, t2)))
-    return reshape_amplitude_gradient(no, nv, t)
+    t_cmp = fermitools.math.asym.compound_index(t, {0: (0, 1), 1: (2, 3)})
+    return numpy.ravel(t_cmp)
 
 
 def static_response_vector(a, b, t):
