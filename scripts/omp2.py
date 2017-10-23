@@ -3,7 +3,7 @@ import interfaces.psi4 as interface
 
 import numpy
 import scipy.linalg as spla
-from fermitools.math import antisymmetrizer_product as asym
+from fermitools.math.asym import antisymmetrizer_product as asym
 
 
 def fock(o, h, g):

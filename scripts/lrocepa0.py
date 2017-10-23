@@ -3,7 +3,7 @@ import itertools
 import scipy.linalg as spla
 
 import fermitools
-from fermitools.math import antisymmetrizer_product as asym
+from fermitools.math.asym import antisymmetrizer_product as asym
 
 import interfaces.psi4 as interface
 from . import ocepa0

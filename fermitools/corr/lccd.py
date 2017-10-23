@@ -1,7 +1,7 @@
 """spin-orbital linearized coupled-cluster doubles"""
 import numpy
 
-from ..math import antisymmetrizer_product as asym
+from ..math.asym import antisymmetrizer_product as asym
 
 
 def doubles_amplitudes_update(goooo, goovv, govov, gvvvv, e2, t2):

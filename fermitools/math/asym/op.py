@@ -3,7 +3,7 @@ import functools as ft
 import more_itertools as mit
 import toolz.functoolz as ftz
 
-from .combinatorics import riffle_shuffles, signature, permuter
+from ..combinatorics import riffle_shuffles, signature, permuter
 
 
 # Public
