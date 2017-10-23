@@ -91,7 +91,20 @@ def electronic_energy_functional(norb, nocc, h_aso, g_aso, c):
 
     m1_ref = singles_reference_density(norb=norb, nocc=nocc)
 
-    def electronic_energy_function(t1, t2):
+    import itertools as it
+
+    def electronic_energy_function(t1, t2_flat):
+
+        # hack -- generalize this at some point
+        nvir = norb - nocc
+        t2 = numpy.zeros((nocc, nocc, nvir, nvir))
+        ijab_iterator = it.product(it.combinations(range(nocc), 2),
+                                   it.combinations(range(nvir), 2))
+        for ijab, ((i, j), (a, b)) in enumerate(ijab_iterator):
+            t2[i, j, a, b] = t2_flat[ijab]
+
+        t2 = asym('0/1|2/3')(t2)
+
         x1 = numpy.zeros((norb, norb))
         x1[o, v] = t1
         u = spla.expm(x1 - numpy.transpose(x1))

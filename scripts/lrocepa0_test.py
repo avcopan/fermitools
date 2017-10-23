@@ -164,6 +164,8 @@ def driver(basis, labels, coords, charge, spin):
     na = fermitools.chem.elec.count_alpha(labels, charge, spin)
     nb = fermitools.chem.elec.count_beta(labels, charge, spin)
     nocc = na + nb
+    o = slice(None, nocc)
+    v = slice(nocc, None)
 
     ac, bc = interface.hf.unrestricted_orbitals(basis, labels, coords,
                                                 charge, spin)
@@ -189,6 +191,7 @@ def driver(basis, labels, coords, charge, spin):
                                          print_conv=200)
     h = fermitools.math.transform(h_aso, {0: c, 1: c})
     g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
+    f = ocepa0.fock(h[o, o], h[v, v], g[o, o, o, o], g[o, v, o, v])
     m1_ref = ocepa0.singles_reference_density(norb=norb, nocc=nocc)
     m1_cor = ocepa0.singles_correlation_density(t2)
     m1 = m1_ref + m1_cor
@@ -196,19 +199,35 @@ def driver(basis, labels, coords, charge, spin):
     m2 = ocepa0.doubles_density(m1_ref, m1_cor, k2)
 
     a_orb = diagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
+    a_amp = diagonal_amplitude_hessian(f[o, o], f[v, v], g[o, o, o, o],
+                                       g[o, v, o, v], g[v, v, v, v])
 
+    # Test gradients
     import functools
+    from numpy.testing import assert_almost_equal
 
+    t1 = numpy.zeros((nocc, norb-nocc))
+    t2_flat = numpy.ravel(
+            fermitools.math.asym.compound_index(t2, {0: (0, 1), 1: (2, 3)}))
     en_f = ocepa0.electronic_energy_functional(norb=norb, nocc=nocc,
                                                h_aso=h_aso, g_aso=g_aso, c=c)
 
-    en_orb = functools.partial(en_f, t2=t2)
-    t1 = numpy.zeros((nocc, norb-nocc))
-    en_df = numpy.ravel(fermitools.math.central_difference(en_orb, t1,
-                                                           step=0.001, nder=2,
-                                                           npts=13))
-    print(numpy.diag(a_orb).round(1))
-    print((1./2 * en_df).round(1))
+    en_orb = functools.partial(en_f, t2_flat=t2_flat)
+    en_amp = functools.partial(en_f, t1)
+
+    en_dorb = numpy.ravel(fermitools.math.central_difference(en_orb, t1,
+                                                             step=0.001,
+                                                             nder=1,
+                                                             npts=13))
+    en_damp = numpy.ravel(fermitools.math.central_difference(en_amp, t2_flat,
+                                                             step=0.001,
+                                                             nder=1,
+                                                             npts=13))
+    print(en_dorb.round(10))
+    print(en_damp.round(10))
+
+    assert_almost_equal(en_dorb, 0., decimal=10)
+    assert_almost_equal(en_damp, 0., decimal=10)
 
 
 def main():
