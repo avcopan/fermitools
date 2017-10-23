@@ -1,4 +1,4 @@
-import fermitools.math.asym import op
+from fermitools.math.asym import op
 
 import numpy
 import pytest

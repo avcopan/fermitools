@@ -4,7 +4,7 @@ from toolz import functoolz
 
 
 # Public
-def compound_indices(a, packd):
+def compound_index(a, packd):
     """ravel antisymmetric axes with a compound index
 
     :param a: array
@@ -14,11 +14,11 @@ def compound_indices(a, packd):
 
     :rtype: numpy.ndarray
     """
-    compf = index_compounder(packd)
+    compf = compound_indexer(packd)
     return compf(a)
 
 
-def index_compounder(packd):
+def compound_indexer(packd):
     """ravels antisymmetric axes with a compound index
 
     :param packd: axes to compound, keyed by the position of the compound axis
