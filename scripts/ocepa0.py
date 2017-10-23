@@ -85,6 +85,31 @@ def electronic_energy(h, g, m1, m2):
     return numpy.vdot(h, m1) + 1. / 4 * numpy.vdot(g, m2)
 
 
+def electronic_energy_functional(norb, nocc, h_aso, g_aso, c):
+    o = slice(None, nocc)
+    v = slice(nocc, None)
+
+    m1_ref = singles_reference_density(norb=norb, nocc=nocc)
+
+    def electronic_energy_function(t1, t2):
+        x1 = numpy.zeros((norb, norb))
+        x1[o, v] = t1
+        u = spla.expm(x1 - numpy.transpose(x1))
+        ct = numpy.dot(c, u)
+
+        h = fermitools.math.transform(h_aso, {0: ct, 1: ct})
+        g = fermitools.math.transform(g_aso, {0: ct, 1: ct, 2: ct, 3: ct})
+
+        m1_cor = singles_correlation_density(t2)
+        m1 = m1_ref + m1_cor
+        k2 = doubles_cumulant(t2)
+        m2 = doubles_density(m1_ref, m1_cor, k2)
+
+        return electronic_energy(h, g, m1, m2)
+
+    return electronic_energy_function
+
+
 def solve_ocepa0(norb, nocc, h_aso, g_aso, c_guess, niter=50, e_thresh=1e-10,
                  r_thresh=1e-9, print_conv=False):
     o = slice(None, nocc)
