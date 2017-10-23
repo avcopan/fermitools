@@ -1,6 +1,5 @@
 import numpy
 import scipy.misc
-import numbers
 
 
 def central_difference(f, x, step=0.005, nder=1, npts=None):
@@ -9,7 +8,7 @@ def central_difference(f, x, step=0.005, nder=1, npts=None):
     :param f: the function
     :type f: typing.Callable
     :param x: the point at which to evaluate the derivative
-    :type x: float or tuple
+    :type x: float or numpy.ndarrray
     :param step: the step size
     :type step: float
     :param nder: return the nth derivative
@@ -20,14 +19,13 @@ def central_difference(f, x, step=0.005, nder=1, npts=None):
     if npts is None:
         npts = nder + 1 + nder % 2
     weights = scipy.misc.central_diff_weights(Np=npts, ndiv=nder)
-    spacings = [(k - npts//2) for k in range(npts)]
-    ndim = 1 if isinstance(x, numbers.Number) else len(x)
 
-    def derivative(axis):
-        dx = step * numpy.eye(ndim)[axis]
-        grid = numpy.array(x) + numpy.outer(spacings, dx)
+    def derivative(index):
+        dx = numpy.zeros_like(x)
+        dx[index] = step
+        grid = [numpy.array(x) + (k - npts//2) * dx for k in range(npts)]
         vals = tuple(map(f, grid))
-        return numpy.vdot(weights, vals) / step ** nder
+        return numpy.vdot(weights, vals) / (step ** nder)
 
-    diff = numpy.array(tuple(map(derivative, range(ndim))))
-    return diff[0] if isinstance(x, numbers.Number) else diff
+    der = tuple(map(derivative, numpy.ndindex(numpy.shape(x))))
+    return numpy.reshape(der, numpy.shape(x))
