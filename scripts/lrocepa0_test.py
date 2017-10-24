@@ -229,6 +229,20 @@ def driver(basis, labels, coords, charge, spin):
     assert_almost_equal(en_dorb, 0., decimal=10)
     assert_almost_equal(en_damp, 0., decimal=10)
 
+    en_dorb2 = numpy.ravel(fermitools.math.central_difference(en_orb, t1,
+                                                              step=0.001,
+                                                              nder=2,
+                                                              npts=13))
+    en_damp2 = numpy.ravel(fermitools.math.central_difference(en_amp, t2_flat,
+                                                              step=0.001,
+                                                              nder=2,
+                                                              npts=13))
+    print("Orbital Hessian:")
+    print((numpy.diag(a_orb) - en_dorb2 / 2.).round(10))
+
+    print("Amplitude Hessian:")
+    print((numpy.diag(a_amp) - en_damp2 / 2.).round(10))
+
 
 def main():
     CHARGE = 0
