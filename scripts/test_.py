@@ -18,6 +18,11 @@ def test__cepa0():
     scripts.cepa0.main()
 
 
+def test__ohf():
+    import scripts.ohf
+    scripts.ohf.main()
+
+
 def test__omp2():
     import scripts.omp2
     scripts.omp2.main()

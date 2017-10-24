@@ -47,7 +47,7 @@ def doubles_cumulant(t2):
     return k2
 
 
-def singles_residual(o, v, h, g, m1, m2):
+def orbital_gradient(o, v, h, g, m1, m2):
     fcap = (numpy.einsum('px,qx->pq', h, m1)
             + 1. / 2 * numpy.einsum('pxyz,qxyz->pq', g, m2))
     res1 = (fcap - numpy.transpose(fcap))[o, v]
@@ -105,7 +105,7 @@ def energy_routine(basis, labels, coords, charge, spin):
         m1 = m1_ref + m1_cor
         m2 = doubles_density(m1_ref, m1_cor, k2)
 
-        r1 = singles_residual(o, v, h, g, m1, m2)
+        r1 = orbital_gradient(o, v, h, g, m1, m2)
         e1 = fermitools.math.broadcast_sum({0: +e[o], 1: -e[v]})
         t1 = r1 / e1
         x1[o, v] = t1

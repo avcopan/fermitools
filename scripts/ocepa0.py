@@ -74,7 +74,7 @@ def first_order_orbital_variation_matrix(h, g, m1, m2):
     return fc
 
 
-def singles_residual(o, v, h, g, m1, m2):
+def orbital_gradient(o, v, h, g, m1, m2):
     fc = first_order_orbital_variation_matrix(h, g, m1, m2)
     res1 = (fc - numpy.transpose(fc))[o, v]
     return res1
@@ -112,7 +112,7 @@ def solve_ocepa0(norb, nocc, h_aso, g_aso, c_guess, t2_guess, niter=50,
         k2 = doubles_cumulant(t2)
         m2 = doubles_density(m1_ref, m1_cor, k2)
 
-        r1 = singles_residual(o, v, h, g, m1, m2)
+        r1 = orbital_gradient(o, v, h, g, m1, m2)
         e1 = fermitools.math.broadcast_sum({0: +e[o], 1: -e[v]})
         t1 = r1 / e1
         x1[o, v] = t1
