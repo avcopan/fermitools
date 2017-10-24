@@ -168,11 +168,6 @@ def main():
     print(en_tot)
 
     # Evaluate dipole moment as expectation value
-    na = fermitools.chem.elec.count_alpha(LABELS, CHARGE, SPIN)
-    nb = fermitools.chem.elec.count_beta(LABELS, CHARGE, SPIN)
-    nbf = interface.integrals.nbf(BASIS, LABELS)
-    p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
-    p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
     p = fermitools.math.transform(p_aso, {1: c, 2: c})
     m1 = singles_density(norb=norb, nocc=nocc)
     mu = numpy.array([numpy.vdot(px, m1) for px in p])

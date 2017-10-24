@@ -46,3 +46,8 @@ def test__uhf():
 def test__rpa():
     import scripts.rpa
     scripts.rpa.main()
+
+
+def test__lrohf():
+    import scripts.lrohf
+    scripts.lrohf.main()
