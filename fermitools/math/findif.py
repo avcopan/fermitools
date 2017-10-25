@@ -27,8 +27,10 @@ def central_difference(f, x, step=0.005, nder=1, npts=None):
         dx = numpy.zeros_like(x)
         dx[index] = step[index]
         grid = [numpy.array(x) + (k - npts//2) * dx for k in range(npts)]
-        vals = tuple(map(f, grid))
-        return numpy.vdot(weights, vals) / (step[index] ** nder)
+        vals = map(f, grid)
+        return (sum(numpy.multiply(w, v) for w, v in zip(weights, vals))
+                / (step[index] ** nder))
 
     der = tuple(map(derivative, numpy.ndindex(numpy.shape(x))))
-    return numpy.reshape(der, numpy.shape(x))
+    shape = numpy.shape(x) + numpy.shape(f(x))
+    return numpy.reshape(der, shape)
