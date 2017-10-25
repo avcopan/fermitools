@@ -11,15 +11,23 @@ from . import ocepa0
 def second_order_orbital_variation_tensor(h, g, m1, m2):
     i = numpy.eye(*h.shape)
     fc = ocepa0.first_order_orbital_variation_matrix(h, g, m1, m2)
-    hc = (+ numpy.einsum('ps,qr->prqs', i, fc)
-          + numpy.einsum('ps,qr->prqs', fc.T, i)
-          - numpy.einsum('ps,qr->prqs', h, m1)
-          - numpy.einsum('ps,qr->prqs', m1, h)
-          - numpy.einsum('pysx,qyrx->prqs', g, m2)
-          - numpy.einsum('pysx,qyrx->prqs', m2, g)
-          + 1. / 2 * numpy.einsum('prxy,qsxy->prqs', g, m2)
-          + 1. / 2 * numpy.einsum('prxy,qsxy->prqs', m2, g))
-    return hc
+    a = (+ numpy.einsum('uv,tw->tuvw', i, fc + fc.T) / 2.
+         + numpy.einsum('tw,uv->tuvw', i, fc + fc.T) / 2.
+         - numpy.einsum('tv,uw->tuvw', i, fc + fc.T) / 2.
+         - numpy.einsum('uw,vt->tuvw', i, fc + fc.T) / 2.
+         + numpy.einsum('tv,wu->tuvw', h, m1)
+         - numpy.einsum('uv,wt->tuvw', h, m1)
+         - numpy.einsum('tw,vu->tuvw', h, m1)
+         + numpy.einsum('uw,vt->tuvw', h, m1)
+         + numpy.einsum('pqvt,pqwu->tuvw', g, m2) / 2.
+         - numpy.einsum('pqvu,pqwt->tuvw', g, m2) / 2.
+         - numpy.einsum('pqwt,pqvu->tuvw', g, m2) / 2.
+         + numpy.einsum('pqwu,pqvt->tuvw', g, m2) / 2.
+         + numpy.einsum('pvqt,pwqu->tuvw', g, m2)
+         - numpy.einsum('pvqu,pwqt->tuvw', g, m2)
+         - numpy.einsum('pwqt,pvqu->tuvw', g, m2)
+         + numpy.einsum('pwqu,pvqt->tuvw', g, m2))
+    return a
 
 
 def diagonal_orbital_hessian(nocc, norb, h, g, m1, m2):
@@ -27,9 +35,8 @@ def diagonal_orbital_hessian(nocc, norb, h, g, m1, m2):
     v = slice(nocc, None)
     no = nocc
     nv = norb - nocc
-    hc = second_order_orbital_variation_tensor(h, g, m1, m2)
-    a = -1./2 * (numpy.einsum('ibaj->iajb', hc[o, v, v, o]) +
-                 numpy.einsum('bija->iajb', hc[v, o, o, v]))
+    h = second_order_orbital_variation_tensor(h, g, m1, m2)
+    a = h[o, v, o, v]
     return numpy.reshape(a, (no * nv, no * nv))
 
 
@@ -38,10 +45,9 @@ def offdiagonal_orbital_hessian(nocc, norb, h, g, m1, m2):
     v = slice(nocc, None)
     no = nocc
     nv = norb - nocc
-    hc = second_order_orbital_variation_tensor(h, g, m1, m2)
-    a = 1./2 * (numpy.einsum('ijab->iajb', hc[o, o, v, v]) +
-                numpy.einsum('jiba->iajb', hc[o, o, v, v]))
-    return numpy.reshape(a, (no * nv, no * nv))
+    h = second_order_orbital_variation_tensor(h, g, m1, m2)
+    b = numpy.transpose(-h[o, v, v, o], (0, 1, 3, 2))
+    return numpy.reshape(b, (no * nv, no * nv))
 
 
 def diagonal_amplitude_hessian(foo, fvv, goooo, govov, gvvvv):
@@ -209,6 +215,7 @@ def main():
     o = slice(None, nocc)
     v = slice(nocc, None)
     h = fermitools.math.transform(h_aso, {0: c, 1: c})
+    p = fermitools.math.transform(p_aso, {1: c, 2: c})
     g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
     f = ocepa0.fock(h[o, o], h[v, v], g[o, o, o, o], g[o, v, o, v])
     m1_ref = ocepa0.singles_reference_density(norb=norb, nocc=nocc)
@@ -218,32 +225,64 @@ def main():
     m2 = ocepa0.doubles_density(m1_ref, m1_cor, k2)
 
     a_orb = diagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
+    a_mix = diagonal_mixed_hessian(o, v, g, t2)
     a_amp = diagonal_amplitude_hessian(f[o, o], f[v, v], g[o, o, o, o],
                                        g[o, v, o, v], g[v, v, v, v])
 
+    b_orb = offdiagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
+    b_mix = offdiagonal_mixed_hessian(o, v, g, t2)
+    b_amp = numpy.zeros_like(a_amp)
+
+    t_orb = numpy.transpose(
+        [orbital_property_gradient(o, v, px, m1) for px in p])
+    t_amp = numpy.transpose(
+        [amplitude_property_gradient(px[o, o], px[v, v], t2) for px in p])
+
+    a = numpy.bmat([[a_orb, a_mix.T], [a_mix, a_amp]])
+    b = numpy.bmat([[b_orb, b_mix.T], [b_mix, b_amp]])
+    t = numpy.bmat([[t_orb], [t_amp]])
+
+    r = static_response_vector(a, b, t)
+    alpha = static_linear_response_function(t, r)
+
+    # Evaluate dipole polarizability as energy derivative
+    en_f = ocepa0.perturbed_energy_function(norb=norb, nocc=nocc, h_aso=h_aso,
+                                            p_aso=p_aso, g_aso=g_aso,
+                                            c_guess=c, t2_guess=t2, niter=200,
+                                            e_thresh=1e-13, r_thresh=1e-9,
+                                            print_conv=True)
+    en_df2 = fermitools.math.central_difference(en_f, (0., 0., 0.),
+                                                step=0.007, nder=2, npts=7)
+    print(en_df2.round(10))
+    print(numpy.diag(alpha).round(10))
+
+    from numpy.testing import assert_almost_equal
+
+    # assert_almost_equal(numpy.diag(alpha), -en_df2, decimal=11)
+
     # Test the orbital and amplitude gradients
     import functools
-    from numpy.testing import assert_almost_equal
 
     t1 = numpy.zeros((nocc, norb-nocc))
     t2_flat = numpy.ravel(
             fermitools.math.asym.compound_index(t2, {0: (0, 1), 1: (2, 3)}))
-    en_f = ocepa0.electronic_energy_functional(norb=norb, nocc=nocc,
-                                               h_aso=h_aso, g_aso=g_aso, c=c)
+    en_func = ocepa0.electronic_energy_functional(norb=norb, nocc=nocc,
+                                                  h_aso=h_aso, g_aso=g_aso,
+                                                  c=c)
 
-    en_orb = functools.partial(en_f, t2_flat=t2_flat)
-    en_amp = functools.partial(en_f, t1)
+    en_orb = functools.partial(en_func, t2_flat=t2_flat)
+    en_amp = functools.partial(en_func, t1)
 
     en_dorb = numpy.ravel(fermitools.math.central_difference(en_orb, t1,
                                                              step=0.05,
                                                              nder=1,
-                                                             npts=23))
+                                                             npts=9))
     en_damp = numpy.ravel(fermitools.math.central_difference(en_amp, t2_flat,
                                                              step=0.05,
                                                              nder=1,
-                                                             npts=17))
-    print(en_dorb.round(10))
-    print(en_damp.round(10))
+                                                             npts=9))
+    print(en_dorb.round(9))
+    print(en_damp.round(9))
 
     assert_almost_equal(en_dorb, 0., decimal=10)
     assert_almost_equal(en_damp, 0., decimal=10)
@@ -252,16 +291,17 @@ def main():
     en_dorb2 = numpy.ravel(fermitools.math.central_difference(en_orb, t1,
                                                               step=0.05,
                                                               nder=2,
-                                                              npts=23))
+                                                              npts=9))
     en_damp2 = numpy.ravel(fermitools.math.central_difference(en_amp, t2_flat,
                                                               step=0.05,
                                                               nder=2,
-                                                              npts=17))
+                                                              npts=9))
+
     print("Orbital Hessian:")
-    print((numpy.diag(a_orb) - en_dorb2 / 2.).round(10))
+    print((numpy.diag(a_orb) - en_dorb2 / 2.).round(9))
 
     print("Amplitude Hessian:")
-    print((numpy.diag(a_amp) - en_damp2 / 2.).round(10))
+    print((numpy.diag(a_amp) - en_damp2 / 2.).round(9))
 
 
 if __name__ == '__main__':

@@ -10,15 +10,23 @@ from . import ohf
 def second_order_orbital_variation_tensor(h, g, m1, m2):
     i = numpy.eye(*h.shape)
     fc = ohf.first_order_orbital_variation_matrix(h, g, m1, m2)
-    hc = (+ numpy.einsum('ps,qr->prqs', i, fc)
-          + numpy.einsum('ps,qr->prqs', fc.T, i)
-          - numpy.einsum('ps,qr->prqs', h, m1)
-          - numpy.einsum('ps,qr->prqs', m1, h)
-          - numpy.einsum('pysx,qyrx->prqs', g, m2)
-          - numpy.einsum('pysx,qyrx->prqs', m2, g)
-          + 1. / 2 * numpy.einsum('prxy,qsxy->prqs', g, m2)
-          + 1. / 2 * numpy.einsum('prxy,qsxy->prqs', m2, g))
-    return hc
+    a = (+ numpy.einsum('uv,tw->tuvw', i, fc + fc.T) / 2.
+         + numpy.einsum('tw,uv->tuvw', i, fc + fc.T) / 2.
+         - numpy.einsum('tv,uw->tuvw', i, fc + fc.T) / 2.
+         - numpy.einsum('uw,vt->tuvw', i, fc + fc.T) / 2.
+         + numpy.einsum('tv,wu->tuvw', h, m1)
+         - numpy.einsum('uv,wt->tuvw', h, m1)
+         - numpy.einsum('tw,vu->tuvw', h, m1)
+         + numpy.einsum('uw,vt->tuvw', h, m1)
+         + numpy.einsum('pqvt,pqwu->tuvw', g, m2) / 2.
+         - numpy.einsum('pqvu,pqwt->tuvw', g, m2) / 2.
+         - numpy.einsum('pqwt,pqvu->tuvw', g, m2) / 2.
+         + numpy.einsum('pqwu,pqvt->tuvw', g, m2) / 2.
+         + numpy.einsum('pvqt,pwqu->tuvw', g, m2)
+         - numpy.einsum('pvqu,pwqt->tuvw', g, m2)
+         - numpy.einsum('pwqt,pvqu->tuvw', g, m2)
+         + numpy.einsum('pwqu,pvqt->tuvw', g, m2))
+    return a
 
 
 def diagonal_orbital_hessian(nocc, norb, h, g, m1, m2):
@@ -26,9 +34,8 @@ def diagonal_orbital_hessian(nocc, norb, h, g, m1, m2):
     v = slice(nocc, None)
     no = nocc
     nv = norb - nocc
-    hc = second_order_orbital_variation_tensor(h, g, m1, m2)
-    a = -1./2 * (numpy.einsum('ibaj->iajb', hc[o, v, v, o]) +
-                 numpy.einsum('bija->iajb', hc[v, o, o, v]))
+    h = second_order_orbital_variation_tensor(h, g, m1, m2)
+    a = h[o, v, o, v]
     return numpy.reshape(a, (no * nv, no * nv))
 
 
@@ -37,10 +44,9 @@ def offdiagonal_orbital_hessian(nocc, norb, h, g, m1, m2):
     v = slice(nocc, None)
     no = nocc
     nv = norb - nocc
-    hc = second_order_orbital_variation_tensor(h, g, m1, m2)
-    a = 1./2 * (numpy.einsum('ijab->iajb', hc[o, o, v, v]) +
-                numpy.einsum('jiba->iajb', hc[o, o, v, v]))
-    return numpy.reshape(a, (no * nv, no * nv))
+    h = second_order_orbital_variation_tensor(h, g, m1, m2)
+    b = numpy.transpose(-h[o, v, v, o], (0, 1, 3, 2))
+    return numpy.reshape(b, (no * nv, no * nv))
 
 
 def orbital_property_gradient(o, v, p, m1):
@@ -128,10 +134,35 @@ def main():
 
     # Build the orbital Hessian w/ general formula
     h = fermitools.math.transform(h_aso, {0: c, 1: c})
+    p = fermitools.math.transform(p_aso, {1: c, 2: c})
     g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
     m1 = ohf.singles_density(norb=norb, nocc=nocc)
     m2 = ohf.doubles_density(m1)
     a_orb = diagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
+    b_orb = offdiagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
+
+    o = slice(None, nocc)
+    v = slice(nocc, None)
+    t_orb = numpy.transpose(
+        [orbital_property_gradient(o, v, px, m1) for px in p])
+
+    r_orb = static_response_vector(a_orb, b_orb, t_orb)
+    alpha = static_linear_response_function(t_orb, r_orb)
+
+    # Evaluate dipole polarizability as energy derivative
+    en_f = ohf.perturbed_energy_function(norb=norb, nocc=nocc, h_aso=h_aso,
+                                         p_aso=p_aso, g_aso=g_aso,
+                                         c_guess=c, niter=200,
+                                         e_thresh=1e-14, r_thresh=1e-11,
+                                         print_conv=True)
+    en_df2 = fermitools.math.central_difference(en_f, (0., 0., 0.),
+                                                step=0.007, nder=2, npts=7)
+    print(en_df2.round(10)/2.)
+    print(numpy.diag(alpha).round(10))
+
+    from numpy.testing import assert_almost_equal
+
+    assert_almost_equal(numpy.diag(alpha), -en_df2/2., decimal=9)
 
     # Build the orbital Hessian w/ RPA formula
     from . import rpa
@@ -143,8 +174,6 @@ def main():
     a_orb_rpa = rpa.diagonal_orbital_hessian(g[o, v, o, v], f[o, o], f[v, v])
 
     # Test derivatives
-    from numpy.testing import assert_almost_equal
-
     t1 = numpy.zeros((nocc, norb-nocc))
     en_orb = ohf.electronic_energy_functional(norb=norb, nocc=nocc,
                                               h_aso=h_aso, g_aso=g_aso, c=c)
@@ -152,7 +181,7 @@ def main():
     en_dorb = numpy.ravel(fermitools.math.central_difference(en_orb, t1,
                                                              step=0.05,
                                                              nder=1,
-                                                             npts=23))
+                                                             npts=9))
     print(en_dorb.round(10))
 
     assert_almost_equal(en_dorb, 0., decimal=10)
@@ -160,10 +189,10 @@ def main():
     en_dorb2 = numpy.ravel(fermitools.math.central_difference(en_orb, t1,
                                                               step=0.05,
                                                               nder=2,
-                                                              npts=23))
+                                                              npts=9))
     print("Orbital Hessian:")
-    print((numpy.diag(a_orb) - en_dorb2 / 2.).round(10))
-    print((numpy.diag(a_orb_rpa) - en_dorb2 / 2.).round(10))
+    print((numpy.diag(a_orb) - en_dorb2 / 2.).round(9))
+    print((numpy.diag(a_orb_rpa) - en_dorb2 / 2.).round(9))
 
     assert_almost_equal(numpy.diag(a_orb), en_dorb2 / 2., decimal=10)
     assert_almost_equal(numpy.diag(a_orb_rpa), en_dorb2 / 2., decimal=10)
