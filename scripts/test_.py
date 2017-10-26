@@ -18,9 +18,9 @@ def test__cepa0():
     scripts.cepa0.main()
 
 
-def test__ohf():
-    import scripts.ohf
-    scripts.ohf.main()
+def test__scf():
+    import scripts.scf
+    scripts.scf.main()
 
 
 def test__omp2():
@@ -48,6 +48,6 @@ def test__rpa():
     scripts.rpa.main()
 
 
-def test__lrohf():
-    import scripts.lrohf
-    scripts.lrohf.main()
+def test__lr_scf():
+    import scripts.lr_scf
+    scripts.lr_scf.main()

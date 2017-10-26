@@ -237,7 +237,8 @@ def main():
                                   niter=200, e_thresh=1e-14, r_thresh=1e-12,
                                   print_conv=True)
     en_tot = en_elec + en_nuc
-    print(en_tot)
+    print("Total energy:")
+    print('{:20.15f}'.format(en_tot))
 
     # Evaluate dipole moment as expectation value
     p = fermitools.math.transform(p_aso, {1: c, 2: c})
@@ -253,11 +254,9 @@ def main():
                                      r_thresh=1e-9, print_conv=True)
     en_df = fermitools.math.central_difference(en_f, (0., 0., 0.),
                                                step=0.002, npts=9)
-
+    print("Compare dE/df to <Psi|mu|Psi>:")
     print(en_df.round(10))
     print(mu.round(10))
-
-    print('{:20.15f}'.format(en_tot))
 
     from numpy.testing import assert_almost_equal
     assert_almost_equal(en_tot, -74.71451994543345, decimal=10)

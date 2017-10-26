@@ -209,7 +209,8 @@ def main():
                                          e_thresh=1e-14, r_thresh=1e-12,
                                          print_conv=True)
     en_tot = en_elec + en_nuc
-    print(en_tot)
+    print("Total energy:")
+    print('{:20.15f}'.format(en_tot))
 
     # Build the diagonal orbital and amplitude Hessian
     o = slice(None, nocc)
@@ -253,7 +254,8 @@ def main():
                                             print_conv=True)
     en_df2 = fermitools.math.central_difference(en_f, (0., 0., 0.),
                                                 step=0.007, nder=2, npts=7)
-    print(en_df2.round(10))
+    print("Compare d2E/df2 to <<mu; mu>>_0:")
+    print(en_df2.round(10)/2.)
     print(numpy.diag(alpha).round(10))
 
     from numpy.testing import assert_almost_equal
@@ -281,7 +283,10 @@ def main():
                                                              step=0.05,
                                                              nder=1,
                                                              npts=9))
+    print("Numerical orbital gradient:")
     print(en_dorb.round(9))
+
+    print("Numerical amplitude gradient:")
     print(en_damp.round(9))
 
     assert_almost_equal(en_dorb, 0., decimal=10)
@@ -297,11 +302,23 @@ def main():
                                                               nder=2,
                                                               npts=9))
 
-    print("Orbital Hessian:")
-    print((numpy.diag(a_orb) - en_dorb2 / 2.).round(9))
+    print("Numerical orbital Hessian diagonal:")
+    print(en_dorb2)
 
-    print("Amplitude Hessian:")
-    print((numpy.diag(a_amp) - en_damp2 / 2.).round(9))
+    print("A_orb diagonal:")
+    print(numpy.diag(a_orb).round(9))
+
+    print("Ratio:")
+    print(numpy.diag(a_orb) / en_dorb2)
+
+    print("Numerical amplitude Hessian diagonal:")
+    print(en_damp2)
+
+    print("A_amp diagonal:")
+    print(numpy.diag(a_amp).round(9))
+
+    print("Ratio:")
+    print(numpy.diag(a_amp) / en_damp2)
 
 
 if __name__ == '__main__':
