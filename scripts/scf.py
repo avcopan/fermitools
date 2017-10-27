@@ -42,6 +42,44 @@ def electronic_energy(h, g, m1, m2):
     return numpy.vdot(h, m1) + 1. / 4 * numpy.vdot(g, m2)
 
 
+def energy_functional(norb, nocc, h_aso, g_aso, c):
+    o = slice(None, nocc)
+    v = slice(nocc, None)
+    no = nocc
+    nv = norb - nocc
+
+    m1 = singles_density(norb=norb, nocc=nocc)
+    m2 = doubles_density(m1)
+
+    def _energy(t1_flat):
+        t1 = numpy.reshape(t1_flat, (no, nv))
+        gen = numpy.zeros((norb, norb))
+        gen[o, v] = t1
+        gen[v, o] = -numpy.transpose(t1)
+        u = spla.expm(gen)
+        ct = numpy.dot(c, u)
+
+        h = fermitools.math.transform(h_aso, {0: ct, 1: ct})
+        g = fermitools.math.transform(g_aso, {0: ct, 1: ct, 2: ct, 3: ct})
+
+        return electronic_energy(h, g, m1, m2)
+
+    return _energy
+
+
+def orbital_gradient_functional(norb, nocc, h_aso, g_aso, c, step=0.05,
+                                npts=9):
+    en_func = energy_functional(norb, nocc, h_aso, g_aso, c)
+
+    def _orbital_gradient(t1_flat):
+        en_dx = fermitools.math.central_difference(en_func, t1_flat,
+                                                   step=step, nder=1,
+                                                   npts=npts)
+        return en_dx
+
+    return _orbital_gradient
+
+
 def electronic_energy_functional(norb, nocc, h_aso, g_aso, c):
     o = slice(None, nocc)
     v = slice(nocc, None)
