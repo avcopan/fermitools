@@ -2,7 +2,7 @@ import numpy
 import scipy.misc
 
 
-def central_difference(f, x, step=0.005, nder=1, npts=None):
+def central_difference(f, x, step=0.01, nder=1, npts=None):
     """differentiate a function using central differences
 
     :param f: the function
