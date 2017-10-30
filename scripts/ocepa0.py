@@ -215,6 +215,47 @@ def orbital_hessian_functional(norb, nocc, h_aso, g_aso, c, step=0.05, npts=9):
     return _orbital_hessian
 
 
+def mixed_hessian_functional(norb, nocc, h_aso, g_aso, c, step=0.05, npts=9):
+    en_dx_func = orbital_gradient_functional(norb, nocc, h_aso, g_aso, c,
+                                             step=step, npts=npts)
+
+    def _mixed_hessian(t1_flat, t2_flat):
+        en_dtdx = fermitools.math.central_difference(
+                    functools.partial(en_dx_func, t1_flat), t2_flat, step=step,
+                    nder=1, npts=npts)
+        return en_dtdx
+
+    return _mixed_hessian
+
+
+def mixed_hessian_transp_functional(norb, nocc, h_aso, g_aso, c, step=0.05,
+                                    npts=9):
+    en_dt_func = amplitude_gradient_functional(norb, nocc, h_aso, g_aso, c,
+                                               step=step, npts=npts)
+
+    def _mixed_hessian(t1_flat, t2_flat):
+        en_dxdt = fermitools.math.central_difference(
+                    functools.partial(en_dt_func, t2_flat=t2_flat), t1_flat,
+                    step=step, nder=1, npts=npts)
+        return en_dxdt
+
+    return _mixed_hessian
+
+
+def amplitude_hessian_functional(norb, nocc, h_aso, g_aso, c, step=0.05,
+                                 npts=9):
+    en_dt_func = amplitude_gradient_functional(norb, nocc, h_aso, g_aso, c,
+                                               step=step, npts=npts)
+
+    def _amplitude_hessian(t1_flat, t2_flat):
+        en_dtdt = fermitools.math.central_difference(
+                    functools.partial(en_dt_func, t1_flat), t2_flat, step=step,
+                    nder=1, npts=npts)
+        return en_dtdt
+
+    return _amplitude_hessian
+
+
 def electronic_energy_functional(norb, nocc, h_aso, g_aso, c):
     o = slice(None, nocc)
     v = slice(nocc, None)

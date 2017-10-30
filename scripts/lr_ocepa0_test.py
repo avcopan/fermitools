@@ -243,19 +243,70 @@ def main():
     en_dxdx_func = ocepa0.orbital_hessian_functional(norb=norb, nocc=nocc,
                                                      h_aso=h_aso, g_aso=g_aso,
                                                      c=c, npts=11)
+    en_dtdx_func = ocepa0.mixed_hessian_functional(norb=norb, nocc=nocc,
+                                                   h_aso=h_aso, g_aso=g_aso,
+                                                   c=c, npts=11)
+    en_dxdt_func = ocepa0.mixed_hessian_transp_functional(norb=norb,
+                                                          nocc=nocc,
+                                                          h_aso=h_aso,
+                                                          g_aso=g_aso,
+                                                          c=c, npts=11)
+    en_dtdt_func = ocepa0.amplitude_hessian_functional(norb=norb, nocc=nocc,
+                                                       h_aso=h_aso,
+                                                       g_aso=g_aso,
+                                                       c=c, npts=11)
 
     def generate_orbital_hessian():
         en_dxdx = en_dxdx_func(x, t)
         numpy.save(os.path.join(data_path, 'lr_ocepa0/en_dxdx.npy'), en_dxdx)
 
-    # generate_orbital_hessian()
-    en_dxdx = numpy.load(os.path.join(data_path, 'lr_ocepa0/en_dxdx.npy'))
+    def generate_mixed_hessian():
+        en_dtdx = en_dtdx_func(x, t)
+        numpy.save(os.path.join(data_path, 'lr_ocepa0/en_dtdx.npy'), en_dtdx)
 
+    def generate_mixed_hessian_transp():
+        en_dxdt = en_dxdt_func(x, t)
+        numpy.save(os.path.join(data_path, 'lr_ocepa0/en_dxdt.npy'), en_dxdt)
+
+    def generate_amplitude_hessian():
+        en_dtdt = en_dtdt_func(x, t)
+        numpy.save(os.path.join(data_path, 'lr_ocepa0/en_dtdt.npy'), en_dtdt)
+
+    print("Numerical Hessian calculations ...")
+    generate_orbital_hessian()
+    print("... orbital Hessian finished")
+    generate_mixed_hessian()
+    print("... mixed Hessian finished")
+    generate_mixed_hessian_transp()
+    print("... transposed mixed Hessian finished")
+    generate_amplitude_hessian()
+    print("... amplitude Hessian finished")
+
+    en_dxdx = numpy.load(os.path.join(data_path, 'lr_ocepa0/en_dxdx.npy'))
+    en_dtdx = numpy.load(os.path.join(data_path, 'lr_ocepa0/en_dtdx.npy'))
+    en_dxdt = numpy.load(os.path.join(data_path, 'lr_ocepa0/en_dxdt.npy'))
+    en_dtdt = numpy.load(os.path.join(data_path, 'lr_ocepa0/en_dtdt.npy'))
+
+    print("Checking orbital Hessian:")
+    print(spla.norm(en_dxdx - 2*(a_orb + b_orb)))
+    print("Checking mixed Hessian:")
+    print(spla.norm(en_dtdx - 2*(a_mix + b_mix)))
+    print("Checking transposed mixed Hessian:")
+    print(spla.norm(en_dxdt - 2*numpy.transpose(a_mix + b_mix)))
+    print("Checking amplitude Hessian:")
+    print(spla.norm(en_dtdt - 2*(a_amp + b_amp)))
+
+    print("Orbital Hessian diagonal elements:")
     print(numpy.diag(en_dxdx).round(9))
     print(numpy.diag(a_orb + b_orb).round(9))
     print((numpy.diag(a_orb + b_orb) / numpy.diag(en_dxdx)).round(9))
     print((en_dxdx - 2*(a_orb + b_orb)).round(8))
-    print(spla.norm(en_dxdx - 2*(a_orb + b_orb)))
+
+    print("Amplitude Hessian diagonal elements:")
+    print(numpy.diag(en_dtdt).round(9))
+    print(numpy.diag(a_amp + b_amp).round(9))
+    print((numpy.diag(a_amp + b_amp) / numpy.diag(en_dtdt)).round(9))
+    print((en_dtdt - 2*(a_amp + b_amp)).round(8))
 
     '''
     t1 = numpy.zeros((no, nv))
