@@ -1,5 +1,6 @@
 import numpy
 import scipy.linalg as spla
+import functools
 
 import warnings
 
@@ -139,6 +140,79 @@ def solve_ocepa0(norb, nocc, h_aso, g_aso, c_guess, t2_guess, niter=50,
               .format(en_elec, iteration, en_change, r_norm))
 
     return en_elec, c, t2
+
+
+def energy_functional(norb, nocc, h_aso, g_aso, c):
+    o = slice(None, nocc)
+    v = slice(nocc, None)
+    no = nocc
+    nv = norb - nocc
+    noo = no * (no - 1) // 2
+    nvv = nv * (nv - 1) // 2
+
+    m1_ref = singles_reference_density(norb=norb, nocc=nocc)
+
+    def _electronic_energy(t1_flat, t2_flat):
+        t1 = numpy.reshape(t1_flat, (no, nv))
+        t2_mat = numpy.reshape(t2_flat, (noo, nvv))
+        t2 = fermitools.math.asym.unravel_compound_index(t2_mat, {0: (0, 1),
+                                                                  1: (2, 3)})
+        gen = numpy.zeros((norb, norb))
+        gen[o, v] = t1
+        gen[v, o] = -numpy.transpose(t1)
+        u = spla.expm(gen)
+        ct = numpy.dot(c, u)
+
+        h = fermitools.math.transform(h_aso, {0: ct, 1: ct})
+        g = fermitools.math.transform(g_aso, {0: ct, 1: ct, 2: ct, 3: ct})
+
+        m1_cor = singles_correlation_density(t2)
+        m1 = m1_ref + m1_cor
+        k2 = doubles_cumulant(t2)
+        m2 = doubles_density(m1_ref, m1_cor, k2)
+
+        return electronic_energy(h, g, m1, m2)
+
+    return _electronic_energy
+
+
+def orbital_gradient_functional(norb, nocc, h_aso, g_aso, c, step=0.05,
+                                npts=9):
+    en_func = energy_functional(norb, nocc, h_aso, g_aso, c)
+
+    def _orbital_gradient(t1_flat, t2_flat):
+        en_dx = fermitools.math.central_difference(
+                    functools.partial(en_func, t2_flat=t2_flat), t1_flat,
+                    step=step, nder=1, npts=npts)
+        return en_dx
+
+    return _orbital_gradient
+
+
+def amplitude_gradient_functional(norb, nocc, h_aso, g_aso, c, step=0.05,
+                                  npts=9):
+    en_func = energy_functional(norb, nocc, h_aso, g_aso, c)
+
+    def _amplitude_gradient(t1_flat, t2_flat):
+        en_dt = fermitools.math.central_difference(
+                    functools.partial(en_func, t1_flat), t2_flat, step=step,
+                    nder=1, npts=npts)
+        return en_dt
+
+    return _amplitude_gradient
+
+
+def orbital_hessian_functional(norb, nocc, h_aso, g_aso, c, step=0.05, npts=9):
+    en_dx_func = orbital_gradient_functional(norb, nocc, h_aso, g_aso, c,
+                                             step=step, npts=npts)
+
+    def _orbital_hessian(t1_flat, t2_flat):
+        en_dxdx = fermitools.math.central_difference(
+                    functools.partial(en_dx_func, t2_flat=t2_flat), t1_flat,
+                    step=step, nder=1, npts=npts)
+        return en_dxdx
+
+    return _orbital_hessian
 
 
 def electronic_energy_functional(norb, nocc, h_aso, g_aso, c):

@@ -229,11 +229,36 @@ def main():
     # assert_almost_equal(numpy.diag(alpha), -en_df2, decimal=11)
 
     # Test the orbital and amplitude gradients
-    import functools
+    import os
 
-    t1 = numpy.zeros((nocc, norb-nocc))
-    t2_flat = numpy.ravel(
-            fermitools.math.asym.compound_index(t2, {0: (0, 1), 1: (2, 3)}))
+    data_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                             'data')
+    no = nocc
+    nv = norb - nocc
+
+    x = numpy.zeros(no * nv)
+    t = numpy.ravel(fermitools.math.asym.compound_index(t2, {0: (0, 1),
+                                                             1: (2, 3)}))
+
+    en_dxdx_func = ocepa0.orbital_hessian_functional(norb=norb, nocc=nocc,
+                                                     h_aso=h_aso, g_aso=g_aso,
+                                                     c=c, npts=11)
+
+    def generate_orbital_hessian():
+        en_dxdx = en_dxdx_func(x, t)
+        numpy.save(os.path.join(data_path, 'lr_ocepa0/en_dxdx.npy'), en_dxdx)
+
+    # generate_orbital_hessian()
+    en_dxdx = numpy.load(os.path.join(data_path, 'lr_ocepa0/en_dxdx.npy'))
+
+    print(numpy.diag(en_dxdx).round(9))
+    print(numpy.diag(a_orb + b_orb).round(9))
+    print((numpy.diag(a_orb + b_orb) / numpy.diag(en_dxdx)).round(9))
+    print((en_dxdx - 2*(a_orb + b_orb)).round(8))
+    print(spla.norm(en_dxdx - 2*(a_orb + b_orb)))
+
+    '''
+    t1 = numpy.zeros((no, nv))
     en_func = ocepa0.electronic_energy_functional(norb=norb, nocc=nocc,
                                                   h_aso=h_aso, g_aso=g_aso,
                                                   c=c)
@@ -264,6 +289,7 @@ def main():
 
     print("Ratio:")
     print(numpy.diag(a_amp + b_amp) / numpy.ravel(en_dt2))
+    '''
 
 
 if __name__ == '__main__':

@@ -80,6 +80,20 @@ def orbital_gradient_functional(norb, nocc, h_aso, g_aso, c, step=0.05,
     return _orbital_gradient
 
 
+def orbital_hessian_functional(norb, nocc, h_aso, g_aso, c, step=0.05,
+                               npts=9):
+    en_dx_func = orbital_gradient_functional(norb, nocc, h_aso, g_aso, c,
+                                             step=step, npts=npts)
+
+    def _orbital_hessian(t1_flat):
+        en_dxdx = fermitools.math.central_difference(en_dx_func, t1_flat,
+                                                     step=step, nder=1,
+                                                     npts=npts)
+        return en_dxdx
+
+    return _orbital_hessian
+
+
 def electronic_energy_functional(norb, nocc, h_aso, g_aso, c):
     o = slice(None, nocc)
     v = slice(nocc, None)

@@ -153,28 +153,20 @@ def main():
 
     no = nocc
     nv = norb - nocc
-    x0 = numpy.zeros(no * nv)
+    x = numpy.zeros(no * nv)
 
     data_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                              'data')
 
-    en_func = scf.energy_functional(norb=norb, nocc=nocc, h_aso=h_aso,
-                                    g_aso=g_aso, c=c)
-    en_dx2 = fermitools.math.central_difference(en_func, x0, step=0.05, nder=2,
-                                                npts=11)
-    print(en_dx2.round(9))
+    en_dxdx_func = scf.orbital_hessian_functional(norb=norb, nocc=nocc,
+                                                  h_aso=h_aso, g_aso=g_aso,
+                                                  c=c, step=0.05, npts=11)
 
-    def regenerate_orbital_hessian(norb, nocc, h_aso, g_aso, c, step=0.05,
-                                   npts=11):
-        en_dx_func = scf.orbital_gradient_functional(norb=norb, nocc=nocc,
-                                                     h_aso=h_aso, g_aso=g_aso,
-                                                     c=c, step=0.05, npts=9)
-        en_dxdx = fermitools.math.central_difference(en_dx_func, x0, step=0.05,
-                                                     nder=1, npts=11)
+    def generate_orbital_hessian():
+        en_dxdx = en_dxdx_func(x)
         numpy.save(os.path.join(data_path, 'lr_scf/en_dxdx.npy'), en_dxdx)
 
-    # Include the following line to regenerate the Hessian:
-    # regenerate_orbital_hessian(norb, nocc, h_aso, g_aso, c, 0.05, 11)
+    # generate_orbital_hessian()
     en_dxdx = numpy.load(os.path.join(data_path, 'lr_scf/en_dxdx.npy'))
 
     print(numpy.diag(en_dxdx).round(9))
