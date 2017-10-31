@@ -10,10 +10,12 @@ from fermitools.math.asym import antisymmetrizer_product as asym
 import interfaces.psi4 as interface
 
 
-def fock(hoo, hvv, goooo, govov):
+def fock(hoo, hov, hvv, goooo, gooov, govov):
     foo = hoo + numpy.trace(goooo, axis1=0, axis2=2)
+    fov = hov + numpy.trace(gooov, axis1=0, axis2=2)
+    fvo = numpy.transpose(fov)
     fvv = hvv + numpy.trace(govov, axis1=0, axis2=2)
-    return spla.block_diag(foo, fvv)
+    return numpy.bmat([[foo, fov], [fvo, fvv]])
 
 
 def doubles_numerator(goooo, goovv, govov, gvvvv, foo, fvv, t2):
@@ -99,7 +101,8 @@ def solve_ocepa0(norb, nocc, h_aso, g_aso, c_guess, t2_guess, niter=50,
     for iteration in range(niter):
         h = fermitools.math.transform(h_aso, {0: c, 1: c})
         g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
-        f = fock(h[o, o], h[v, v], g[o, o, o, o], g[o, v, o, v])
+        f = fock(h[o, o], h[o, v], h[v, v], g[o, o, o, o], g[o, o, o, v],
+                 g[o, v, o, v])
 
         e = numpy.diagonal(f)
         e2 = fermitools.math.broadcast_sum({0: +e[o], 1: +e[o],

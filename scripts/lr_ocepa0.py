@@ -218,7 +218,8 @@ def main():
     h = fermitools.math.transform(h_aso, {0: c, 1: c})
     p = fermitools.math.transform(p_aso, {1: c, 2: c})
     g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
-    f = ocepa0.fock(h[o, o], h[v, v], g[o, o, o, o], g[o, v, o, v])
+    f = ocepa0.fock(h[o, o], h[o, v], h[v, v], g[o, o, o, o], g[o, o, o, v],
+                    g[o, v, o, v])
     m1_ref = ocepa0.singles_reference_density(norb=norb, nocc=nocc)
     m1_cor = ocepa0.singles_correlation_density(t2)
     m1 = m1_ref + m1_cor
