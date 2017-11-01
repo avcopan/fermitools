@@ -10,23 +10,16 @@ from . import scf
 def second_order_orbital_variation_tensor(h, g, m1, m2):
     i = numpy.eye(*h.shape)
     fc = scf.first_order_orbital_variation_matrix(h, g, m1, m2)
-    a = (+ numpy.einsum('uv,tw->tuvw', i, fc + fc.T) / 2.
-         + numpy.einsum('tw,uv->tuvw', i, fc + fc.T) / 2.
-         - numpy.einsum('tv,uw->tuvw', i, fc + fc.T) / 2.
-         - numpy.einsum('uw,vt->tuvw', i, fc + fc.T) / 2.
-         + numpy.einsum('tv,wu->tuvw', h, m1)
-         - numpy.einsum('uv,wt->tuvw', h, m1)
-         - numpy.einsum('tw,vu->tuvw', h, m1)
-         + numpy.einsum('uw,vt->tuvw', h, m1)
-         + numpy.einsum('pqvt,pqwu->tuvw', g, m2) / 2.
-         - numpy.einsum('pqvu,pqwt->tuvw', g, m2) / 2.
-         - numpy.einsum('pqwt,pqvu->tuvw', g, m2) / 2.
-         + numpy.einsum('pqwu,pqvt->tuvw', g, m2) / 2.
-         + numpy.einsum('pvqt,pwqu->tuvw', g, m2)
-         - numpy.einsum('pvqu,pwqt->tuvw', g, m2)
-         - numpy.einsum('pwqt,pvqu->tuvw', g, m2)
-         + numpy.einsum('pwqu,pvqt->tuvw', g, m2))
-    return a
+    fcs = (fc + numpy.transpose(fc)) / 2.
+    hc = (+ numpy.einsum('pr,qs->pqrs', h, m1)
+          + numpy.einsum('pr,qs->pqrs', m1, h)
+          - numpy.einsum('pr,qs->pqrs', i, fcs)
+          - numpy.einsum('pr,qs->pqrs', fcs, i)
+          + numpy.einsum('pxry,qxsy->pqrs', g, m2)
+          + numpy.einsum('pxry,qxsy->pqrs', m2, g)
+          - 1./2. * numpy.einsum('psxy,qrxy->pqrs', g, m2)
+          - 1./2. * numpy.einsum('psxy,qrxy->pqrs', m2, g))
+    return hc
 
 
 def diagonal_orbital_hessian(nocc, norb, h, g, m1, m2):
@@ -45,7 +38,7 @@ def offdiagonal_orbital_hessian(nocc, norb, h, g, m1, m2):
     no = nocc
     nv = norb - nocc
     h = second_order_orbital_variation_tensor(h, g, m1, m2)
-    b = numpy.transpose(-h[o, v, v, o], (0, 1, 3, 2))
+    b = -numpy.transpose(h[o, v, v, o], (0, 1, 3, 2))
     return numpy.reshape(b, (no * nv, no * nv))
 
 
@@ -92,8 +85,8 @@ def tamm_dancoff_spectrum(a):
 
 
 def main():
-    CHARGE = +1
-    SPIN = 1
+    CHARGE = 0
+    SPIN = 0
     BASIS = 'sto-3g'
     LABELS = ('O', 'H', 'H')
     COORDS = ((0.000000000000,  0.000000000000, -0.143225816552),
@@ -109,11 +102,9 @@ def main():
     nbf = interface.integrals.nbf(BASIS, LABELS)
     norb = 2 * nbf
     h_ao = interface.integrals.core_hamiltonian(BASIS, LABELS, COORDS)
-    p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
     r_ao = interface.integrals.repulsion(BASIS, LABELS, COORDS)
 
     h_aso = fermitools.math.spinorb.expand(h_ao, brakets=((0, 1),))
-    p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
     r_aso = fermitools.math.spinorb.expand(r_ao, brakets=((0, 2), (1, 3)))
     g_aso = r_aso - numpy.transpose(r_aso, (0, 1, 3, 2))
 
@@ -128,85 +119,92 @@ def main():
     en_nuc = fermitools.chem.nuc.energy(labels=LABELS, coords=COORDS)
     en_elec, c = scf.solve_scf(norb=norb, nocc=nocc, h_aso=h_aso, g_aso=g_aso,
                                c_guess=c, niter=200, e_thresh=1e-14,
-                               r_thresh=1e-11, print_conv=200)
+                               r_thresh=1e-12, print_conv=200)
     en_tot = en_elec + en_nuc
     print("Total energy:")
     print('{:20.15f}'.format(en_tot))
 
     # Evalute the dipole polarizability as a linear response function
     h = fermitools.math.transform(h_aso, {0: c, 1: c})
-    p = fermitools.math.transform(p_aso, {1: c, 2: c})
     g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
     m1 = scf.singles_density(norb=norb, nocc=nocc)
     m2 = scf.doubles_density(m1)
     a_orb = diagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
     b_orb = offdiagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
 
+    w_rpa = spectrum(a_orb, b_orb)
+
+    from numpy.testing import assert_almost_equal
+    w_rpa_ref = [0.2851637170, 0.2851637170, 0.2851637170, 0.2997434467,
+                 0.2997434467, 0.2997434467, 0.3526266606, 0.3526266606,
+                 0.3526266606, 0.3547782530, 0.3651313107, 0.3651313107,
+                 0.3651313107, 0.4153174946, 0.5001011401, 0.5106610509,
+                 0.5106610509, 0.5106610509, 0.5460719086, 0.5460719086,
+                 0.5460719086, 0.5513718846, 0.6502707118, 0.8734253708,
+                 1.1038187957, 1.1038187957, 1.1038187957, 1.1957870714,
+                 1.1957870714, 1.1957870714, 1.2832053178, 1.3237421886,
+                 19.9585040647, 19.9585040647, 19.9585040647, 20.0109471551,
+                 20.0113074586, 20.0113074586, 20.0113074586, 20.0504919449]
+
+    assert_almost_equal(w_rpa, w_rpa_ref, decimal=10)
+
+    # Test derivatives
+    import os
+
+    no = nocc
+    nv = norb - nocc
+    x = numpy.zeros(no * nv)
+
+    data_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                             'data')
+
+    en_dxdx_func = scf.orbital_hessian_functional(norb=norb, nocc=nocc,
+                                                  h_aso=h_aso, g_aso=g_aso,
+                                                  c=c, step=0.05, npts=11)
+
+    def generate_orbital_hessian():
+        en_dxdx = en_dxdx_func(x)
+        numpy.save(os.path.join(data_path, 'lr_scf/en_dxdx.npy'), en_dxdx)
+
+    # generate_orbital_hessian()
+    en_dxdx = numpy.load(os.path.join(data_path, 'lr_scf/en_dxdx.npy'))
+
+    print("Checking orbital Hessian:")
+    print((en_dxdx - 2*(a_orb + b_orb)).round(8))
+    print(spla.norm(en_dxdx - 2*(a_orb + b_orb)))
+
+    from numpy.testing import assert_almost_equal
+
+    assert_almost_equal(en_dxdx, 2*(a_orb + b_orb), decimal=9)
+
+    # Evaluate dipole polarizability using linear response theory
+    p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
+    p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
+    p = fermitools.math.transform(p_aso, {1: c, 2: c})
+
     o = slice(None, nocc)
     v = slice(nocc, None)
-    t_orb = numpy.transpose(
-        [orbital_property_gradient(o, v, px, m1) for px in p])
-
+    t_orb = numpy.transpose([
+        orbital_property_gradient(o, v, px, m1) for px in p])
     r_orb = static_response_vector(a_orb, b_orb, t_orb)
     alpha = static_linear_response_function(t_orb, r_orb)
 
     # Evaluate dipole polarizability as energy derivative
-    en_f = scf.perturbed_energy_function(norb=norb, nocc=nocc, h_aso=h_aso,
-                                         p_aso=p_aso, g_aso=g_aso,
-                                         c_guess=c, niter=200,
-                                         e_thresh=1e-14, r_thresh=1e-11,
-                                         print_conv=True)
-    en_df2 = fermitools.math.central_difference(en_f, (0., 0., 0.),
-                                                step=0.007, nder=2, npts=7)
-
+    en_f_func = scf.perturbed_energy_function(norb=norb, nocc=nocc,
+                                              h_aso=h_aso, p_aso=p_aso,
+                                              g_aso=g_aso, c_guess=c,
+                                              niter=200, e_thresh=1e-14,
+                                              r_thresh=1e-12, print_conv=True)
+    en_df2 = fermitools.math.central_difference(en_f_func, [0., 0., 0.],
+                                                step=0.01, nder=2, npts=9)
     print("Compare d2E/df2 to <<mu; mu>>_0:")
-    print(en_df2.round(10)/2.)
+    print(en_df2.round(10))
     print(numpy.diag(alpha).round(10))
+    print((numpy.diag(alpha) / en_df2))
 
     from numpy.testing import assert_almost_equal
 
-    assert_almost_equal(numpy.diag(alpha), -en_df2/2., decimal=9)
-
-    # Build the orbital Hessian w/ RPA formula
-    from . import rpa
-
-    o = slice(None, nocc)
-    v = slice(nocc, None)
-    no = nocc
-    nv = norb - nocc
-
-    f = scf.fock(h[o, o], h[v, v], g[o, o, o, o], g[o, v, o, v])
-    a_orb_rpa = rpa.diagonal_orbital_hessian(g[o, v, o, v], f[o, o], f[v, v])
-
-    # Test derivatives
-    t1 = numpy.zeros((nocc, norb-nocc))
-    en_orb = scf.electronic_energy_functional(norb=norb, nocc=nocc,
-                                              h_aso=h_aso, g_aso=g_aso, c=c)
-
-    en_dorb = fermitools.math.central_difference(en_orb, t1, step=0.05, nder=1,
-                                                 npts=9)
-    en_dorb = numpy.reshape(en_dorb, (no * nv,))
-
-    print("Numerical orbital gradient:")
-    print(en_dorb.round(9))
-
-    assert_almost_equal(en_dorb, 0., decimal=10)
-
-    en_dorb2 = fermitools.math.central_difference(en_orb, t1, step=0.05,
-                                                  nder=2, npts=9)
-    en_dorb2 = numpy.reshape(en_dorb2, (no * nv,))
-
-    print("Numerical orbital Hessian diagonal:")
-    print(en_dorb2)
-
-    print("A_orb diagonal:")
-    print(numpy.diag(a_orb).round(9))
-
-    print("Ratio:")
-    print(numpy.diag(a_orb) / en_dorb2)
-
-    assert_almost_equal(numpy.diag(a_orb), en_dorb2 / 2., decimal=10)
-    assert_almost_equal(numpy.diag(a_orb_rpa), en_dorb2 / 2., decimal=10)
+    assert_almost_equal(numpy.diag(alpha), -en_df2, decimal=9)
 
 
 if __name__ == '__main__':

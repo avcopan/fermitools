@@ -11,23 +11,16 @@ from . import ocepa0
 def second_order_orbital_variation_tensor(h, g, m1, m2):
     i = numpy.eye(*h.shape)
     fc = ocepa0.first_order_orbital_variation_matrix(h, g, m1, m2)
-    a = (+ numpy.einsum('uv,tw->tuvw', i, fc + fc.T) / 2.
-         + numpy.einsum('tw,uv->tuvw', i, fc + fc.T) / 2.
-         - numpy.einsum('tv,uw->tuvw', i, fc + fc.T) / 2.
-         - numpy.einsum('uw,vt->tuvw', i, fc + fc.T) / 2.
-         + numpy.einsum('tv,wu->tuvw', h, m1)
-         - numpy.einsum('uv,wt->tuvw', h, m1)
-         - numpy.einsum('tw,vu->tuvw', h, m1)
-         + numpy.einsum('uw,vt->tuvw', h, m1)
-         + numpy.einsum('pqvt,pqwu->tuvw', g, m2) / 2.
-         - numpy.einsum('pqvu,pqwt->tuvw', g, m2) / 2.
-         - numpy.einsum('pqwt,pqvu->tuvw', g, m2) / 2.
-         + numpy.einsum('pqwu,pqvt->tuvw', g, m2) / 2.
-         + numpy.einsum('pvqt,pwqu->tuvw', g, m2)
-         - numpy.einsum('pvqu,pwqt->tuvw', g, m2)
-         - numpy.einsum('pwqt,pvqu->tuvw', g, m2)
-         + numpy.einsum('pwqu,pvqt->tuvw', g, m2))
-    return a
+    fcs = (fc + numpy.transpose(fc)) / 2.
+    hc = (+ numpy.einsum('pr,qs->pqrs', h, m1)
+          + numpy.einsum('pr,qs->pqrs', m1, h)
+          - numpy.einsum('pr,qs->pqrs', i, fcs)
+          - numpy.einsum('pr,qs->pqrs', fcs, i)
+          + numpy.einsum('pxry,qxsy->pqrs', g, m2)
+          + numpy.einsum('pxry,qxsy->pqrs', m2, g)
+          - 1./2. * numpy.einsum('psxy,qrxy->pqrs', g, m2)
+          - 1./2. * numpy.einsum('psxy,qrxy->pqrs', m2, g))
+    return hc
 
 
 def diagonal_orbital_hessian(nocc, norb, h, g, m1, m2):
@@ -46,7 +39,7 @@ def offdiagonal_orbital_hessian(nocc, norb, h, g, m1, m2):
     no = nocc
     nv = norb - nocc
     h = second_order_orbital_variation_tensor(h, g, m1, m2)
-    b = numpy.transpose(-h[o, v, v, o], (0, 1, 3, 2))
+    b = -numpy.transpose(h[o, v, v, o], (0, 1, 3, 2))
     return numpy.reshape(b, (no * nv, no * nv))
 
 
@@ -70,7 +63,7 @@ def diagonal_amplitude_hessian(foo, fvv, goooo, govov, gvvvv):
     return numpy.reshape(a_cmp, (ndoubles, ndoubles))
 
 
-def diagonal_mixed_hessian(o, v, g, t2):
+def diagonal_mixed_hessian_old(o, v, g, t2):
     no, _, nv, _ = t2.shape
     nsingles = no * nv
     ndoubles = no * (no - 1) * nv * (nv - 1) // 4
@@ -96,7 +89,37 @@ def diagonal_mixed_hessian(o, v, g, t2):
     return numpy.reshape(a_cmp, (ndoubles, nsingles))
 
 
-def offdiagonal_mixed_hessian(o, v, g, t2):
+def diagonal_mixed_hessian(o, v, g, f, t2):
+    no, _, nv, _ = t2.shape
+    nsingles = no * nv
+    ndoubles = no * (no - 1) * nv * (nv - 1) // 4
+    io = numpy.eye(no)
+    iv = numpy.eye(nv)
+    a = (+ asym('0/1')(
+                numpy.einsum('miab,mc,jk->ijabkc', t2, f[o, v], io))
+         + asym('2/3')(
+                numpy.einsum('ijea,ke,bc->ijabkc', t2, f[o, v], iv))
+         - asym('2/3')(
+                numpy.einsum('ijea,kbce->ijabkc', t2, g[o, v, v, v]))
+         + asym('0/1')(
+                numpy.einsum('miab,kmcj->ijabkc', t2, g[o, o, v, o]))
+         + asym('0/1')(
+                numpy.einsum('abcj,ik->ijabkc', g[v, v, v, o], io))
+         - asym('2/3')(
+                numpy.einsum('kbij,ac->ijabkc', g[o, v, o, o], iv))
+         + 1./2 * asym('0/1')(
+                numpy.einsum('mnab,mncj,ik->ijabkc', t2, g[o, o, v, o], io))
+         - 1./2 * asym('2/3')(
+                numpy.einsum('ijef,kbef,ac->ijabkc', t2, g[o, v, v, v], iv))
+         + asym('0/1|2/3')(
+                numpy.einsum('miea,bmce,jk->ijabkc', t2, g[v, o, v, v], io))
+         - asym('0/1|2/3')(
+                numpy.einsum('miea,kmje,bc->ijabkc', t2, g[o, o, o, v], iv)))
+    a_cmp = fermitools.math.asym.compound_index(a, {0: (0, 1), 1: (2, 3)})
+    return numpy.reshape(a_cmp, (ndoubles, nsingles))
+
+
+def offdiagonal_mixed_hessian_old(o, v, g, t2):
     no, _, nv, _ = t2.shape
     nsingles = no * nv
     ndoubles = no * (no - 1) * nv * (nv - 1) // 4
@@ -110,6 +133,28 @@ def offdiagonal_mixed_hessian(o, v, g, t2):
                numpy.einsum('ikae,bcje->ijabkc', t2, g[v, v, o, v]))
          - asym('0/1|2/3')(
                numpy.einsum('imac,bmjk->ijabkc', t2, g[v, o, o, o])))
+    b_cmp = fermitools.math.asym.compound_index(b, {0: (0, 1), 1: (2, 3)})
+    return numpy.reshape(b_cmp, (ndoubles, nsingles))
+
+
+def offdiagonal_mixed_hessian(o, v, g, f, t2):
+    no, _, nv, _ = t2.shape
+    nsingles = no * nv
+    ndoubles = no * (no - 1) * nv * (nv - 1) // 4
+    b = (+ asym('0/1')(
+                numpy.einsum('kiab,cj->ijabkc', t2, f[v, o]))
+         + asym('2/3')(
+                numpy.einsum('ijca,bk->ijabkc', t2, f[v, o]))
+         - asym('2/3')(
+                numpy.einsum('ijea,cbke->ijabkc', t2, g[v, v, o, v]))
+         + asym('0/1')(
+                numpy.einsum('miab,cmkj->ijabkc', t2, g[v, o, o, o]))
+         + numpy.einsum('kmab,cmij->ijabkc', t2, g[v, o, o, o])
+         - numpy.einsum('ijce,abke->ijabkc', t2, g[v, v, o, v])
+         - asym('0/1|2/3')(
+                numpy.einsum('kiea,cbje->ijabkc', t2, g[v, v, o, v]))
+         + asym('0/1|2/3')(
+                numpy.einsum('mica,bmkj->ijabkc', t2, g[v, o, o, o])))
     b_cmp = fermitools.math.asym.compound_index(b, {0: (0, 1), 1: (2, 3)})
     return numpy.reshape(b_cmp, (ndoubles, nsingles))
 
@@ -184,11 +229,9 @@ def main():
     nbf = interface.integrals.nbf(BASIS, LABELS)
     norb = 2 * nbf
     h_ao = interface.integrals.core_hamiltonian(BASIS, LABELS, COORDS)
-    p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
     r_ao = interface.integrals.repulsion(BASIS, LABELS, COORDS)
 
     h_aso = fermitools.math.spinorb.expand(h_ao, brakets=((0, 1),))
-    p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
     r_aso = fermitools.math.spinorb.expand(r_ao, brakets=((0, 2), (1, 3)))
     g_aso = r_aso - numpy.transpose(r_aso, (0, 1, 3, 2))
 
@@ -216,7 +259,6 @@ def main():
     o = slice(None, nocc)
     v = slice(nocc, None)
     h = fermitools.math.transform(h_aso, {0: c, 1: c})
-    p = fermitools.math.transform(p_aso, {1: c, 2: c})
     g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
     f = ocepa0.fock(h[o, o], h[o, v], h[v, v], g[o, o, o, o], g[o, o, o, v],
                     g[o, v, o, v])
@@ -227,99 +269,91 @@ def main():
     m2 = ocepa0.doubles_density(m1_ref, m1_cor, k2)
 
     a_orb = diagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
-    a_mix = diagonal_mixed_hessian(o, v, g, t2)
+    a_mix = diagonal_mixed_hessian(o, v, g, f, t2)
     a_amp = diagonal_amplitude_hessian(f[o, o], f[v, v], g[o, o, o, o],
                                        g[o, v, o, v], g[v, v, v, v])
 
     b_orb = offdiagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
-    b_mix = offdiagonal_mixed_hessian(o, v, g, t2)
+    b_mix = offdiagonal_mixed_hessian(o, v, g, f, t2)
     b_amp = numpy.zeros_like(a_amp)
-
-    t_orb = numpy.transpose(
-        [orbital_property_gradient(o, v, px, m1) for px in p])
-    t_amp = numpy.transpose(
-        [amplitude_property_gradient(px[o, o], px[v, v], t2) for px in p])
-
-    a = numpy.bmat([[a_orb, a_mix.T], [a_mix, a_amp]])
-    b = numpy.bmat([[b_orb, b_mix.T], [b_mix, b_amp]])
-    t = numpy.bmat([[t_orb], [t_amp]])
-
-    r = static_response_vector(a, b, t)
-    alpha = static_linear_response_function(t, r)
-
-    # Evaluate dipole polarizability as energy derivative
-    en_f = ocepa0.perturbed_energy_function(norb=norb, nocc=nocc, h_aso=h_aso,
-                                            p_aso=p_aso, g_aso=g_aso,
-                                            c_guess=c, t2_guess=t2, niter=200,
-                                            e_thresh=1e-13, r_thresh=1e-9,
-                                            print_conv=True)
-    en_df2 = fermitools.math.central_difference(en_f, (0., 0., 0.),
-                                                step=0.007, nder=2, npts=7)
-    print("Compare d2E/df2 to <<mu; mu>>_0:")
-    print(en_df2.round(10)/2.)
-    print(numpy.diag(alpha).round(10))
 
     from numpy.testing import assert_almost_equal
 
     # assert_almost_equal(numpy.diag(alpha), -en_df2, decimal=11)
 
     # Test the orbital and amplitude gradients
-    import functools
+    import os
 
-    t1 = numpy.zeros((nocc, norb-nocc))
-    t2_flat = numpy.ravel(
-            fermitools.math.asym.compound_index(t2, {0: (0, 1), 1: (2, 3)}))
-    en_func = ocepa0.electronic_energy_functional(norb=norb, nocc=nocc,
-                                                  h_aso=h_aso, g_aso=g_aso,
-                                                  c=c)
+    data_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                             'data')
+    no = nocc
+    nv = norb - nocc
 
-    en_orb = functools.partial(en_func, t2_flat=t2_flat)
-    en_amp = functools.partial(en_func, t1)
+    x = numpy.zeros(no * nv)
+    t = numpy.ravel(fermitools.math.asym.compound_index(t2, {0: (0, 1),
+                                                             1: (2, 3)}))
 
-    en_dorb = numpy.ravel(fermitools.math.central_difference(en_orb, t1,
-                                                             step=0.05,
-                                                             nder=1,
-                                                             npts=9))
-    en_damp = numpy.ravel(fermitools.math.central_difference(en_amp, t2_flat,
-                                                             step=0.05,
-                                                             nder=1,
-                                                             npts=9))
-    print("Numerical orbital gradient:")
-    print(en_dorb.round(9))
+    en_dxdx_func = ocepa0.orbital_hessian_functional(norb=norb, nocc=nocc,
+                                                     h_aso=h_aso, g_aso=g_aso,
+                                                     c=c, npts=11)
+    en_dtdx_func = ocepa0.mixed_hessian_functional(norb=norb, nocc=nocc,
+                                                   h_aso=h_aso, g_aso=g_aso,
+                                                   c=c, npts=11)
+    en_dxdt_func = ocepa0.mixed_hessian_transp_functional(norb=norb,
+                                                          nocc=nocc,
+                                                          h_aso=h_aso,
+                                                          g_aso=g_aso,
+                                                          c=c, npts=11)
+    en_dtdt_func = ocepa0.amplitude_hessian_functional(norb=norb, nocc=nocc,
+                                                       h_aso=h_aso,
+                                                       g_aso=g_aso,
+                                                       c=c, npts=11)
 
-    print("Numerical amplitude gradient:")
-    print(en_damp.round(9))
+    def generate_orbital_hessian():
+        en_dxdx = en_dxdx_func(x, t)
+        numpy.save(os.path.join(data_path, 'lr_ocepa0/en_dxdx.npy'), en_dxdx)
 
-    assert_almost_equal(en_dorb, 0., decimal=10)
-    assert_almost_equal(en_damp, 0., decimal=10)
+    def generate_mixed_hessian():
+        en_dtdx = en_dtdx_func(x, t)
+        numpy.save(os.path.join(data_path, 'lr_ocepa0/en_dtdx.npy'), en_dtdx)
 
-    # Test the orbital and amplitude Hessians
-    en_dorb2 = numpy.ravel(fermitools.math.central_difference(en_orb, t1,
-                                                              step=0.05,
-                                                              nder=2,
-                                                              npts=9))
-    en_damp2 = numpy.ravel(fermitools.math.central_difference(en_amp, t2_flat,
-                                                              step=0.05,
-                                                              nder=2,
-                                                              npts=9))
+    def generate_mixed_hessian_transp():
+        en_dxdt = en_dxdt_func(x, t)
+        numpy.save(os.path.join(data_path, 'lr_ocepa0/en_dxdt.npy'), en_dxdt)
 
-    print("Numerical orbital Hessian diagonal:")
-    print(en_dorb2)
+    def generate_amplitude_hessian():
+        en_dtdt = en_dtdt_func(x, t)
+        numpy.save(os.path.join(data_path, 'lr_ocepa0/en_dtdt.npy'), en_dtdt)
 
-    print("A_orb diagonal:")
-    print(numpy.diag(a_orb).round(9))
+    # print("Numerical Hessian calculations ...")
+    # generate_orbital_hessian()
+    # print("... orbital Hessian finished")
+    # generate_mixed_hessian()
+    # print("... mixed Hessian finished")
+    # generate_mixed_hessian_transp()
+    # print("... transposed mixed Hessian finished")
+    # generate_amplitude_hessian()
+    # print("... amplitude Hessian finished")
 
-    print("Ratio:")
-    print(numpy.diag(a_orb) / en_dorb2)
+    en_dxdx = numpy.load(os.path.join(data_path, 'lr_ocepa0/en_dxdx.npy'))
+    en_dtdx = numpy.load(os.path.join(data_path, 'lr_ocepa0/en_dtdx.npy'))
+    en_dxdt = numpy.load(os.path.join(data_path, 'lr_ocepa0/en_dxdt.npy'))
+    # en_dtdt = numpy.load(os.path.join(data_path, 'lr_ocepa0/en_dtdt.npy'))
 
-    print("Numerical amplitude Hessian diagonal:")
-    print(en_damp2)
-
-    print("A_amp diagonal:")
-    print(numpy.diag(a_amp).round(9))
-
-    print("Ratio:")
-    print(numpy.diag(a_amp) / en_damp2)
+    print("Checking orbital Hessian:")
+    print((en_dxdx - 2*(a_orb + b_orb)).round(8))
+    print(spla.norm(en_dxdx - 2*(a_orb + b_orb)))
+    print("Checking mixed Hessian:")
+    print((en_dtdx - 2*(a_mix + b_mix)).round(8))
+    print(spla.norm(en_dtdx - 2*(a_mix + b_mix)))
+    print("Checking transposed mixed Hessian:")
+    print(en_dxdt.shape)
+    print((en_dxdt - 2*numpy.transpose(a_mix + b_mix)).round(8))
+    print(spla.norm(en_dxdt - 2*numpy.transpose(a_mix + b_mix)))
+    print(spla.norm(en_dxdt + 2*numpy.transpose(a_mix + b_mix)))
+    # print("Checking amplitude Hessian:")
+    # print((en_dtdt - 2*(a_amp + b_amp)).round(8))
+    # print(spla.norm(en_dtdt - 2*(a_amp + b_amp)))
 
 
 if __name__ == '__main__':

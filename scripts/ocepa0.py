@@ -301,7 +301,7 @@ def perturbed_energy_function(norb, nocc, h_aso, p_aso, g_aso, c_guess,
                               t2_guess, niter=50, e_thresh=1e-10,
                               r_thresh=1e-9, print_conv=False):
 
-    def electronic_energy(f=(0., 0., 0.)):
+    def _electronic_energy(f=(0., 0., 0.)):
         hp_aso = h_aso - numpy.tensordot(f, p_aso, axes=(0, 0))
         en_elec, c, t2 = solve_ocepa0(norb=norb, nocc=nocc, h_aso=hp_aso,
                                       g_aso=g_aso, c_guess=c_guess,
@@ -310,7 +310,7 @@ def perturbed_energy_function(norb, nocc, h_aso, p_aso, g_aso, c_guess,
                                       print_conv=print_conv)
         return en_elec
 
-    return electronic_energy
+    return _electronic_energy
 
 
 def main():
