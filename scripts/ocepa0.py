@@ -378,7 +378,7 @@ def main():
 
     from numpy.testing import assert_almost_equal
     assert_almost_equal(en_tot, -74.71451994543345, decimal=10)
-    assert_almost_equal(en_df, -mu, decimal=11)
+    assert_almost_equal(en_df, -mu, decimal=10)
 
 
 if __name__ == '__main__':

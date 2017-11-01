@@ -148,7 +148,7 @@ def _psi4_mints_object(basis, labels, coords):
     mol.reset_point_group("c1")
     mol.update_geometry()
 
-    basis_obj, _ = psi4.core.BasisSet.build(mol, 'BASIS', basis)
+    basis_obj = psi4.core.BasisSet.build(mol, 'BASIS', basis)
     mints_obj = psi4.core.MintsHelper(basis_obj)
 
     return mints_obj

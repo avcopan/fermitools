@@ -1,5 +1,5 @@
 import fermitools
-import interfaces.psi4 as interface
+import interfaces.pyscf as interface
 
 import numpy
 
