@@ -65,19 +65,19 @@ def main():
 
     en_dxdx_func = odc12.orbital_hessian_functional(norb=norb, nocc=nocc,
                                                     h_aso=h_aso, g_aso=g_aso,
-                                                    c=c, npts=11)
+                                                    c=c)
     en_dtdx_func = odc12.mixed_hessian_functional(norb=norb, nocc=nocc,
                                                   h_aso=h_aso, g_aso=g_aso,
-                                                  c=c, npts=11)
+                                                  c=c)
     en_dxdt_func = odc12.mixed_hessian_transp_functional(norb=norb,
                                                          nocc=nocc,
                                                          h_aso=h_aso,
                                                          g_aso=g_aso,
-                                                         c=c, npts=11)
+                                                         c=c)
     en_dtdt_func = odc12.amplitude_hessian_functional(norb=norb, nocc=nocc,
                                                       h_aso=h_aso,
                                                       g_aso=g_aso,
-                                                      c=c, npts=11)
+                                                      c=c)
 
     def generate_orbital_hessian():
         en_dxdx = en_dxdx_func(x, t)
@@ -99,15 +99,15 @@ def main():
         numpy.save(os.path.join(data_path, 'lr_odc12/neutral/en_dtdt.npy'),
                    en_dtdt)
 
-    print("Numerical Hessian calculations ...")
-    generate_orbital_hessian()
-    print("... orbital Hessian finished")
-    generate_mixed_hessian()
-    print("... mixed Hessian finished")
-    generate_mixed_hessian_transp()
-    print("... transposed mixed Hessian finished")
-    generate_amplitude_hessian()
-    print("... amplitude Hessian finished")
+    # print("Numerical Hessian calculations ...")
+    # generate_orbital_hessian()
+    # print("... orbital Hessian finished")
+    # generate_mixed_hessian()
+    # print("... mixed Hessian finished")
+    # generate_mixed_hessian_transp()
+    # print("... transposed mixed Hessian finished")
+    # generate_amplitude_hessian()
+    # print("... amplitude Hessian finished")
 
 
 if __name__ == '__main__':
