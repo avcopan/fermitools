@@ -201,9 +201,8 @@ def test__lr_ocepa0():
     v = slice(nocc, None)
     h = fermitools.math.transform(h_aso, {0: c, 1: c})
     g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
-    f = ocepa0.fock(h[o, o], h[o, v], h[v, v], g[o, o, o, o], g[o, o, o, v],
-                    g[o, v, o, v])
     m1_ref = ocepa0.singles_reference_density(norb=norb, nocc=nocc)
+    f = ocepa0.fock(h, g, m1_ref)
     m1_cor = ocepa0.singles_correlation_density(t2)
     m1 = m1_ref + m1_cor
     k2 = ocepa0.doubles_cumulant(t2)
@@ -320,9 +319,8 @@ def test__lr_ocepa0_neutral():
     v = slice(nocc, None)
     h = fermitools.math.transform(h_aso, {0: c, 1: c})
     g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
-    f = ocepa0.fock(h[o, o], h[o, v], h[v, v], g[o, o, o, o], g[o, o, o, v],
-                    g[o, v, o, v])
     m1_ref = ocepa0.singles_reference_density(norb=norb, nocc=nocc)
+    f = ocepa0.fock(h, g, m1_ref)
     m1_cor = ocepa0.singles_correlation_density(t2)
     m1 = m1_ref + m1_cor
     k2 = ocepa0.doubles_cumulant(t2)

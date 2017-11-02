@@ -10,12 +10,8 @@ from fermitools.math.asym import antisymmetrizer_product as asym
 import interfaces.psi4 as interface
 
 
-def fock(hoo, hov, hvv, goooo, gooov, govov):
-    foo = hoo + numpy.trace(goooo, axis1=0, axis2=2)
-    fov = hov + numpy.trace(gooov, axis1=0, axis2=2)
-    fvo = numpy.transpose(fov)
-    fvv = hvv + numpy.trace(govov, axis1=0, axis2=2)
-    return numpy.bmat([[foo, fov], [fvo, fvv]])
+def fock(h, g, m1_ref):
+    return h + numpy.tensordot(g, m1_ref, axes=((1, 3), (0, 1)))
 
 
 def doubles_numerator(goooo, goovv, govov, gvvvv, foo, fvv, t2):
@@ -101,8 +97,7 @@ def solve(norb, nocc, h_aso, g_aso, c_guess, t2_guess, niter=50,
     for iteration in range(niter):
         h = fermitools.math.transform(h_aso, {0: c, 1: c})
         g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
-        f = fock(h[o, o], h[o, v], h[v, v], g[o, o, o, o], g[o, o, o, v],
-                 g[o, v, o, v])
+        f = fock(h, g, m1_ref)
 
         e = numpy.diagonal(f)
         e2 = fermitools.math.broadcast_sum({0: +e[o], 1: +e[o],
