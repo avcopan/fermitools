@@ -10,8 +10,25 @@ from fermitools.math.asym import antisymmetrizer_product as asym
 import interfaces.psi4 as interface
 
 
-def fock(h, g, m1_ref):
-    return h + numpy.tensordot(g, m1_ref, axes=((1, 3), (0, 1)))
+def fock(h, g, m1):
+    return h + numpy.tensordot(g, m1, axes=((1, 3), (0, 1)))
+
+
+def fancy_fock(foo, fvv, m1oo, m1vv):
+    '''
+    Note that the f_ov and f_vo blocks are *not* zero.  We can only ignore them
+    because this intermediate is traced with the density matrix, which *is*
+    zero in those blocks.
+    '''
+    no, uo = spla.eigh(m1oo)
+    nv, uv = spla.eigh(m1vv)
+    n1oo = fermitools.math.broadcast_sum({0: no, 1: no}) - 1
+    n1vv = fermitools.math.broadcast_sum({0: nv, 1: nv}) - 1
+    tfoo = numpy.dot(uo.T, numpy.dot(foo, uo)) / n1oo
+    tfvv = numpy.dot(uv.T, numpy.dot(fvv, uv)) / n1vv
+    ffoo = numpy.dot(uo, numpy.dot(tfoo, uo.T))
+    ffvv = numpy.dot(uv, numpy.dot(tfvv, uv.T))
+    return spla.block_diag(ffoo, ffvv)
 
 
 def doubles_numerator(goooo, goovv, govov, gvvvv, foo, fvv, t2):
@@ -35,8 +52,12 @@ def singles_reference_density(norb, nocc):
 
 
 def singles_correlation_density(t2):
-    m1oo = - 1./2 * numpy.einsum('jkab,ikab->ij', t2, t2)
-    m1vv = + 1./2 * numpy.einsum('ijac,ijbc->ab', t2, t2)
+    doo = -1./2 * numpy.einsum('ikcd,jkcd->ij', t2, t2)
+    dvv = -1./2 * numpy.einsum('klac,klbc->ab', t2, t2)
+    ioo = numpy.eye(*doo.shape)
+    ivv = numpy.eye(*dvv.shape)
+    m1oo = -1./2 * ioo + spla.sqrtm(doo + 1./4 * ioo)
+    m1vv = +1./2 * ivv - spla.sqrtm(dvv + 1./4 * ivv)
     return spla.block_diag(m1oo, m1vv)
 
 
@@ -60,10 +81,8 @@ def doubles_cumulant(t2):
     return k2
 
 
-def doubles_density(m1_ref, m1_cor, k2):
-    m2 = (k2
-          + asym("0/1|2/3")(numpy.einsum('pr,qs->pqrs', m1_ref, m1_cor))
-          + asym("2/3")(numpy.einsum('pr,qs->pqrs', m1_ref, m1_ref)))
+def doubles_density(m1, k2):
+    m2 = k2 + asym("2/3")(numpy.einsum('pr,qs->pqrs', m1, m1))
     return m2
 
 
@@ -89,7 +108,7 @@ def solve(norb, nocc, h_aso, g_aso, c_guess, t2_guess, niter=50,
     v = slice(nocc, None)
 
     x1 = numpy.zeros((norb, norb))
-    m1_ref = singles_reference_density(norb=norb, nocc=nocc)
+    m1 = m1_ref = singles_reference_density(norb=norb, nocc=nocc)
 
     c = c_guess
     t2_last = t2_guess
@@ -97,20 +116,24 @@ def solve(norb, nocc, h_aso, g_aso, c_guess, t2_guess, niter=50,
     for iteration in range(niter):
         h = fermitools.math.transform(h_aso, {0: c, 1: c})
         g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
-        f = fock(h, g, m1_ref)
+        f = fock(h, g, m1)
+        ff = fancy_fock(f[o, o], f[v, v], m1[o, o], m1[v, v])
 
-        e = numpy.diagonal(f)
-        e2 = fermitools.math.broadcast_sum({0: +e[o], 1: +e[o],
-                                            2: -e[v], 3: -e[v]})
-        t2 = doubles_numerator(g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
-                               g[v, v, v, v], f[o, o], f[v, v], t2_last) / e2
-        r2 = (t2 - t2_last) * e2
+        ef = numpy.diagonal(ff)
+        ef2 = fermitools.math.broadcast_sum({0: +ef[o], 1: +ef[o],
+                                             2: +ef[v], 3: +ef[v]})
+        t2 = (doubles_numerator(g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
+                                g[v, v, v, v], +ff[o, o], -ff[v, v], t2_last)
+              / ef2)
+        r2 = (t2 - t2_last) * ef2
         t2_last = t2
         m1_cor = singles_correlation_density(t2)
         m1 = m1_ref + m1_cor
         k2 = doubles_cumulant(t2)
-        m2 = doubles_density(m1_ref, m1_cor, k2)
+        m2 = doubles_density(m1, k2)
 
+        f = fock(h, g, m1)
+        e = numpy.diagonal(f)
         r1 = orbital_gradient(o, v, h, g, m1, m2)
         e1 = fermitools.math.broadcast_sum({0: +e[o], 1: -e[v]})
         t1 = r1 / e1
@@ -313,6 +336,9 @@ def main():
     print("Total energy:")
     print('{:20.15f}'.format(en_tot))
 
+    from numpy.testing import assert_almost_equal
+    assert_almost_equal(en_tot, -74.713706346489928, decimal=10)
+
     # Evaluate dipole moment as expectation value
     p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
     p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
@@ -329,12 +355,11 @@ def main():
                                      r_thresh=1e-9, print_conv=True)
     en_df = fermitools.math.central_difference(en_f, (0., 0., 0.),
                                                step=0.002, npts=9)
+
+    # Compare the two
     print("Compare dE/df to <Psi|mu|Psi>:")
     print(en_df.round(10))
     print(mu.round(10))
-
-    from numpy.testing import assert_almost_equal
-    assert_almost_equal(en_tot, -74.71451994543345, decimal=10)
     assert_almost_equal(en_df, -mu, decimal=10)
 
 
