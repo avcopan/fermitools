@@ -338,7 +338,7 @@ def main():
     en_dxdx = numpy.load(os.path.join(data_path, 'lr_ocepa0/en_dxdx.npy'))
     en_dtdx = numpy.load(os.path.join(data_path, 'lr_ocepa0/en_dtdx.npy'))
     en_dxdt = numpy.load(os.path.join(data_path, 'lr_ocepa0/en_dxdt.npy'))
-    # en_dtdt = numpy.load(os.path.join(data_path, 'lr_ocepa0/en_dtdt.npy'))
+    en_dtdt = numpy.load(os.path.join(data_path, 'lr_ocepa0/en_dtdt.npy'))
 
     print("Checking orbital Hessian:")
     print((en_dxdx - 2*(a_orb + b_orb)).round(8))
@@ -351,9 +351,9 @@ def main():
     print((en_dxdt - 2*numpy.transpose(a_mix + b_mix)).round(8))
     print(spla.norm(en_dxdt - 2*numpy.transpose(a_mix + b_mix)))
     print(spla.norm(en_dxdt + 2*numpy.transpose(a_mix + b_mix)))
-    # print("Checking amplitude Hessian:")
-    # print((en_dtdt - 2*(a_amp + b_amp)).round(8))
-    # print(spla.norm(en_dtdt - 2*(a_amp + b_amp)))
+    print("Checking amplitude Hessian:")
+    print((en_dtdt - 2*(a_amp + b_amp)).round(8))
+    print(spla.norm(en_dtdt - 2*(a_amp + b_amp)))
 
 
 if __name__ == '__main__':
