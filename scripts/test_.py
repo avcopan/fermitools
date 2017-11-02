@@ -89,9 +89,9 @@ def test__lr_scf():
     c_unsrt = spla.block_diag(ac, bc)
     c = fermitools.math.spinorb.sort(c_unsrt, order=sortvec, axes=(1,))
 
-    en_elec, c = scf.solve_scf(norb=norb, nocc=nocc, h_aso=h_aso, g_aso=g_aso,
-                               c_guess=c, niter=200, e_thresh=1e-14,
-                               r_thresh=1e-12, print_conv=200)
+    en_elec, c = scf.solve(norb=norb, nocc=nocc, h_aso=h_aso, g_aso=g_aso,
+                           c_guess=c, niter=200, e_thresh=1e-14,
+                           r_thresh=1e-12, print_conv=200)
 
     # Evaluate the excitation energies by linear response theory
     h = fermitools.math.transform(h_aso, {0: c, 1: c})
@@ -190,11 +190,11 @@ def test__lr_ocepa0():
 
     # Solve OCEPA0
     t2_guess = numpy.zeros((nocc, nocc, norb-nocc, norb-nocc))
-    en_elec, c, t2 = ocepa0.solve_ocepa0(norb=norb, nocc=nocc, h_aso=h_aso,
-                                         g_aso=g_aso, c_guess=c,
-                                         t2_guess=t2_guess, niter=200,
-                                         e_thresh=1e-14, r_thresh=1e-13,
-                                         print_conv=True)
+    en_elec, c, t2 = ocepa0.solve(norb=norb, nocc=nocc, h_aso=h_aso,
+                                  g_aso=g_aso, c_guess=c,
+                                  t2_guess=t2_guess, niter=200,
+                                  e_thresh=1e-14, r_thresh=1e-13,
+                                  print_conv=True)
 
     # Build the diagonal orbital and amplitude Hessian
     o = slice(None, nocc)
@@ -309,11 +309,11 @@ def test__lr_ocepa0_neutral():
 
     # Solve OCEPA0
     t2_guess = numpy.zeros((nocc, nocc, norb-nocc, norb-nocc))
-    en_elec, c, t2 = ocepa0.solve_ocepa0(norb=norb, nocc=nocc, h_aso=h_aso,
-                                         g_aso=g_aso, c_guess=c,
-                                         t2_guess=t2_guess, niter=200,
-                                         e_thresh=1e-14, r_thresh=1e-13,
-                                         print_conv=True)
+    en_elec, c, t2 = ocepa0.solve(norb=norb, nocc=nocc, h_aso=h_aso,
+                                  g_aso=g_aso, c_guess=c,
+                                  t2_guess=t2_guess, niter=200,
+                                  e_thresh=1e-14, r_thresh=1e-13,
+                                  print_conv=True)
 
     # Build the diagonal orbital and amplitude Hessian
     o = slice(None, nocc)

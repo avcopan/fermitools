@@ -6,7 +6,7 @@ import fermitools
 import interfaces.psi4 as interface
 
 
-def solve_uhf(naocc, nbocc, s, h, r, d_guess=None, niter=50, e_thresh=1e-10):
+def solve(naocc, nbocc, s, h, r, d_guess=None, niter=50, e_thresh=1e-10):
     if d_guess is None:
         ad = bd = numpy.zeros_like(s)
     else:
@@ -49,7 +49,7 @@ def energy_routine(basis, labels, coords, charge, spin,
     r = interface.integrals.repulsion(basis, labels, coords)
 
     # Call the solver
-    en_elec, c = solve_uhf(na, nb, s, h, r, e_thresh=1e-14)
+    en_elec, c = solve(na, nb, s, h, r, e_thresh=1e-14)
 
     return en_elec if not return_coeffs else (en_elec, c)
 
@@ -68,7 +68,7 @@ def perturbed_energy_function(basis, labels, coords, charge, spin,
 
     def electronic_energy(f=(0., 0., 0.)):
         h_pert = h - numpy.tensordot(f, p, axes=(0, 0))
-        en_elec, (ac, bc) = solve_uhf(na, nb, s, h_pert, r, e_thresh=e_thresh)
+        en_elec, (ac, bc) = solve(na, nb, s, h_pert, r, e_thresh=e_thresh)
         return en_elec
 
     return electronic_energy

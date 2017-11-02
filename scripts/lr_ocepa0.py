@@ -246,11 +246,11 @@ def main():
     # Solve OCEPA0
     en_nuc = fermitools.chem.nuc.energy(labels=LABELS, coords=COORDS)
     t2_guess = numpy.zeros((nocc, nocc, norb-nocc, norb-nocc))
-    en_elec, c, t2 = ocepa0.solve_ocepa0(norb=norb, nocc=nocc, h_aso=h_aso,
-                                         g_aso=g_aso, c_guess=c,
-                                         t2_guess=t2_guess, niter=200,
-                                         e_thresh=1e-14, r_thresh=1e-12,
-                                         print_conv=True)
+    en_elec, c, t2 = ocepa0.solve(norb=norb, nocc=nocc, h_aso=h_aso,
+                                  g_aso=g_aso, c_guess=c,
+                                  t2_guess=t2_guess, niter=200,
+                                  e_thresh=1e-14, r_thresh=1e-12,
+                                  print_conv=True)
     en_tot = en_elec + en_nuc
     print("Total energy:")
     print('{:20.15f}'.format(en_tot))

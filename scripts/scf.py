@@ -94,8 +94,8 @@ def orbital_hessian_functional(norb, nocc, h_aso, g_aso, c, step=0.05,
     return _orbital_hessian
 
 
-def solve_scf(norb, nocc, h_aso, g_aso, c_guess, niter=50, e_thresh=1e-10,
-              r_thresh=1e-9, print_conv=False):
+def solve(norb, nocc, h_aso, g_aso, c_guess, niter=50, e_thresh=1e-10,
+          r_thresh=1e-9, print_conv=False):
     o = slice(None, nocc)
     v = slice(nocc, None)
 
@@ -148,10 +148,10 @@ def perturbed_energy_function(norb, nocc, h_aso, p_aso, g_aso, c_guess,
 
     def electronic_energy(f=(0., 0., 0.)):
         hp_aso = h_aso - numpy.tensordot(f, p_aso, axes=(0, 0))
-        en_elec, c = solve_scf(norb=norb, nocc=nocc, h_aso=hp_aso,
-                               g_aso=g_aso, c_guess=c_guess, niter=niter,
-                               e_thresh=e_thresh, r_thresh=r_thresh,
-                               print_conv=print_conv)
+        en_elec, c = solve(norb=norb, nocc=nocc, h_aso=hp_aso,
+                           g_aso=g_aso, c_guess=c_guess, niter=niter,
+                           e_thresh=e_thresh, r_thresh=r_thresh,
+                           print_conv=print_conv)
         return en_elec
 
     return electronic_energy
@@ -192,9 +192,9 @@ def main():
     c = fermitools.math.spinorb.sort(c_unsrt, order=sortvec, axes=(1,))
 
     en_nuc = fermitools.chem.nuc.energy(labels=LABELS, coords=COORDS)
-    en_elec, c = solve_scf(norb=norb, nocc=nocc, h_aso=h_aso, g_aso=g_aso,
-                           c_guess=c, niter=200, e_thresh=1e-14,
-                           r_thresh=1e-12, print_conv=True)
+    en_elec, c = solve(norb=norb, nocc=nocc, h_aso=h_aso, g_aso=g_aso,
+                       c_guess=c, niter=200, e_thresh=1e-14,
+                       r_thresh=1e-12, print_conv=True)
     en_tot = en_elec + en_nuc
     print("Total energy:")
     print('{:20.15f}'.format(en_tot))

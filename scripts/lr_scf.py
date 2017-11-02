@@ -117,9 +117,9 @@ def main():
     c = fermitools.math.spinorb.sort(c_unsrt, order=sortvec, axes=(1,))
 
     en_nuc = fermitools.chem.nuc.energy(labels=LABELS, coords=COORDS)
-    en_elec, c = scf.solve_scf(norb=norb, nocc=nocc, h_aso=h_aso, g_aso=g_aso,
-                               c_guess=c, niter=200, e_thresh=1e-14,
-                               r_thresh=1e-12, print_conv=200)
+    en_elec, c = scf.solve(norb=norb, nocc=nocc, h_aso=h_aso, g_aso=g_aso,
+                           c_guess=c, niter=200, e_thresh=1e-14,
+                           r_thresh=1e-12, print_conv=200)
     en_tot = en_elec + en_nuc
     print("Total energy:")
     print('{:20.15f}'.format(en_tot))
