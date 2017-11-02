@@ -2,7 +2,6 @@ import numpy
 import scipy.linalg as spla
 
 import fermitools
-from fermitools.math.asym import antisymmetrizer_product as asym
 
 import interfaces.psi4 as interface
 from . import odc12
@@ -100,15 +99,15 @@ def main():
         numpy.save(os.path.join(data_path, 'lr_odc12/neutral/en_dtdt.npy'),
                    en_dtdt)
 
-    # print("Numerical Hessian calculations ...")
-    # generate_orbital_hessian()
-    # print("... orbital Hessian finished")
-    # generate_mixed_hessian()
-    # print("... mixed Hessian finished")
-    # generate_mixed_hessian_transp()
-    # print("... transposed mixed Hessian finished")
-    # generate_amplitude_hessian()
-    # print("... amplitude Hessian finished")
+    print("Numerical Hessian calculations ...")
+    generate_orbital_hessian()
+    print("... orbital Hessian finished")
+    generate_mixed_hessian()
+    print("... mixed Hessian finished")
+    generate_mixed_hessian_transp()
+    print("... transposed mixed Hessian finished")
+    generate_amplitude_hessian()
+    print("... amplitude Hessian finished")
 
 
 if __name__ == '__main__':

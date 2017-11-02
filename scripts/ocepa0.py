@@ -313,6 +313,37 @@ def main():
     print("Total energy:")
     print('{:20.15f}'.format(en_tot))
 
+    from numpy.testing import assert_almost_equal
+    assert_almost_equal(en_tot, -74.71451994543345, decimal=10)
+
+    # Numerically check the electronic energy gradients
+    no = nocc
+    nv = norb - nocc
+
+    x = numpy.zeros(no * nv)
+    t = numpy.ravel(fermitools.math.asym.compound_index(t2, {0: (0, 1),
+                                                             1: (2, 3)}))
+    en_dx_func = orbital_gradient_functional(norb=norb, nocc=nocc,
+                                             h_aso=h_aso, g_aso=g_aso,
+                                             c=c, npts=11)
+    en_dt_func = amplitude_gradient_functional(norb=norb, nocc=nocc,
+                                               h_aso=h_aso, g_aso=g_aso,
+                                               c=c, npts=11)
+
+    print("Numerical Hessian calculations ...")
+    en_dx = en_dx_func(x, t)
+    print("... orbital gradient finished")
+    en_dt = en_dt_func(x, t)
+    print("... amplitude gradient finished")
+
+    print("Orbital gradient:")
+    print(en_dx.round(8))
+    print(spla.norm(en_dx))
+
+    print("Amplitude gradient:")
+    print(en_dt.round(8))
+    print(spla.norm(en_dt))
+
     # Evaluate dipole moment as expectation value
     p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
     p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
@@ -333,8 +364,6 @@ def main():
     print(en_df.round(10))
     print(mu.round(10))
 
-    from numpy.testing import assert_almost_equal
-    assert_almost_equal(en_tot, -74.71451994543345, decimal=10)
     assert_almost_equal(en_df, -mu, decimal=10)
 
 

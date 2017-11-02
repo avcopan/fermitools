@@ -190,14 +190,14 @@ def energy_functional(norb, nocc, h_aso, g_aso, c):
         m1_cor = singles_correlation_density(t2)
         m1 = m1_ref + m1_cor
         k2 = doubles_cumulant(t2)
-        m2 = doubles_density(m1_ref, m1_cor, k2)
+        m2 = doubles_density(m1, k2)
 
         return electronic_energy(h, g, m1, m2)
 
     return _electronic_energy
 
 
-def orbital_gradient_functional(norb, nocc, h_aso, g_aso, c, step=0.05,
+def orbital_gradient_functional(norb, nocc, h_aso, g_aso, c, step=0.01,
                                 npts=9):
     en_func = energy_functional(norb, nocc, h_aso, g_aso, c)
 
@@ -210,7 +210,7 @@ def orbital_gradient_functional(norb, nocc, h_aso, g_aso, c, step=0.05,
     return _orbital_gradient
 
 
-def amplitude_gradient_functional(norb, nocc, h_aso, g_aso, c, step=0.05,
+def amplitude_gradient_functional(norb, nocc, h_aso, g_aso, c, step=0.01,
                                   npts=9):
     en_func = energy_functional(norb, nocc, h_aso, g_aso, c)
 
@@ -223,7 +223,7 @@ def amplitude_gradient_functional(norb, nocc, h_aso, g_aso, c, step=0.05,
     return _amplitude_gradient
 
 
-def orbital_hessian_functional(norb, nocc, h_aso, g_aso, c, step=0.05, npts=9):
+def orbital_hessian_functional(norb, nocc, h_aso, g_aso, c, step=0.01, npts=9):
     en_dx_func = orbital_gradient_functional(norb, nocc, h_aso, g_aso, c,
                                              step=step, npts=npts)
 
@@ -236,7 +236,7 @@ def orbital_hessian_functional(norb, nocc, h_aso, g_aso, c, step=0.05, npts=9):
     return _orbital_hessian
 
 
-def mixed_hessian_functional(norb, nocc, h_aso, g_aso, c, step=0.05, npts=9):
+def mixed_hessian_functional(norb, nocc, h_aso, g_aso, c, step=0.01, npts=9):
     en_dx_func = orbital_gradient_functional(norb, nocc, h_aso, g_aso, c,
                                              step=step, npts=npts)
 
@@ -249,7 +249,7 @@ def mixed_hessian_functional(norb, nocc, h_aso, g_aso, c, step=0.05, npts=9):
     return _mixed_hessian
 
 
-def mixed_hessian_transp_functional(norb, nocc, h_aso, g_aso, c, step=0.05,
+def mixed_hessian_transp_functional(norb, nocc, h_aso, g_aso, c, step=0.01,
                                     npts=9):
     en_dt_func = amplitude_gradient_functional(norb, nocc, h_aso, g_aso, c,
                                                step=step, npts=npts)
@@ -263,7 +263,7 @@ def mixed_hessian_transp_functional(norb, nocc, h_aso, g_aso, c, step=0.05,
     return _mixed_hessian
 
 
-def amplitude_hessian_functional(norb, nocc, h_aso, g_aso, c, step=0.05,
+def amplitude_hessian_functional(norb, nocc, h_aso, g_aso, c, step=0.01,
                                  npts=9):
     en_dt_func = amplitude_gradient_functional(norb, nocc, h_aso, g_aso, c,
                                                step=step, npts=npts)
@@ -338,6 +338,37 @@ def main():
 
     from numpy.testing import assert_almost_equal
     assert_almost_equal(en_tot, -74.713706346489928, decimal=10)
+
+    # Numerically check the electronic energy gradients
+    no = nocc
+    nv = norb - nocc
+
+    x = numpy.zeros(no * nv)
+    t = numpy.ravel(fermitools.math.asym.compound_index(t2, {0: (0, 1),
+                                                             1: (2, 3)}))
+    en_dx_func = orbital_gradient_functional(norb=norb, nocc=nocc,
+                                             h_aso=h_aso, g_aso=g_aso,
+                                             c=c)
+    en_dt_func = amplitude_gradient_functional(norb=norb, nocc=nocc,
+                                               h_aso=h_aso, g_aso=g_aso,
+                                               c=c)
+
+    print("Numerical Hessian calculations ...")
+    en_dx = en_dx_func(x, t)
+    print("... orbital gradient finished")
+    en_dt = en_dt_func(x, t)
+    print("... amplitude gradient finished")
+
+    assert_almost_equal(en_dx, 0., decimal=10)
+    assert_almost_equal(en_dt, 0., decimal=10)
+
+    print("Orbital gradient:")
+    print(en_dx.round(8))
+    print(spla.norm(en_dx))
+
+    print("Amplitude gradient:")
+    print(en_dt.round(8))
+    print(spla.norm(en_dt))
 
     # Evaluate dipole moment as expectation value
     p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
