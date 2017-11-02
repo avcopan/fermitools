@@ -259,44 +259,6 @@ def amplitude_hessian_functional(norb, nocc, h_aso, g_aso, c, step=0.05,
     return _amplitude_hessian
 
 
-def electronic_energy_functional(norb, nocc, h_aso, g_aso, c):
-    o = slice(None, nocc)
-    v = slice(nocc, None)
-
-    m1_ref = singles_reference_density(norb=norb, nocc=nocc)
-
-    import itertools as it
-
-    def electronic_energy_function(t1, t2_flat):
-
-        # hack -- generalize this at some point
-        nvir = norb - nocc
-        t2 = numpy.zeros((nocc, nocc, nvir, nvir))
-        ijab_iterator = it.product(it.combinations(range(nocc), 2),
-                                   it.combinations(range(nvir), 2))
-        for ijab, ((i, j), (a, b)) in enumerate(ijab_iterator):
-            t2[i, j, a, b] = t2_flat[ijab]
-
-        t2 = asym('0/1|2/3')(t2)
-
-        x1 = numpy.zeros((norb, norb))
-        x1[o, v] = t1
-        u = spla.expm(x1 - numpy.transpose(x1))
-        ct = numpy.dot(c, u)
-
-        h = fermitools.math.transform(h_aso, {0: ct, 1: ct})
-        g = fermitools.math.transform(g_aso, {0: ct, 1: ct, 2: ct, 3: ct})
-
-        m1_cor = singles_correlation_density(t2)
-        m1 = m1_ref + m1_cor
-        k2 = doubles_cumulant(t2)
-        m2 = doubles_density(m1_ref, m1_cor, k2)
-
-        return electronic_energy(h, g, m1, m2)
-
-    return electronic_energy_function
-
-
 def perturbed_energy_function(norb, nocc, h_aso, p_aso, g_aso, c_guess,
                               t2_guess, niter=50, e_thresh=1e-10,
                               r_thresh=1e-9, print_conv=False):

@@ -94,27 +94,6 @@ def orbital_hessian_functional(norb, nocc, h_aso, g_aso, c, step=0.05,
     return _orbital_hessian
 
 
-def electronic_energy_functional(norb, nocc, h_aso, g_aso, c):
-    o = slice(None, nocc)
-    v = slice(nocc, None)
-
-    m1 = singles_density(norb=norb, nocc=nocc)
-    m2 = doubles_density(m1)
-
-    def electronic_energy_function(t1):
-        x1 = numpy.zeros((norb, norb))
-        x1[o, v] = t1
-        u = spla.expm(x1 - numpy.transpose(x1))
-        ct = numpy.dot(c, u)
-
-        h = fermitools.math.transform(h_aso, {0: ct, 1: ct})
-        g = fermitools.math.transform(g_aso, {0: ct, 1: ct, 2: ct, 3: ct})
-
-        return electronic_energy(h, g, m1, m2)
-
-    return electronic_energy_function
-
-
 def solve_scf(norb, nocc, h_aso, g_aso, c_guess, niter=50, e_thresh=1e-10,
               r_thresh=1e-9, print_conv=False):
     o = slice(None, nocc)

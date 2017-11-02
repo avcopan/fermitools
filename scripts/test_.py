@@ -33,9 +33,9 @@ def test__ocepa0():
     scripts.ocepa0.main()
 
 
-def test__odc12():
-    import scripts.odc12
-    scripts.odc12.main()
+def test__odc12_old():
+    import scripts.odc12_old
+    scripts.odc12_old.main()
 
 
 def test__uhf():
