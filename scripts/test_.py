@@ -238,6 +238,35 @@ def test__lr_ocepa0_cation():
     assert_almost_equal(en_dxdt, numpy.transpose(en_dtdx), decimal=9)
     assert_almost_equal(en_dtdt, 2*(a_amp + b_amp), decimal=9)
 
+    # Evaluate dipole polarizability using linear response theory
+    p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
+    p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
+    p = fermitools.math.transform(p_aso, {1: c, 2: c})
+    t_orb = numpy.transpose([
+        lr.orbital_property_gradient(o, v, px, m1) for px in p])
+    t_amp = numpy.transpose([
+        lr.amplitude_property_gradient(px[o, o], px[v, v], t2) for px in p])
+
+    a = numpy.bmat([[a_orb, -a_mix.T], [-a_mix, a_amp]])
+    b = numpy.bmat([[b_orb, -b_mix.T], [-b_mix, b_amp]])
+    t = numpy.bmat([[t_orb], [t_amp]])
+    r = lr.static_response_vector(a, b, t)
+    alpha = lr.static_linear_response_function(t, r)
+
+    # Evaluate dipole polarizability as energy derivative
+    en_f_func = ocepa0.perturbed_energy_function(norb=norb, nocc=nocc,
+                                                 h_aso=h_aso, p_aso=p_aso,
+                                                 g_aso=g_aso, c_guess=c,
+                                                 t2_guess=t2, niter=200,
+                                                 e_thresh=1e-14,
+                                                 r_thresh=1e-12,
+                                                 print_conv=True)
+    en_df2 = fermitools.math.central_difference(en_f_func, [0., 0., 0.],
+                                                step=0.01, nder=2, npts=9)
+
+    # Compare the two
+    assert_almost_equal(numpy.diag(alpha), -en_df2, decimal=9)
+
 
 def test__lr_ocepa0_neutral():
     import scripts.lr_ocepa0 as lr

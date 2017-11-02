@@ -7,6 +7,41 @@ import interfaces.psi4 as interface
 from . import odc12
 
 
+def second_order_orbital_variation_tensor(h, g, m1, m2):
+    i = numpy.eye(*h.shape)
+    fc = odc12.first_order_orbital_variation_matrix(h, g, m1, m2)
+    fcs = (fc + numpy.transpose(fc)) / 2.
+    hc = (+ numpy.einsum('pr,qs->pqrs', h, m1)
+          + numpy.einsum('pr,qs->pqrs', m1, h)
+          - numpy.einsum('pr,qs->pqrs', i, fcs)
+          - numpy.einsum('pr,qs->pqrs', fcs, i)
+          + numpy.einsum('pxry,qxsy->pqrs', g, m2)
+          + numpy.einsum('pxry,qxsy->pqrs', m2, g)
+          - 1./2. * numpy.einsum('psxy,qrxy->pqrs', g, m2)
+          - 1./2. * numpy.einsum('psxy,qrxy->pqrs', m2, g))
+    return hc
+
+
+def diagonal_orbital_hessian(nocc, norb, h, g, m1, m2):
+    o = slice(None, nocc)
+    v = slice(nocc, None)
+    no = nocc
+    nv = norb - nocc
+    h = second_order_orbital_variation_tensor(h, g, m1, m2)
+    a = h[o, v, o, v]
+    return numpy.reshape(a, (no * nv, no * nv))
+
+
+def offdiagonal_orbital_hessian(nocc, norb, h, g, m1, m2):
+    o = slice(None, nocc)
+    v = slice(nocc, None)
+    no = nocc
+    nv = norb - nocc
+    h = second_order_orbital_variation_tensor(h, g, m1, m2)
+    b = -numpy.transpose(h[o, v, v, o], (0, 1, 3, 2))
+    return numpy.reshape(b, (no * nv, no * nv))
+
+
 def main():
     CHARGE = +0
     SPIN = 0
@@ -51,63 +86,35 @@ def main():
     print("Total energy:")
     print('{:20.15f}'.format(en_tot))
 
-    # Test the orbital and amplitude gradients
-    import os
+    # Build blocks of the electronic Hessian
+    h = fermitools.math.transform(h_aso, {0: c, 1: c})
+    g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
+    m1_ref = odc12.singles_reference_density(norb=norb, nocc=nocc)
+    m1_cor = odc12.singles_correlation_density(t2)
+    m1 = m1_ref + m1_cor
+    k2 = odc12.doubles_cumulant(t2)
+    m2 = odc12.doubles_density(m1, k2)
 
+    a_orb = diagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
+    b_orb = offdiagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
+
+    # Get blocks of the electronic Hessian numerically
+    import os
     data_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                              'data')
-    no = nocc
-    nv = norb - nocc
+    en_dt2 = numpy.load(os.path.join(data_path,
+                                     'lr_odc12/neutral/en_dt2.npy'))
+    en_dxdx = numpy.load(os.path.join(data_path,
+                                      'lr_odc12/neutral/en_dxdx.npy'))
 
-    x = numpy.zeros(no * nv)
-    t = numpy.ravel(fermitools.math.asym.compound_index(t2, {0: (0, 1),
-                                                             1: (2, 3)}))
+    print("Checking orbital Hessian:")
+    print((en_dxdx - 2*(a_orb + b_orb)).round(8))
+    print(spla.norm(en_dxdx - 2*(a_orb + b_orb)))
+    print("Checking amplitude Hessian:")
+    print(en_dt2.round(8))
 
-    en_dxdx_func = odc12.orbital_hessian_functional(norb=norb, nocc=nocc,
-                                                    h_aso=h_aso, g_aso=g_aso,
-                                                    c=c)
-    en_dtdx_func = odc12.mixed_hessian_functional(norb=norb, nocc=nocc,
-                                                  h_aso=h_aso, g_aso=g_aso,
-                                                  c=c)
-    en_dxdt_func = odc12.mixed_hessian_transp_functional(norb=norb,
-                                                         nocc=nocc,
-                                                         h_aso=h_aso,
-                                                         g_aso=g_aso,
-                                                         c=c)
-    en_dtdt_func = odc12.amplitude_hessian_functional(norb=norb, nocc=nocc,
-                                                      h_aso=h_aso,
-                                                      g_aso=g_aso,
-                                                      c=c)
-
-    def generate_orbital_hessian():
-        en_dxdx = en_dxdx_func(x, t)
-        numpy.save(os.path.join(data_path, 'lr_odc12/neutral/en_dxdx.npy'),
-                   en_dxdx)
-
-    def generate_mixed_hessian():
-        en_dtdx = en_dtdx_func(x, t)
-        numpy.save(os.path.join(data_path, 'lr_odc12/neutral/en_dtdx.npy'),
-                   en_dtdx)
-
-    def generate_mixed_hessian_transp():
-        en_dxdt = en_dxdt_func(x, t)
-        numpy.save(os.path.join(data_path, 'lr_odc12/neutral/en_dxdt.npy'),
-                   en_dxdt)
-
-    def generate_amplitude_hessian():
-        en_dtdt = en_dtdt_func(x, t)
-        numpy.save(os.path.join(data_path, 'lr_odc12/neutral/en_dtdt.npy'),
-                   en_dtdt)
-
-    # print("Numerical Hessian calculations ...")
-    # generate_orbital_hessian()
-    # print("... orbital Hessian finished")
-    # generate_mixed_hessian()
-    # print("... mixed Hessian finished")
-    # generate_mixed_hessian_transp()
-    # print("... transposed mixed Hessian finished")
-    # generate_amplitude_hessian()
-    # print("... amplitude Hessian finished")
+    from numpy.testing import assert_almost_equal
+    assert_almost_equal(en_dxdx, 2*(a_orb + b_orb), decimal=9)
 
 
 if __name__ == '__main__':

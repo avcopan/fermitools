@@ -186,7 +186,8 @@ def static_response_vector(a, b, t):
     :returns: the response vector(s), (x + y) = 2 * (a + b)^-1 * t
     :rtype: numpy.ndarray
     """
-    return spla.solve(a + b, 2 * t, sym_pos=True)
+    r, _, _, _ = spla.lstsq(a + b, 2 * t)
+    return r
 
 
 def static_linear_response_function(t, r):
@@ -202,18 +203,16 @@ def static_linear_response_function(t, r):
     return numpy.dot(numpy.transpose(t), r)
 
 
-def spectrum(a, b):
-    w2 = spla.eigvals(numpy.dot(a + b, a - b))
-    return numpy.array(sorted(numpy.sqrt(w2.real)))
-
-
-def tamm_dancoff_spectrum(a):
-    return spla.eigvalsh(a)
-
-
 def main():
-    CHARGE = +0
-    SPIN = 0
+    import scripts.ocepa0 as ocepa0
+
+    import numpy
+    import scipy.linalg as spla
+
+    import fermitools
+
+    CHARGE = +1
+    SPIN = 1
     BASIS = 'sto-3g'
     LABELS = ('O', 'H', 'H')
     COORDS = ((0.000000000000,  0.000000000000, -0.143225816552),
@@ -244,16 +243,12 @@ def main():
     c = fermitools.math.spinorb.sort(c_unsrt, order=sortvec, axes=(1,))
 
     # Solve OCEPA0
-    en_nuc = fermitools.chem.nuc.energy(labels=LABELS, coords=COORDS)
     t2_guess = numpy.zeros((nocc, nocc, norb-nocc, norb-nocc))
     en_elec, c, t2 = ocepa0.solve(norb=norb, nocc=nocc, h_aso=h_aso,
                                   g_aso=g_aso, c_guess=c,
                                   t2_guess=t2_guess, niter=200,
-                                  e_thresh=1e-14, r_thresh=1e-12,
+                                  e_thresh=1e-14, r_thresh=1e-13,
                                   print_conv=True)
-    en_tot = en_elec + en_nuc
-    print("Total energy:")
-    print('{:20.15f}'.format(en_tot))
 
     # Build the diagonal orbital and amplitude Hessian
     o = slice(None, nocc)
@@ -275,95 +270,8 @@ def main():
     b_orb = offdiagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
     b_mix = offdiagonal_mixed_hessian(o, v, g, f, t2)
     b_amp = numpy.zeros_like(a_amp)
-
-    from numpy.testing import assert_almost_equal
-
-    # Test the orbital and amplitude gradients
-    import os
-
-    data_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                             'data')
-    no = nocc
-    nv = norb - nocc
-
-    x = numpy.zeros(no * nv)
-    t = numpy.ravel(fermitools.math.asym.compound_index(t2, {0: (0, 1),
-                                                             1: (2, 3)}))
-
-    en_dxdx_func = ocepa0.orbital_hessian_functional(norb=norb, nocc=nocc,
-                                                     h_aso=h_aso, g_aso=g_aso,
-                                                     c=c, npts=11)
-    en_dtdx_func = ocepa0.mixed_hessian_functional(norb=norb, nocc=nocc,
-                                                   h_aso=h_aso, g_aso=g_aso,
-                                                   c=c, npts=11)
-    en_dxdt_func = ocepa0.mixed_hessian_transp_functional(norb=norb,
-                                                          nocc=nocc,
-                                                          h_aso=h_aso,
-                                                          g_aso=g_aso,
-                                                          c=c, npts=11)
-    en_dtdt_func = ocepa0.amplitude_hessian_functional(norb=norb, nocc=nocc,
-                                                       h_aso=h_aso,
-                                                       g_aso=g_aso,
-                                                       c=c, npts=11)
-
-    def generate_orbital_hessian():
-        en_dxdx = en_dxdx_func(x, t)
-        numpy.save(os.path.join(data_path, 'lr_ocepa0/neutral/en_dxdx.npy'),
-                   en_dxdx)
-
-    def generate_mixed_hessian():
-        en_dtdx = en_dtdx_func(x, t)
-        numpy.save(os.path.join(data_path, 'lr_ocepa0/neutral/en_dtdx.npy'),
-                   en_dtdx)
-
-    def generate_mixed_hessian_transp():
-        en_dxdt = en_dxdt_func(x, t)
-        numpy.save(os.path.join(data_path, 'lr_ocepa0/neutral/en_dxdt.npy'),
-                   en_dxdt)
-
-    def generate_amplitude_hessian():
-        en_dtdt = en_dtdt_func(x, t)
-        numpy.save(os.path.join(data_path, 'lr_ocepa0/neutral/en_dtdt.npy'),
-                   en_dtdt)
-
-    # print("Numerical Hessian calculations ...")
-    # generate_orbital_hessian()
-    # print("... orbital Hessian finished")
-    # generate_mixed_hessian()
-    # print("... mixed Hessian finished")
-    # generate_mixed_hessian_transp()
-    # print("... transposed mixed Hessian finished")
-    # generate_amplitude_hessian()
-    # print("... amplitude Hessian finished")
-
-    en_dxdx = numpy.load(os.path.join(data_path,
-                                      'lr_ocepa0/neutral/en_dxdx.npy'))
-    en_dtdx = numpy.load(os.path.join(data_path,
-                                      'lr_ocepa0/neutral/en_dtdx.npy'))
-    en_dxdt = numpy.load(os.path.join(data_path,
-                                      'lr_ocepa0/neutral/en_dxdt.npy'))
-    en_dtdt = numpy.load(os.path.join(data_path,
-                                      'lr_ocepa0/neutral/en_dtdt.npy'))
-
-    print("Checking orbital Hessian:")
-    print((en_dxdx - 2*(a_orb + b_orb)).round(8))
-    print(spla.norm(en_dxdx - 2*(a_orb + b_orb)))
-    print("Checking mixed Hessian:")
-    print((en_dtdx - 2*(a_mix + b_mix)).round(8))
-    print(spla.norm(en_dtdx - 2*(a_mix + b_mix)))
-    print("Checking transposed mixed Hessian:")
-    print(en_dxdt.shape)
-    print((en_dxdt - 2*numpy.transpose(a_mix + b_mix)).round(8))
-    print(spla.norm(en_dxdt - 2*numpy.transpose(a_mix + b_mix)))
-    print(spla.norm(en_dxdt + 2*numpy.transpose(a_mix + b_mix)))
-    print("Checking amplitude Hessian:")
-    print((en_dtdt - 2*(a_amp + b_amp)).round(8))
-    print(spla.norm(en_dtdt - 2*(a_amp + b_amp)))
-
-    assert_almost_equal(en_dxdx, 2*(a_orb + b_orb), decimal=9)
-    assert_almost_equal(en_dtdx, -2*(a_mix + b_mix), decimal=9)
-    assert_almost_equal(en_dxdt, numpy.transpose(en_dtdx), decimal=9)
-    assert_almost_equal(en_dtdt, 2*(a_amp + b_amp), decimal=9)
+    a = numpy.bmat([[a_orb, -a_mix.T], [-a_mix, a_amp]])
+    b = numpy.bmat([[b_orb, -b_mix.T], [-b_mix, b_amp]])
 
     # Evaluate dipole polarizability using linear response theory
     p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
@@ -373,12 +281,11 @@ def main():
         orbital_property_gradient(o, v, px, m1) for px in p])
     t_amp = numpy.transpose([
         amplitude_property_gradient(px[o, o], px[v, v], t2) for px in p])
-
-    a = numpy.bmat([[a_orb, -a_mix.T], [-a_mix, a_amp]])
-    b = numpy.bmat([[b_orb, -b_mix.T], [-b_mix, b_amp]])
     t = numpy.bmat([[t_orb], [t_amp]])
     r = static_response_vector(a, b, t)
     alpha = static_linear_response_function(t, r)
+
+    print(numpy.real(alpha).round(8))
 
     # Evaluate dipole polarizability as energy derivative
     en_f_func = ocepa0.perturbed_energy_function(norb=norb, nocc=nocc,
@@ -391,11 +298,8 @@ def main():
     en_df2 = fermitools.math.central_difference(en_f_func, [0., 0., 0.],
                                                 step=0.01, nder=2, npts=9)
 
-    # Compare the two
-    print(numpy.diag(alpha).round(9))
-    print(en_df2.round(9))
-    print(numpy.diag(alpha) / en_df2)
-    assert_almost_equal(numpy.diag(alpha), -en_df2, decimal=9)
+    print(numpy.diag(numpy.real(alpha)).round(8))
+    print(en_df2.round(8))
 
 
 if __name__ == '__main__':

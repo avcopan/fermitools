@@ -56,8 +56,8 @@ def singles_correlation_density(t2):
     dvv = -1./2 * numpy.einsum('klac,klbc->ab', t2, t2)
     ioo = numpy.eye(*doo.shape)
     ivv = numpy.eye(*dvv.shape)
-    m1oo = -1./2 * ioo + spla.sqrtm(doo + 1./4 * ioo)
-    m1vv = +1./2 * ivv - spla.sqrtm(dvv + 1./4 * ivv)
+    m1oo = -1./2 * ioo + numpy.real(spla.sqrtm(doo + 1./4 * ioo))
+    m1vv = +1./2 * ivv - numpy.real(spla.sqrtm(dvv + 1./4 * ivv))
     return spla.block_diag(m1oo, m1vv)
 
 
@@ -221,6 +221,19 @@ def amplitude_gradient_functional(norb, nocc, h_aso, g_aso, c, step=0.01,
         return en_dt
 
     return _amplitude_gradient
+
+
+def amplitude_hessian_diag_functional(norb, nocc, h_aso, g_aso, c, step=0.01,
+                                      npts=9):
+    en_func = energy_functional(norb, nocc, h_aso, g_aso, c)
+
+    def _amplitude_hessian_diag(t1_flat, t2_flat):
+        en_dt2 = fermitools.math.central_difference(
+                    functools.partial(en_func, t1_flat), t2_flat, step=step,
+                    nder=2, npts=npts)
+        return en_dt2
+
+    return _amplitude_hessian_diag
 
 
 def orbital_hessian_functional(norb, nocc, h_aso, g_aso, c, step=0.01, npts=9):
