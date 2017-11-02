@@ -212,8 +212,8 @@ def tamm_dancoff_spectrum(a):
 
 
 def main():
-    CHARGE = +1
-    SPIN = 1
+    CHARGE = +0
+    SPIN = 0
     BASIS = 'sto-3g'
     LABELS = ('O', 'H', 'H')
     COORDS = ((0.000000000000,  0.000000000000, -0.143225816552),
@@ -279,8 +279,6 @@ def main():
 
     from numpy.testing import assert_almost_equal
 
-    # assert_almost_equal(numpy.diag(alpha), -en_df2, decimal=11)
-
     # Test the orbital and amplitude gradients
     import os
 
@@ -311,19 +309,23 @@ def main():
 
     def generate_orbital_hessian():
         en_dxdx = en_dxdx_func(x, t)
-        numpy.save(os.path.join(data_path, 'lr_ocepa0/en_dxdx.npy'), en_dxdx)
+        numpy.save(os.path.join(data_path, 'lr_ocepa0/neutral/en_dxdx.npy'),
+                   en_dxdx)
 
     def generate_mixed_hessian():
         en_dtdx = en_dtdx_func(x, t)
-        numpy.save(os.path.join(data_path, 'lr_ocepa0/en_dtdx.npy'), en_dtdx)
+        numpy.save(os.path.join(data_path, 'lr_ocepa0/neutral/en_dtdx.npy'),
+                   en_dtdx)
 
     def generate_mixed_hessian_transp():
         en_dxdt = en_dxdt_func(x, t)
-        numpy.save(os.path.join(data_path, 'lr_ocepa0/en_dxdt.npy'), en_dxdt)
+        numpy.save(os.path.join(data_path, 'lr_ocepa0/neutral/en_dxdt.npy'),
+                   en_dxdt)
 
     def generate_amplitude_hessian():
         en_dtdt = en_dtdt_func(x, t)
-        numpy.save(os.path.join(data_path, 'lr_ocepa0/en_dtdt.npy'), en_dtdt)
+        numpy.save(os.path.join(data_path, 'lr_ocepa0/neutral/en_dtdt.npy'),
+                   en_dtdt)
 
     # print("Numerical Hessian calculations ...")
     # generate_orbital_hessian()
@@ -335,10 +337,14 @@ def main():
     # generate_amplitude_hessian()
     # print("... amplitude Hessian finished")
 
-    en_dxdx = numpy.load(os.path.join(data_path, 'lr_ocepa0/en_dxdx.npy'))
-    en_dtdx = numpy.load(os.path.join(data_path, 'lr_ocepa0/en_dtdx.npy'))
-    en_dxdt = numpy.load(os.path.join(data_path, 'lr_ocepa0/en_dxdt.npy'))
-    en_dtdt = numpy.load(os.path.join(data_path, 'lr_ocepa0/en_dtdt.npy'))
+    en_dxdx = numpy.load(os.path.join(data_path,
+                                      'lr_ocepa0/neutral/en_dxdx.npy'))
+    en_dtdx = numpy.load(os.path.join(data_path,
+                                      'lr_ocepa0/neutral/en_dtdx.npy'))
+    en_dxdt = numpy.load(os.path.join(data_path,
+                                      'lr_ocepa0/neutral/en_dxdt.npy'))
+    en_dtdt = numpy.load(os.path.join(data_path,
+                                      'lr_ocepa0/neutral/en_dtdt.npy'))
 
     print("Checking orbital Hessian:")
     print((en_dxdx - 2*(a_orb + b_orb)).round(8))
@@ -354,6 +360,43 @@ def main():
     print("Checking amplitude Hessian:")
     print((en_dtdt - 2*(a_amp + b_amp)).round(8))
     print(spla.norm(en_dtdt - 2*(a_amp + b_amp)))
+
+    assert_almost_equal(en_dxdx, 2*(a_orb + b_orb), decimal=9)
+    assert_almost_equal(en_dtdx, -2*(a_mix + b_mix), decimal=9)
+    assert_almost_equal(en_dxdt, numpy.transpose(en_dtdx), decimal=9)
+    assert_almost_equal(en_dtdt, 2*(a_amp + b_amp), decimal=9)
+
+    # Evaluate dipole polarizability using linear response theory
+    p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
+    p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
+    p = fermitools.math.transform(p_aso, {1: c, 2: c})
+    t_orb = numpy.transpose([
+        orbital_property_gradient(o, v, px, m1) for px in p])
+    t_amp = numpy.transpose([
+        amplitude_property_gradient(px[o, o], px[v, v], t2) for px in p])
+
+    a = numpy.bmat([[a_orb, -a_mix.T], [-a_mix, a_amp]])
+    b = numpy.bmat([[b_orb, -b_mix.T], [-b_mix, b_amp]])
+    t = numpy.bmat([[t_orb], [t_amp]])
+    r = static_response_vector(a, b, t)
+    alpha = static_linear_response_function(t, r)
+
+    # Evaluate dipole polarizability as energy derivative
+    en_f_func = ocepa0.perturbed_energy_function(norb=norb, nocc=nocc,
+                                                 h_aso=h_aso, p_aso=p_aso,
+                                                 g_aso=g_aso, c_guess=c,
+                                                 t2_guess=t2, niter=200,
+                                                 e_thresh=1e-14,
+                                                 r_thresh=1e-12,
+                                                 print_conv=True)
+    en_df2 = fermitools.math.central_difference(en_f_func, [0., 0., 0.],
+                                                step=0.01, nder=2, npts=9)
+
+    # Compare the two
+    print(numpy.diag(alpha).round(9))
+    print(en_df2.round(9))
+    print(numpy.diag(alpha) / en_df2)
+    assert_almost_equal(numpy.diag(alpha), -en_df2, decimal=9)
 
 
 if __name__ == '__main__':
