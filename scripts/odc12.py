@@ -24,10 +24,10 @@ def fancy_fock(foo, fvv, m1oo, m1vv):
     nv, uv = spla.eigh(m1vv)
     n1oo = fermitools.math.broadcast_sum({0: no, 1: no}) - 1
     n1vv = fermitools.math.broadcast_sum({0: nv, 1: nv}) - 1
-    tfoo = numpy.dot(uo.T, numpy.dot(foo, uo)) / n1oo
-    tfvv = numpy.dot(uv.T, numpy.dot(fvv, uv)) / n1vv
-    ffoo = numpy.dot(uo, numpy.dot(tfoo, uo.T))
-    ffvv = numpy.dot(uv, numpy.dot(tfvv, uv.T))
+    tffoo = fermitools.math.transform(foo, {0: uo, 1: uo}) / n1oo
+    tffvv = fermitools.math.transform(fvv, {0: uv, 1: uv}) / n1vv
+    ffoo = fermitools.math.transform(tffoo, {0: uo.T, 1: uo.T})
+    ffvv = fermitools.math.transform(tffvv, {0: uv.T, 1: uv.T})
     return {'o,o': ffoo, 'v,v': ffvv}
 
 

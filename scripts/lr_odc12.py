@@ -8,7 +8,7 @@ from . import odc12
 from . import lr_ocepa0
 
 
-def fancy_repulsion(foo, fvv, goooo, govov, gvvvv):
+def fancy_repulsion(ffoo, ffvv, goooo, govov, gvvvv, m1oo, m1vv):
     pass
 
 
