@@ -12,17 +12,6 @@ def fancy_repulsion(foo, fvv, goooo, govov, gvvvv):
     pass
 
 
-def diagonal_amplitude_hessian(foo, fov, fvv, goooo, govov, gvvvv, m1oo, m1vv):
-    no, nv = fov.shape
-    o = slice(None, no)
-    v = slice(no, None)
-    ff = odc12.fancy_fock(foo, fvv, m1oo, m1vv)
-    a_cepa = lr_ocepa0.diagonal_amplitude_hessian(foo=+ff[o, o], fvv=-ff[v, v],
-                                                  goooo=goooo, govov=govov,
-                                                  gvvvv=gvvvv)
-    pass
-
-
 def main():
     CHARGE = +0
     SPIN = 0

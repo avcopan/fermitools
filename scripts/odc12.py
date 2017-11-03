@@ -24,8 +24,8 @@ def fancy_fock(foo, fvv, m1oo, m1vv):
     nv, uv = spla.eigh(m1vv)
     n1oo = fermitools.math.broadcast_sum({0: no, 1: no}) - 1
     n1vv = fermitools.math.broadcast_sum({0: nv, 1: nv}) - 1
-    tfoo = +numpy.dot(uo.T, numpy.dot(foo, uo)) / n1oo
-    tfvv = -numpy.dot(uv.T, numpy.dot(fvv, uv)) / n1vv
+    tfoo = numpy.dot(uo.T, numpy.dot(foo, uo)) / n1oo
+    tfvv = numpy.dot(uv.T, numpy.dot(fvv, uv)) / n1vv
     ffoo = numpy.dot(uo, numpy.dot(tfoo, uo.T))
     ffvv = numpy.dot(uv, numpy.dot(tfvv, uv.T))
     return {'o,o': ffoo, 'v,v': ffvv}
@@ -66,10 +66,10 @@ def solve(norb, nocc, h_aso, g_aso, c_guess, t2_guess, niter=50,
         efo = numpy.diagonal(ff['o,o'])
         efv = numpy.diagonal(ff['v,v'])
         ef2 = fermitools.math.broadcast_sum({0: +efo, 1: +efo,
-                                             2: -efv, 3: -efv})
+                                             2: +efv, 3: +efv})
         t2 = (ocepa0.doubles_numerator(g[o, o, o, o], g[o, o, v, v],
                                        g[o, v, o, v], g[v, v, v, v],
-                                       ff['o,o'], ff['v,v'], t2_last)
+                                       +ff['o,o'], -ff['v,v'], t2_last)
               / ef2)
         r2 = (t2 - t2_last) * ef2
         t2_last = t2
