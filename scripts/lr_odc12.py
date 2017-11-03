@@ -2,17 +2,87 @@ import numpy
 import scipy.linalg as spla
 
 import fermitools
+from fermitools.math.asym import antisymmetrizer_product as asym
 
 import interfaces.psi4 as interface
-from . import odc12
-from . import lr_ocepa0
+from .odc12 import fock
+from .odc12 import singles_reference_density
+from .odc12 import singles_correlation_density
+from .odc12 import doubles_cumulant
+from .odc12 import doubles_density
+from .lr_ocepa0 import diagonal_orbital_hessian
+from .lr_ocepa0 import offdiagonal_orbital_hessian
+from .lr_ocepa0 import (diagonal_amplitude_hessian as
+                        cepa_diagonal_amplitude_hessian)
 
 
 def fancy_repulsion(ffoo, ffvv, goooo, govov, gvvvv, m1oo, m1vv):
-    pass
+    no, uo = spla.eigh(m1oo)
+    nv, uv = spla.eigh(m1vv)
+    n1oo = fermitools.math.broadcast_sum({0: no, 1: no}) - 1
+    n1vv = fermitools.math.broadcast_sum({0: nv, 1: nv}) - 1
+    io = numpy.eye(*uo.shape)
+    iv = numpy.eye(*uv.shape)
+    tffoo = fermitools.math.transform(ffoo, {0: uo, 1: uo})
+    tffvv = fermitools.math.transform(ffvv, {0: uv, 1: uv})
+    tgoooo = fermitools.math.transform(goooo, {0: uo, 1: uo, 2: uo, 3: uo})
+    tgovov = fermitools.math.transform(govov, {0: uo, 1: uv, 2: uo, 3: uv})
+    tgvvvv = fermitools.math.transform(gvvvv, {0: uv, 1: uv, 2: uv, 3: uv})
+    tfgoooo = ((tgoooo - numpy.einsum('il,jk->ikjl', tffoo, io)
+                       - numpy.einsum('il,jk->ikjl', io, tffoo))
+               / numpy.einsum('ij,kl->ikjl', n1oo, n1oo))
+    tfgovov = tgovov / numpy.einsum('ij,ab->iajb', n1oo, n1vv)
+    tfgvvvv = ((tgvvvv - numpy.einsum('ad,bc->acbd', tffvv, iv)
+                       - numpy.einsum('ad,bc->acbd', iv, tffvv))
+               / numpy.einsum('ab,cd->acbd', n1vv, n1vv))
+    fgoooo = fermitools.math.transform(tfgoooo, {0: uo.T, 1: uo.T,
+                                                 2: uo.T, 3: uo.T})
+    fgovov = fermitools.math.transform(tfgovov, {0: uo.T, 1: uv.T,
+                                                 2: uo.T, 3: uv.T})
+    fgvvvv = fermitools.math.transform(tfgvvvv, {0: uv.T, 1: uv.T,
+                                                 2: uv.T, 3: uv.T})
+    return {'o,o,o,o': fgoooo, 'o,v,o,v': fgovov, 'v,v,v,v': fgvvvv}
+
+
+def diagonal_amplitude_hessian(ffoo, ffvv, goooo, govov, gvvvv,
+                               fgoooo, fgovov, fgvvvv, t2):
+    a_cepa = cepa_diagonal_amplitude_hessian(foo=+ffoo, fvv=-ffvv,
+                                             goooo=goooo, govov=govov,
+                                             gvvvv=gvvvv)
+    a_dc = (+ asym('2/3|6/7')(
+                  numpy.einsum('afec,ijeb,klfd->ijabklcd', fgvvvv, t2, t2))
+            + asym('2/3|4/5')(
+                  numpy.einsum('kame,ijeb,mlcd->ijabklcd', fgovov, t2, t2))
+            + asym('0/1|6/7')(
+                  numpy.einsum('meic,mjab,kled->ijabklcd', fgovov, t2, t2))
+            + asym('0/1|4/5')(
+                  numpy.einsum('mkin,mjab,nlcd->ijabklcd', fgoooo, t2, t2))
+            )
+    a_dc_cmp = fermitools.math.asym.compound_index(a_dc,
+                                                   {0: (0, 1), 1: (2, 3),
+                                                    2: (4, 5), 3: (6, 7)})
+    return a_cepa + numpy.reshape(a_dc_cmp, a_cepa.shape)
+
+
+def offdiagonal_amplitude_hessian(fgoooo, fgovov,  fgvvvv, t2):
+    no, nv, _, _ = fgovov.shape
+    ndoubles = no * (no - 1) * nv * (nv - 1) // 4
+    b = (+ asym('2/3|6/7')(
+                numpy.einsum('acef,ijeb,klfd->ijabklcd', fgvvvv, t2, t2))
+         + asym('2/3|4/5')(
+                numpy.einsum('nake,ijeb,nlcd->ijabklcd', fgovov, t2, t2))
+         + asym('0/1|6/7')(
+                numpy.einsum('mcif,mjab,klfd->ijabklcd', fgovov, t2, t2))
+         + asym('0/1|4/5')(
+                numpy.einsum('mnik,mjab,nlcd->ijabklcd', fgoooo, t2, t2)))
+    b_cmp = fermitools.math.asym.compound_index(b, {0: (0, 1), 1: (2, 3),
+                                                    2: (4, 5), 3: (6, 7)})
+    return numpy.reshape(b_cmp, (ndoubles, ndoubles))
 
 
 def main():
+    from scripts import odc12
+
     CHARGE = +0
     SPIN = 0
     BASIS = 'sto-3g'
@@ -59,14 +129,27 @@ def main():
     # Build blocks of the electronic Hessian
     h = fermitools.math.transform(h_aso, {0: c, 1: c})
     g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
-    m1_ref = odc12.singles_reference_density(norb=norb, nocc=nocc)
-    m1_cor = odc12.singles_correlation_density(t2)
+    m1_ref = singles_reference_density(norb=norb, nocc=nocc)
+    m1_cor = singles_correlation_density(t2)
     m1 = m1_ref + m1_cor
-    k2 = odc12.doubles_cumulant(t2)
-    m2 = odc12.doubles_density(m1, k2)
+    k2 = doubles_cumulant(t2)
+    m2 = doubles_density(m1, k2)
+    f = fock(h, g, m1)
+    o = slice(None, nocc)
+    v = slice(nocc, None)
+    ff = odc12.fancy_fock(f[o, o], f[v, v], m1[o, o], m1[v, v])
 
-    a_orb = lr_ocepa0.diagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
-    b_orb = lr_ocepa0.offdiagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
+    a_orb = diagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
+    b_orb = offdiagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
+
+    fg = fancy_repulsion(ff['o,o'], ff['v,v'], g[o, o, o, o], g[o, v, o, v],
+                         g[v, v, v, v], m1[o, o], m1[v, v])
+    a_amp = diagonal_amplitude_hessian(ff['o,o'], ff['v,v'], g[o, o, o, o],
+                                       g[o, v, o, v], g[v, v, v, v],
+                                       fg['o,o,o,o'], fg['o,v,o,v'],
+                                       fg['v,v,v,v'], t2)
+    b_amp = offdiagonal_amplitude_hessian(fg['o,o,o,o'], fg['o,v,o,v'],
+                                          fg['v,v,v,v'], t2)
 
     # Get blocks of the electronic Hessian numerically
     import os
@@ -76,12 +159,16 @@ def main():
                                      'lr_odc12/neutral/en_dt2.npy'))
     en_dxdx = numpy.load(os.path.join(data_path,
                                       'lr_odc12/neutral/en_dxdx.npy'))
+    en_dtdt = numpy.real(numpy.load(os.path.join(data_path,
+                         'lr_odc12/neutral/en_dtdt.npy')))
 
     print("Checking orbital Hessian:")
     print((en_dxdx - 2*(a_orb + b_orb)).round(8))
     print(spla.norm(en_dxdx - 2*(a_orb + b_orb)))
     print("Checking amplitude Hessian:")
-    print(en_dt2.round(8))
+    print((en_dtdt - 2*(a_amp + b_amp)).round(8))
+    print(spla.norm(en_dtdt - 2*(a_amp + b_amp)))
+    print(numpy.diag(a_amp + b_amp) / en_dt2)
 
     from numpy.testing import assert_almost_equal
     assert_almost_equal(en_dxdx, 2*(a_orb + b_orb), decimal=9)

@@ -5,12 +5,12 @@ import fermitools
 from fermitools.math.asym import antisymmetrizer_product as asym
 
 import interfaces.psi4 as interface
-from . import ocepa0
+from .ocepa0 import first_order_orbital_variation_matrix
 
 
 def second_order_orbital_variation_tensor(h, g, m1, m2):
     i = numpy.eye(*h.shape)
-    fc = ocepa0.first_order_orbital_variation_matrix(h, g, m1, m2)
+    fc = first_order_orbital_variation_matrix(h, g, m1, m2)
     fcs = (fc + numpy.transpose(fc)) / 2.
     hc = (+ numpy.einsum('pr,qs->pqrs', h, m1)
           + numpy.einsum('pr,qs->pqrs', m1, h)
