@@ -5,41 +5,22 @@ import fermitools
 
 import interfaces.psi4 as interface
 from . import odc12
+from . import lr_ocepa0
 
 
-def second_order_orbital_variation_tensor(h, g, m1, m2):
-    i = numpy.eye(*h.shape)
-    fc = odc12.first_order_orbital_variation_matrix(h, g, m1, m2)
-    fcs = (fc + numpy.transpose(fc)) / 2.
-    hc = (+ numpy.einsum('pr,qs->pqrs', h, m1)
-          + numpy.einsum('pr,qs->pqrs', m1, h)
-          - numpy.einsum('pr,qs->pqrs', i, fcs)
-          - numpy.einsum('pr,qs->pqrs', fcs, i)
-          + numpy.einsum('pxry,qxsy->pqrs', g, m2)
-          + numpy.einsum('pxry,qxsy->pqrs', m2, g)
-          - 1./2. * numpy.einsum('psxy,qrxy->pqrs', g, m2)
-          - 1./2. * numpy.einsum('psxy,qrxy->pqrs', m2, g))
-    return hc
+def fancy_repulsion(foo, fvv, goooo, govov, gvvvv):
+    pass
 
 
-def diagonal_orbital_hessian(nocc, norb, h, g, m1, m2):
-    o = slice(None, nocc)
-    v = slice(nocc, None)
-    no = nocc
-    nv = norb - nocc
-    h = second_order_orbital_variation_tensor(h, g, m1, m2)
-    a = h[o, v, o, v]
-    return numpy.reshape(a, (no * nv, no * nv))
-
-
-def offdiagonal_orbital_hessian(nocc, norb, h, g, m1, m2):
-    o = slice(None, nocc)
-    v = slice(nocc, None)
-    no = nocc
-    nv = norb - nocc
-    h = second_order_orbital_variation_tensor(h, g, m1, m2)
-    b = -numpy.transpose(h[o, v, v, o], (0, 1, 3, 2))
-    return numpy.reshape(b, (no * nv, no * nv))
+def diagonal_amplitude_hessian(foo, fov, fvv, goooo, govov, gvvvv, m1oo, m1vv):
+    no, nv = fov.shape
+    o = slice(None, no)
+    v = slice(no, None)
+    ff = odc12.fancy_fock(foo, fvv, m1oo, m1vv)
+    a_cepa = lr_ocepa0.diagonal_amplitude_hessian(foo=+ff[o, o], fvv=-ff[v, v],
+                                                  goooo=goooo, govov=govov,
+                                                  gvvvv=gvvvv)
+    pass
 
 
 def main():
@@ -95,8 +76,8 @@ def main():
     k2 = odc12.doubles_cumulant(t2)
     m2 = odc12.doubles_density(m1, k2)
 
-    a_orb = diagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
-    b_orb = offdiagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
+    a_orb = lr_ocepa0.diagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
+    b_orb = lr_ocepa0.offdiagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
 
     # Get blocks of the electronic Hessian numerically
     import os

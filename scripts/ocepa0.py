@@ -10,8 +10,8 @@ from fermitools.math.asym import antisymmetrizer_product as asym
 import interfaces.psi4 as interface
 
 
-def fock(h, g, m1_ref):
-    return h + numpy.tensordot(g, m1_ref, axes=((1, 3), (0, 1)))
+def fock(h, g, m1):
+    return h + numpy.tensordot(g, m1, axes=((1, 3), (0, 1)))
 
 
 def doubles_numerator(goooo, goovv, govov, gvvvv, foo, fvv, t2):

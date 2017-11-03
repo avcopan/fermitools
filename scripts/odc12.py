@@ -8,6 +8,7 @@ import fermitools
 from fermitools.math.asym import antisymmetrizer_product as asym
 
 import interfaces.psi4 as interface
+from . import ocepa0
 
 
 def fock(h, g, m1):
@@ -16,39 +17,18 @@ def fock(h, g, m1):
 
 def fancy_fock(foo, fvv, m1oo, m1vv):
     '''
-    Note that the f_ov and f_vo blocks are *not* zero.  We can only ignore them
-    because this intermediate is traced with the density matrix, which *is*
-    zero in those blocks.
+    ff_ov and ff_vo are undefined, so return a dictionary with the diagonal
+    blocks.
     '''
     no, uo = spla.eigh(m1oo)
     nv, uv = spla.eigh(m1vv)
     n1oo = fermitools.math.broadcast_sum({0: no, 1: no}) - 1
     n1vv = fermitools.math.broadcast_sum({0: nv, 1: nv}) - 1
-    tfoo = numpy.dot(uo.T, numpy.dot(foo, uo)) / n1oo
-    tfvv = numpy.dot(uv.T, numpy.dot(fvv, uv)) / n1vv
+    tfoo = +numpy.dot(uo.T, numpy.dot(foo, uo)) / n1oo
+    tfvv = -numpy.dot(uv.T, numpy.dot(fvv, uv)) / n1vv
     ffoo = numpy.dot(uo, numpy.dot(tfoo, uo.T))
     ffvv = numpy.dot(uv, numpy.dot(tfvv, uv.T))
-    return spla.block_diag(ffoo, ffvv)
-
-
-def doubles_numerator(goooo, goovv, govov, gvvvv, foo, fvv, t2):
-    foo = numpy.array(foo, copy=True)
-    fvv = numpy.array(fvv, copy=True)
-    numpy.fill_diagonal(foo, 0.)
-    numpy.fill_diagonal(fvv, 0.)
-    num2 = (goovv
-            + asym("2/3")(numpy.einsum('ac,ijcb->ijab', fvv, t2))
-            - asym("0/1")(numpy.einsum('ki,kjab->ijab', foo, t2))
-            + 1. / 2 * numpy.einsum("abcd,ijcd->ijab", gvvvv, t2)
-            + 1. / 2 * numpy.einsum("klij,klab->ijab", goooo, t2)
-            - asym("0/1|2/3")(numpy.einsum("kaic,jkbc->ijab", govov, t2)))
-    return num2
-
-
-def singles_reference_density(norb, nocc):
-    m1_ref = numpy.zeros((norb, norb))
-    m1_ref[:nocc, :nocc] = numpy.eye(nocc)
-    return m1_ref
+    return {'o,o': ffoo, 'v,v': ffvv}
 
 
 def singles_correlation_density(t2):
@@ -61,45 +41,9 @@ def singles_correlation_density(t2):
     return spla.block_diag(m1oo, m1vv)
 
 
-def doubles_cumulant(t2):
-    no, _, nv, _ = t2.shape
-    o = slice(None, no)
-    v = slice(no, None)
-
-    n = no + nv
-    k2 = numpy.zeros((n, n, n, n))
-    k2[o, o, v, v] = t2
-    k2[v, v, o, o] = numpy.transpose(t2)
-    k2[v, v, v, v] = 1./2 * numpy.einsum('klab,klcd->abcd', t2, t2)
-    k2[o, o, o, o] = 1./2 * numpy.einsum('ijcd,klcd->ijkl', t2, t2)
-    k_jabi = numpy.einsum('ikac,jkbc->jabi', t2, t2)
-    k2[o, v, v, o] = +numpy.transpose(k_jabi, (0, 1, 2, 3))
-    k2[o, v, o, v] = -numpy.transpose(k_jabi, (0, 1, 3, 2))
-    k2[v, o, v, o] = -numpy.transpose(k_jabi, (1, 0, 2, 3))
-    k2[v, o, o, v] = +numpy.transpose(k_jabi, (1, 0, 3, 2))
-
-    return k2
-
-
 def doubles_density(m1, k2):
     m2 = k2 + asym("2/3")(numpy.einsum('pr,qs->pqrs', m1, m1))
     return m2
-
-
-def first_order_orbital_variation_matrix(h, g, m1, m2):
-    fc = (numpy.einsum('px,qx->pq', h, m1)
-          + 1. / 2 * numpy.einsum('pxyz,qxyz->pq', g, m2))
-    return fc
-
-
-def orbital_gradient(o, v, h, g, m1, m2):
-    fc = first_order_orbital_variation_matrix(h, g, m1, m2)
-    res1 = (fc - numpy.transpose(fc))[o, v]
-    return res1
-
-
-def electronic_energy(h, g, m1, m2):
-    return numpy.vdot(h, m1) + 1. / 4 * numpy.vdot(g, m2)
 
 
 def solve(norb, nocc, h_aso, g_aso, c_guess, t2_guess, niter=50,
@@ -108,7 +52,7 @@ def solve(norb, nocc, h_aso, g_aso, c_guess, t2_guess, niter=50,
     v = slice(nocc, None)
 
     x1 = numpy.zeros((norb, norb))
-    m1 = m1_ref = singles_reference_density(norb=norb, nocc=nocc)
+    m1 = m1_ref = ocepa0.singles_reference_density(norb=norb, nocc=nocc)
 
     c = c_guess
     t2_last = t2_guess
@@ -116,32 +60,34 @@ def solve(norb, nocc, h_aso, g_aso, c_guess, t2_guess, niter=50,
     for iteration in range(niter):
         h = fermitools.math.transform(h_aso, {0: c, 1: c})
         g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
-        f = fock(h, g, m1)
+        f = ocepa0.fock(h, g, m1)
         ff = fancy_fock(f[o, o], f[v, v], m1[o, o], m1[v, v])
 
-        ef = numpy.diagonal(ff)
-        ef2 = fermitools.math.broadcast_sum({0: +ef[o], 1: +ef[o],
-                                             2: +ef[v], 3: +ef[v]})
-        t2 = (doubles_numerator(g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
-                                g[v, v, v, v], +ff[o, o], -ff[v, v], t2_last)
+        efo = numpy.diagonal(ff['o,o'])
+        efv = numpy.diagonal(ff['v,v'])
+        ef2 = fermitools.math.broadcast_sum({0: +efo, 1: +efo,
+                                             2: -efv, 3: -efv})
+        t2 = (ocepa0.doubles_numerator(g[o, o, o, o], g[o, o, v, v],
+                                       g[o, v, o, v], g[v, v, v, v],
+                                       ff['o,o'], ff['v,v'], t2_last)
               / ef2)
         r2 = (t2 - t2_last) * ef2
         t2_last = t2
         m1_cor = singles_correlation_density(t2)
         m1 = m1_ref + m1_cor
-        k2 = doubles_cumulant(t2)
+        k2 = ocepa0.doubles_cumulant(t2)
         m2 = doubles_density(m1, k2)
 
-        f = fock(h, g, m1)
+        f = ocepa0.fock(h, g, m1)
         e = numpy.diagonal(f)
-        r1 = orbital_gradient(o, v, h, g, m1, m2)
+        r1 = ocepa0.orbital_gradient(o, v, h, g, m1, m2)
         e1 = fermitools.math.broadcast_sum({0: +e[o], 1: -e[v]})
         t1 = r1 / e1
         x1[o, v] = t1
         u = spla.expm(x1 - numpy.transpose(x1))
         c = numpy.dot(c, u)
 
-        en_elec = electronic_energy(h, g, m1, m2)
+        en_elec = ocepa0.electronic_energy(h, g, m1, m2)
         en_change = en_elec - en_elec_last
         en_elec_last = en_elec
 
@@ -171,7 +117,7 @@ def energy_functional(norb, nocc, h_aso, g_aso, c):
     noo = no * (no - 1) // 2
     nvv = nv * (nv - 1) // 2
 
-    m1_ref = singles_reference_density(norb=norb, nocc=nocc)
+    m1_ref = ocepa0.singles_reference_density(norb=norb, nocc=nocc)
 
     def _electronic_energy(t1_flat, t2_flat):
         t1 = numpy.reshape(t1_flat, (no, nv))
@@ -189,10 +135,10 @@ def energy_functional(norb, nocc, h_aso, g_aso, c):
 
         m1_cor = singles_correlation_density(t2)
         m1 = m1_ref + m1_cor
-        k2 = doubles_cumulant(t2)
+        k2 = ocepa0.doubles_cumulant(t2)
         m2 = doubles_density(m1, k2)
 
-        return electronic_energy(h, g, m1, m2)
+        return ocepa0.electronic_energy(h, g, m1, m2)
 
     return _electronic_energy
 
@@ -366,7 +312,7 @@ def main():
                                                h_aso=h_aso, g_aso=g_aso,
                                                c=c)
 
-    print("Numerical Hessian calculations ...")
+    print("Numerical gradient calculations ...")
     en_dx = en_dx_func(x, t)
     print("... orbital gradient finished")
     en_dt = en_dt_func(x, t)
@@ -387,7 +333,7 @@ def main():
     p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
     p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
     p = fermitools.math.transform(p_aso, {1: c, 2: c})
-    m1_ref = singles_reference_density(norb=norb, nocc=nocc)
+    m1_ref = ocepa0.singles_reference_density(norb=norb, nocc=nocc)
     m1_cor = singles_correlation_density(t2)
     m1 = m1_ref + m1_cor
     mu = numpy.array([numpy.vdot(px, m1) for px in p])
