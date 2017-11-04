@@ -75,7 +75,7 @@ def first_order_orbital_variation_matrix(h, g, m1, m2):
 
 def orbital_gradient(o, v, h, g, m1, m2):
     fc = first_order_orbital_variation_matrix(h, g, m1, m2)
-    res1 = (fc - numpy.transpose(fc))[o, v]
+    res1 = (numpy.transpose(fc) - fc)[o, v]
     return res1
 
 
@@ -88,7 +88,7 @@ def solve(norb, nocc, h_aso, g_aso, c_guess, t2_guess, niter=50,
     o = slice(None, nocc)
     v = slice(nocc, None)
 
-    x1 = numpy.zeros((norb, norb))
+    gen = numpy.zeros((norb, norb))
     m1_ref = singles_reference_density(norb=norb, nocc=nocc)
 
     c = c_guess
@@ -114,8 +114,9 @@ def solve(norb, nocc, h_aso, g_aso, c_guess, t2_guess, niter=50,
         r1 = orbital_gradient(o, v, h, g, m1, m2)
         e1 = fermitools.math.broadcast_sum({0: +e[o], 1: -e[v]})
         t1 = r1 / e1
-        x1[o, v] = t1
-        u = spla.expm(x1 - numpy.transpose(x1))
+        gen[v, o] = numpy.transpose(t1)
+        gen[o, v] = -t1
+        u = spla.expm(gen)
         c = numpy.dot(c, u)
 
         en_elec = electronic_energy(h, g, m1, m2)
@@ -148,6 +149,7 @@ def energy_functional(norb, nocc, h_aso, g_aso, c):
     noo = no * (no - 1) // 2
     nvv = nv * (nv - 1) // 2
 
+    gen = numpy.zeros((norb, norb))
     m1_ref = singles_reference_density(norb=norb, nocc=nocc)
 
     def _electronic_energy(t1_flat, t2_flat):
@@ -155,9 +157,8 @@ def energy_functional(norb, nocc, h_aso, g_aso, c):
         t2_mat = numpy.reshape(t2_flat, (noo, nvv))
         t2 = fermitools.math.asym.unravel_compound_index(t2_mat, {0: (0, 1),
                                                                   1: (2, 3)})
-        gen = numpy.zeros((norb, norb))
-        gen[o, v] = t1
-        gen[v, o] = -numpy.transpose(t1)
+        gen[v, o] = numpy.transpose(t1)
+        gen[o, v] = -t1
         u = spla.expm(gen)
         ct = numpy.dot(c, u)
 
@@ -330,7 +331,7 @@ def main():
                                                h_aso=h_aso, g_aso=g_aso,
                                                c=c, npts=11)
 
-    print("Numerical Hessian calculations ...")
+    print("Numerical gradient calculations ...")
     en_dx = en_dx_func(x, t)
     print("... orbital gradient finished")
     en_dt = en_dt_func(x, t)

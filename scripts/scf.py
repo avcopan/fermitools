@@ -34,7 +34,7 @@ def first_order_orbital_variation_matrix(h, g, m1, m2):
 
 def orbital_gradient(o, v, h, g, m1, m2):
     fc = first_order_orbital_variation_matrix(h, g, m1, m2)
-    res1 = (fc - numpy.transpose(fc))[o, v]
+    res1 = (numpy.transpose(fc) - fc)[o, v]
     return res1
 
 
@@ -54,8 +54,8 @@ def energy_functional(norb, nocc, h_aso, g_aso, c):
     def _energy(t1_flat):
         t1 = numpy.reshape(t1_flat, (no, nv))
         gen = numpy.zeros((norb, norb))
-        gen[o, v] = t1
-        gen[v, o] = -numpy.transpose(t1)
+        gen[v, o] = numpy.transpose(t1)
+        gen[o, v] = -t1
         u = spla.expm(gen)
         ct = numpy.dot(c, u)
 
@@ -100,7 +100,7 @@ def solve(norb, nocc, h_aso, g_aso, c_guess, niter=50, e_thresh=1e-10,
     v = slice(nocc, None)
 
     c = c_guess
-    x1 = numpy.zeros((norb, norb))
+    gen = numpy.zeros((norb, norb))
 
     m1 = singles_density(norb=norb, nocc=nocc)
     m2 = doubles_density(m1)
@@ -116,8 +116,9 @@ def solve(norb, nocc, h_aso, g_aso, c_guess, niter=50, e_thresh=1e-10,
         r1 = orbital_gradient(o, v, h, g, m1, m2)
         e1 = fermitools.math.broadcast_sum({0: +e[o], 1: -e[v]})
         t1 = r1 / e1
-        x1[o, v] = t1
-        u = spla.expm(x1 - numpy.transpose(x1))
+        gen[v, o] = numpy.transpose(t1)
+        gen[o, v] = -t1
+        u = spla.expm(gen)
         c = numpy.dot(c, u)
 
         en_elec = electronic_energy(h, g, m1, m2)

@@ -50,7 +50,7 @@ def doubles_cumulant(t2):
 def orbital_gradient(o, v, h, g, m1, m2):
     fcap = (numpy.einsum('px,qx->pq', h, m1)
             + 1. / 2 * numpy.einsum('pxyz,qxyz->pq', g, m2))
-    res1 = (fcap - numpy.transpose(fcap))[o, v]
+    res1 = (numpy.transpose(fcap) - fcap)[o, v]
     return res1
 
 
@@ -83,8 +83,8 @@ def energy_routine(basis, labels, coords, charge, spin):
                                      order=ab2ov(dim=nbf, na=na, nb=nb),
                                      axes=(1,))
 
-    x1 = numpy.zeros((2 * nbf, 2 * nbf))
-    m1_ref = numpy.zeros_like(x1)
+    gen = numpy.zeros((2 * nbf, 2 * nbf))
+    m1_ref = numpy.zeros_like(gen)
     m1_ref[o, o] = numpy.eye(n)
     t2 = numpy.zeros_like(g_aso[o, o, v, v])
 
@@ -108,8 +108,9 @@ def energy_routine(basis, labels, coords, charge, spin):
         r1 = orbital_gradient(o, v, h, g, m1, m2)
         e1 = fermitools.math.broadcast_sum({0: +e[o], 1: -e[v]})
         t1 = r1 / e1
-        x1[o, v] = t1
-        u = spla.expm(x1 - numpy.transpose(x1))
+        gen[v, o] = numpy.transpose(t1)
+        gen[o, v] = -t1
+        u = spla.expm(gen)
         c = numpy.dot(c, u)
 
         en = electronic_energy(h, g, m1, m2) + en_nuc
