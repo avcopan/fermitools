@@ -175,7 +175,7 @@ def energy_functional(norb, nocc, h_aso, g_aso, c):
     return _electronic_energy
 
 
-def orbital_gradient_functional(norb, nocc, h_aso, g_aso, c, step=0.05,
+def orbital_gradient_functional(norb, nocc, h_aso, g_aso, c, step=0.01,
                                 npts=9):
     en_func = energy_functional(norb, nocc, h_aso, g_aso, c)
 
@@ -188,7 +188,7 @@ def orbital_gradient_functional(norb, nocc, h_aso, g_aso, c, step=0.05,
     return _orbital_gradient
 
 
-def amplitude_gradient_functional(norb, nocc, h_aso, g_aso, c, step=0.05,
+def amplitude_gradient_functional(norb, nocc, h_aso, g_aso, c, step=0.01,
                                   npts=9):
     en_func = energy_functional(norb, nocc, h_aso, g_aso, c)
 
@@ -201,7 +201,7 @@ def amplitude_gradient_functional(norb, nocc, h_aso, g_aso, c, step=0.05,
     return _amplitude_gradient
 
 
-def orbital_hessian_functional(norb, nocc, h_aso, g_aso, c, step=0.05, npts=9):
+def orbital_hessian_functional(norb, nocc, h_aso, g_aso, c, step=0.01, npts=9):
     en_dx_func = orbital_gradient_functional(norb, nocc, h_aso, g_aso, c,
                                              step=step, npts=npts)
 
@@ -214,21 +214,7 @@ def orbital_hessian_functional(norb, nocc, h_aso, g_aso, c, step=0.05, npts=9):
     return _orbital_hessian
 
 
-def mixed_hessian_functional(norb, nocc, h_aso, g_aso, c, step=0.05, npts=9):
-    en_dx_func = orbital_gradient_functional(norb, nocc, h_aso, g_aso, c,
-                                             step=step, npts=npts)
-
-    def _mixed_hessian(t1_flat, t2_flat):
-        en_dtdx = fermitools.math.central_difference(
-                    functools.partial(en_dx_func, t1_flat), t2_flat, step=step,
-                    nder=1, npts=npts)
-        return en_dtdx
-
-    return _mixed_hessian
-
-
-def mixed_hessian_transp_functional(norb, nocc, h_aso, g_aso, c, step=0.05,
-                                    npts=9):
+def mixed_hessian_functional(norb, nocc, h_aso, g_aso, c, step=0.01, npts=9):
     en_dt_func = amplitude_gradient_functional(norb, nocc, h_aso, g_aso, c,
                                                step=step, npts=npts)
 
@@ -241,7 +227,21 @@ def mixed_hessian_transp_functional(norb, nocc, h_aso, g_aso, c, step=0.05,
     return _mixed_hessian
 
 
-def amplitude_hessian_functional(norb, nocc, h_aso, g_aso, c, step=0.05,
+def mixed_hessian_transp_functional(norb, nocc, h_aso, g_aso, c, step=0.01,
+                                    npts=9):
+    en_dx_func = orbital_gradient_functional(norb, nocc, h_aso, g_aso, c,
+                                             step=step, npts=npts)
+
+    def _mixed_hessian(t1_flat, t2_flat):
+        en_dtdx = fermitools.math.central_difference(
+                    functools.partial(en_dx_func, t1_flat), t2_flat, step=step,
+                    nder=1, npts=npts)
+        return en_dtdx
+
+    return _mixed_hessian
+
+
+def amplitude_hessian_functional(norb, nocc, h_aso, g_aso, c, step=0.01,
                                  npts=9):
     en_dt_func = amplitude_gradient_functional(norb, nocc, h_aso, g_aso, c,
                                                step=step, npts=npts)
