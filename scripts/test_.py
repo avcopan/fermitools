@@ -234,7 +234,7 @@ def test__lr_ocepa0_cation():
     en_dtdt = numpy.load(os.path.join(data_path, 'lr_ocepa0/en_dtdt.npy'))
 
     assert_almost_equal(en_dxdx, 2*(a_orb + b_orb), decimal=9)
-    assert_almost_equal(en_dtdx, -2*(a_mix + b_mix), decimal=9)
+    assert_almost_equal(en_dxdt, -2*(a_mix + b_mix), decimal=9)
     assert_almost_equal(en_dxdt, numpy.transpose(en_dtdx), decimal=9)
     assert_almost_equal(en_dtdt, 2*(a_amp + b_amp), decimal=9)
 
@@ -247,8 +247,8 @@ def test__lr_ocepa0_cation():
     t_amp = numpy.transpose([
         lr.amplitude_property_gradient(px[o, o], px[v, v], t2) for px in p])
 
-    a = numpy.bmat([[a_orb, -a_mix.T], [-a_mix, a_amp]])
-    b = numpy.bmat([[b_orb, -b_mix.T], [-b_mix, b_amp]])
+    a = numpy.bmat([[a_orb, -a_mix], [-a_mix.T, a_amp]])
+    b = numpy.bmat([[b_orb, -b_mix], [-b_mix.T, b_amp]])
     t = numpy.bmat([[t_orb], [t_amp]])
     r = lr.static_response_vector(a, b, t)
     alpha = lr.static_linear_response_function(t, r)
@@ -354,7 +354,7 @@ def test__lr_ocepa0_neutral():
                                       'lr_ocepa0/neutral/en_dtdt.npy'))
 
     assert_almost_equal(en_dxdx, 2*(a_orb + b_orb), decimal=9)
-    assert_almost_equal(en_dtdx, -2*(a_mix + b_mix), decimal=9)
+    assert_almost_equal(en_dxdt, -2*(a_mix + b_mix), decimal=9)
     assert_almost_equal(en_dxdt, numpy.transpose(en_dtdx), decimal=9)
     assert_almost_equal(en_dtdt, 2*(a_amp + b_amp), decimal=9)
 
@@ -367,8 +367,8 @@ def test__lr_ocepa0_neutral():
     t_amp = numpy.transpose([
         lr.amplitude_property_gradient(px[o, o], px[v, v], t2) for px in p])
 
-    a = numpy.bmat([[a_orb, -a_mix.T], [-a_mix, a_amp]])
-    b = numpy.bmat([[b_orb, -b_mix.T], [-b_mix, b_amp]])
+    a = numpy.bmat([[a_orb, -a_mix], [-a_mix.T, a_amp]])
+    b = numpy.bmat([[b_orb, -b_mix], [-b_mix.T, b_amp]])
     t = numpy.bmat([[t_orb], [t_amp]])
     r = lr.static_response_vector(a, b, t)
     alpha = lr.static_linear_response_function(t, r)
