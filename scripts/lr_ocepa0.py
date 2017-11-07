@@ -135,6 +135,17 @@ def amplitude_property_gradient(poo, pvv, t2):
     return numpy.ravel(t_cmp)
 
 
+def orbital_metric(m1oo, m1vv):
+    no, _ = m1oo.shape
+    nv, _ = m1vv.shape
+    nsingles = no * nv
+    io = numpy.eye(no)
+    iv = numpy.eye(nv)
+    s = (+ numpy.einsum('ij,ab->iajb', m1oo, iv)
+         - numpy.einsum('ij,ab->iajb', io, m1vv))
+    return numpy.reshape(s, (nsingles, nsingles))
+
+
 def static_response_vector(a, b, t):
     """solve for the static response vector
 
@@ -172,8 +183,8 @@ def main():
 
     import fermitools
 
-    CHARGE = +1
-    SPIN = 1
+    CHARGE = +0
+    SPIN = 0
     BASIS = 'sto-3g'
     LABELS = ('O', 'H', 'H')
     COORDS = ((0.000000000000,  0.000000000000, -0.143225816552),
@@ -250,19 +261,15 @@ def main():
 
     print(numpy.real(alpha).round(8))
 
-    # Evaluate dipole polarizability as energy derivative
-    en_f_func = ocepa0.perturbed_energy_function(norb=norb, nocc=nocc,
-                                                 h_aso=h_aso, p_aso=p_aso,
-                                                 g_aso=g_aso, c_guess=c,
-                                                 t2_guess=t2, niter=200,
-                                                 e_thresh=1e-14,
-                                                 r_thresh=1e-12,
-                                                 print_conv=True)
-    en_df2 = fermitools.math.central_difference(en_f_func, [0., 0., 0.],
-                                                step=0.01, nder=2, npts=9)
+    # Evaluate the excitation energies
+    s_orb = orbital_metric(m1[o, o], m1[v, v])
+    s_amp = numpy.eye(*a_amp.shape)
+    s = spla.block_diag(s_orb, s_amp)
 
-    print(numpy.diag(numpy.real(alpha)).round(8))
-    print(en_df2.round(8))
+    e = numpy.bmat([[a, b], [b, a]])
+    m = spla.block_diag(s, -s)
+    w = numpy.real(spla.eigvals(e, b=m))
+    print(numpy.array(sorted(w)))
 
 
 if __name__ == '__main__':

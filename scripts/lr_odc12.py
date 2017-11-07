@@ -18,6 +18,7 @@ from .lr_ocepa0 import orbital_property_gradient
 from .lr_ocepa0 import amplitude_property_gradient
 from .lr_ocepa0 import static_response_vector
 from .lr_ocepa0 import static_linear_response_function
+from .lr_ocepa0 import orbital_metric
 
 
 def fancy_repulsion(ffoo, ffvv, goooo, govov, gvvvv, m1oo, m1vv):
@@ -151,8 +152,8 @@ def offdiagonal_mixed_hessian(gooov, govvv, fioo, fivv, t2):
 def main():
     from scripts import odc12
 
-    CHARGE = +1
-    SPIN = 1
+    CHARGE = +0
+    SPIN = 0
     BASIS = 'sto-3g'
     LABELS = ('O', 'H', 'H')
     COORDS = ((0.000000000000,  0.000000000000, -0.143225816552),
@@ -227,35 +228,6 @@ def main():
     print(a_mix.shape)
     print(b_mix.shape)
 
-    # Get blocks of the electronic Hessian numerically
-    import os
-    data_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                             'data')
-    en_dt2 = numpy.load(os.path.join(data_path,
-                                     'lr_odc12/cation/en_dt2.npy'))
-    en_dxdx = numpy.real(numpy.load(os.path.join(data_path,
-                         'lr_odc12/cation/en_dxdx.npy')))
-    en_dxdt = numpy.real(numpy.load(os.path.join(data_path,
-                         'lr_odc12/cation/en_dxdt.npy')))
-    en_dtdt = numpy.real(numpy.load(os.path.join(data_path,
-                         'lr_odc12/cation/en_dtdt.npy')))
-
-    print("Checking orbital Hessian:")
-    print((en_dxdx - 2*(a_orb + b_orb)).round(8))
-    print(spla.norm(en_dxdx - 2*(a_orb + b_orb)))
-    print("Checking mixed Hessian:")
-    print((en_dxdt + 2*(a_mix + b_mix)).round(8))
-    print(spla.norm(en_dxdt + 2*(a_mix + b_mix)))
-    print("Checking amplitude Hessian:")
-    print((en_dtdt - 2*(a_amp + b_amp)).round(8))
-    print(spla.norm(en_dtdt - 2*(a_amp + b_amp)))
-    print(numpy.diag(a_amp + b_amp) / en_dt2)
-
-    from numpy.testing import assert_almost_equal
-    assert_almost_equal(en_dxdx, 2*(a_orb + b_orb), decimal=9)
-    assert_almost_equal(en_dxdt, -2*(a_mix + b_mix), decimal=9)
-    assert_almost_equal(en_dtdt, 2*(a_amp + b_amp), decimal=8)
-
     # Evaluate dipole polarizability using linear response theory
     p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
     p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
@@ -275,19 +247,15 @@ def main():
 
     print(numpy.real(alpha).round(8))
 
-    # Evaluate dipole polarizability as energy derivative
-    en_f_func = odc12.perturbed_energy_function(norb=norb, nocc=nocc,
-                                                h_aso=h_aso, p_aso=p_aso,
-                                                g_aso=g_aso, c_guess=c,
-                                                t2_guess=t2, niter=200,
-                                                e_thresh=1e-14,
-                                                r_thresh=1e-12,
-                                                print_conv=True)
-    en_df2 = fermitools.math.central_difference(en_f_func, [0., 0., 0.],
-                                                step=0.01, nder=2, npts=9)
+    # Evaluate the excitation energies
+    s_orb = orbital_metric(m1[o, o], m1[v, v])
+    s_amp = numpy.eye(*a_amp.shape)
+    s = spla.block_diag(s_orb, s_amp)
 
-    print(numpy.diag(numpy.real(alpha)).round(8))
-    print(en_df2.round(8))
+    e = numpy.bmat([[a, b], [b, a]])
+    m = spla.block_diag(s, -s)
+    w = numpy.real(spla.eigvals(e, b=m))
+    print(numpy.array(sorted(w)))
 
 
 if __name__ == '__main__':
