@@ -14,6 +14,10 @@ from .lr_ocepa0 import diagonal_orbital_hessian
 from .lr_ocepa0 import offdiagonal_orbital_hessian
 from .lr_ocepa0 import (diagonal_amplitude_hessian as
                         cepa_diagonal_amplitude_hessian)
+from .lr_ocepa0 import orbital_property_gradient
+from .lr_ocepa0 import amplitude_property_gradient
+from .lr_ocepa0 import static_response_vector
+from .lr_ocepa0 import static_linear_response_function
 
 
 def fancy_repulsion(ffoo, ffvv, goooo, govov, gvvvv, m1oo, m1vv):
@@ -250,6 +254,41 @@ def main():
 
     from numpy.testing import assert_almost_equal
     assert_almost_equal(en_dxdx, 2*(a_orb + b_orb), decimal=9)
+    assert_almost_equal(en_dxdt, -2*(a_mix + b_mix), decimal=9)
+    assert_almost_equal(en_dtdt, 2*(a_amp + b_amp), decimal=8)
+
+    # Evaluate dipole polarizability using linear response theory
+    p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
+    p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
+    p = fermitools.math.transform(p_aso, {1: c, 2: c})
+    fp = numpy.array([
+        odc12.fancy_fock(px[o, o], px[v, v], m1[o, o], m1[v, v]) for px in p])
+    t_orb = numpy.transpose([
+        orbital_property_gradient(o, v, px, m1) for px in p])
+    t_amp = numpy.transpose([
+        amplitude_property_gradient(px['o,o'], -px['v,v'], t2) for px in fp])
+
+    a = numpy.bmat([[a_orb, -a_mix], [-a_mix.T, a_amp]])
+    b = numpy.bmat([[b_orb, -b_mix], [-b_mix.T, b_amp]])
+    t = numpy.bmat([[t_orb], [t_amp]])
+    r = static_response_vector(a, b, t)
+    alpha = static_linear_response_function(t, r)
+
+    print(numpy.real(alpha).round(8))
+
+    # Evaluate dipole polarizability as energy derivative
+    en_f_func = odc12.perturbed_energy_function(norb=norb, nocc=nocc,
+                                                h_aso=h_aso, p_aso=p_aso,
+                                                g_aso=g_aso, c_guess=c,
+                                                t2_guess=t2, niter=200,
+                                                e_thresh=1e-14,
+                                                r_thresh=1e-12,
+                                                print_conv=True)
+    en_df2 = fermitools.math.central_difference(en_f_func, [0., 0., 0.],
+                                                step=0.01, nder=2, npts=9)
+
+    print(numpy.diag(numpy.real(alpha)).round(8))
+    print(en_df2.round(8))
 
 
 if __name__ == '__main__':
