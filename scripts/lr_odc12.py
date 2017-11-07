@@ -151,8 +151,8 @@ def offdiagonal_mixed_hessian(gooov, govvv, fioo, fivv, t2):
 def main():
     from scripts import odc12
 
-    CHARGE = +0
-    SPIN = 0
+    CHARGE = +1
+    SPIN = 1
     BASIS = 'sto-3g'
     LABELS = ('O', 'H', 'H')
     COORDS = ((0.000000000000,  0.000000000000, -0.143225816552),
@@ -202,29 +202,28 @@ def main():
     m1 = m1_ref + m1_cor
     k2 = doubles_cumulant(t2)
     m2 = doubles_density(m1, k2)
+
     f = fock(h, g, m1)
     o = slice(None, nocc)
     v = slice(nocc, None)
     ff = odc12.fancy_fock(f[o, o], f[v, v], m1[o, o], m1[v, v])
-
-    a_orb = diagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
-    b_orb = offdiagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
-
     fg = fancy_repulsion(ff['o,o'], ff['v,v'], g[o, o, o, o], g[o, v, o, v],
                          g[v, v, v, v], m1[o, o], m1[v, v])
+    fi = fancy_mixed_interaction(f[o, v], g[o, o, o, v], g[o, v, v, v],
+                                 m1[o, o], m1[v, v])
+
+    a_orb = diagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
+    a_mix = diagonal_mixed_hessian(g[o, o, o, v], g[o, v, v, v],
+                                   fi['o,o'], fi['v,v'], t2)
     a_amp = diagonal_amplitude_hessian(ff['o,o'], ff['v,v'], g[o, o, o, o],
                                        g[o, v, o, v], g[v, v, v, v],
                                        fg['o,o,o,o'], fg['o,v,o,v'],
                                        fg['v,v,v,v'], t2)
-    b_amp = offdiagonal_amplitude_hessian(fg['o,o,o,o'], fg['o,v,o,v'],
-                                          fg['v,v,v,v'], t2)
-
-    fi = fancy_mixed_interaction(f[o, v], g[o, o, o, v], g[o, v, v, v],
-                                 m1[o, o], m1[v, v])
-    a_mix = diagonal_mixed_hessian(g[o, o, o, v], g[o, v, v, v],
-                                   fi['o,o'], fi['v,v'], t2)
+    b_orb = offdiagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
     b_mix = offdiagonal_mixed_hessian(g[o, o, o, v], g[o, v, v, v],
                                       fi['o,o'], fi['v,v'], t2)
+    b_amp = offdiagonal_amplitude_hessian(fg['o,o,o,o'], fg['o,v,o,v'],
+                                          fg['v,v,v,v'], t2)
     print(a_mix.shape)
     print(b_mix.shape)
 
@@ -233,13 +232,13 @@ def main():
     data_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                              'data')
     en_dt2 = numpy.load(os.path.join(data_path,
-                                     'lr_odc12/neutral/en_dt2.npy'))
+                                     'lr_odc12/cation/en_dt2.npy'))
     en_dxdx = numpy.real(numpy.load(os.path.join(data_path,
-                         'lr_odc12/neutral/en_dxdx.npy')))
+                         'lr_odc12/cation/en_dxdx.npy')))
     en_dxdt = numpy.real(numpy.load(os.path.join(data_path,
-                         'lr_odc12/neutral/en_dxdt.npy')))
+                         'lr_odc12/cation/en_dxdt.npy')))
     en_dtdt = numpy.real(numpy.load(os.path.join(data_path,
-                         'lr_odc12/neutral/en_dtdt.npy')))
+                         'lr_odc12/cation/en_dtdt.npy')))
 
     print("Checking orbital Hessian:")
     print((en_dxdx - 2*(a_orb + b_orb)).round(8))

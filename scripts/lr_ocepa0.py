@@ -232,8 +232,6 @@ def main():
     b_mix = offdiagonal_mixed_hessian(f[o, v], g[o, o, o, v], g[o, v, v, v],
                                       t2)
     b_amp = numpy.zeros_like(a_amp)
-    a = numpy.bmat([[a_orb, -a_mix], [-a_mix.T, a_amp]])
-    b = numpy.bmat([[b_orb, -b_mix], [-b_mix.T, b_amp]])
 
     # Evaluate dipole polarizability using linear response theory
     p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
@@ -243,6 +241,9 @@ def main():
         orbital_property_gradient(o, v, px, m1) for px in p])
     t_amp = numpy.transpose([
         amplitude_property_gradient(px[o, o], px[v, v], t2) for px in p])
+
+    a = numpy.bmat([[a_orb, -a_mix], [-a_mix.T, a_amp]])
+    b = numpy.bmat([[b_orb, -b_mix], [-b_mix.T, b_amp]])
     t = numpy.bmat([[t_orb], [t_amp]])
     r = static_response_vector(a, b, t)
     alpha = static_linear_response_function(t, r)
