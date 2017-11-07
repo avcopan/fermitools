@@ -63,54 +63,59 @@ def diagonal_amplitude_hessian(foo, fvv, goooo, govov, gvvvv):
     return numpy.reshape(a_cmp, (ndoubles, ndoubles))
 
 
-def diagonal_mixed_hessian(o, v, g, f, t2):
+def mixed_interaction(fov, gooov, govvv):
+    no, nv, _, _ = govvv.shape
+    io = numpy.eye(no)
+    iv = numpy.eye(nv)
+    ioo = (+ numpy.einsum('ik,la->iakl', io, fov)
+           - numpy.einsum('ilka->iakl', gooov))
+    ivv = (- numpy.einsum('ac,id->iadc', iv, fov)
+           + numpy.einsum('icad->iadc', govvv))
+    return {'o,o': ioo, 'v,v': ivv}
+
+
+def diagonal_mixed_hessian(fov, gooov, govvv, t2):
     no, _, nv, _ = t2.shape
     nsingles = no * nv
     ndoubles = no * (no - 1) * nv * (nv - 1) // 4
     io = numpy.eye(no)
     iv = numpy.eye(nv)
-    a = (+ asym('2/3')(
-                numpy.einsum('ik,alcd->iaklcd', io, g[v, o, v, v]))
+    i = mixed_interaction(fov, gooov, govvv)
+    a = (- asym('2/3')(
+                numpy.einsum('ik,lacd->iaklcd', io, govvv))
          - asym('4/5')(
-                numpy.einsum('ac,klid->iaklcd', iv, g[o, o, o, v]))
+                numpy.einsum('ac,klid->iaklcd', iv, gooov))
          - asym('2/3')(
-                numpy.einsum('ik,am,mlcd->iaklcd', io, f[v, o], t2))
-         - asym('4/5')(
-                numpy.einsum('ac,ei,kled->iaklcd', iv, f[v, o], t2))
-         + asym('2/3|4/5')(
-                numpy.einsum('ik,aecm,mled->iaklcd', io, g[v, v, v, o], t2))
-         - asym('2/3|4/5')(
-                numpy.einsum('ac,keim,mled->iaklcd', iv, g[o, v, o, o], t2))
-         + 1./2 * asym('2/3')(
-                numpy.einsum('ik,almn,mncd->iaklcd', io, g[v, o, o, o], t2))
-         - 1./2 * asym('4/5')(
-                numpy.einsum('ac,efid,klef->iaklcd', iv, g[v, v, o, v], t2))
+                numpy.einsum('iakm,mlcd->iaklcd', i['o,o'], t2))
          + asym('4/5')(
-                numpy.einsum('aeic,kled->iaklcd', g[v, v, o, v], t2))
-         - asym('2/3')(
-                numpy.einsum('akim,mlcd->iaklcd', g[v, o, o, o], t2)))
+                numpy.einsum('iaec,kled->iaklcd', i['v,v'], t2))
+         - asym('2/3|4/5')(
+                numpy.einsum('ik,mcae,mled->iaklcd', io, govvv, t2))
+         - asym('2/3|4/5')(
+                numpy.einsum('ac,imke,mled->iaklcd', iv, gooov, t2))
+         - 1./2 * asym('2/3')(
+                numpy.einsum('ik,mnla,mncd->iaklcd', io, gooov, t2))
+         - 1./2 * asym('4/5')(
+                numpy.einsum('ac,idef,klef->iaklcd', iv, govvv, t2)))
     a_cmp = fermitools.math.asym.compound_index(a, {2: (2, 3), 3: (4, 5)})
     return numpy.reshape(a_cmp, (nsingles, ndoubles))
 
 
-def offdiagonal_mixed_hessian(o, v, g, f, t2):
+def offdiagonal_mixed_hessian(fov, gooov, govvv, t2):
     no, _, nv, _ = t2.shape
     nsingles = no * nv
     ndoubles = no * (no - 1) * nv * (nv - 1) // 4
+    i = mixed_interaction(fov, gooov, govvv)
     b = (- asym('2/3')(
-                numpy.einsum('ak,ilcd->iaklcd', f[v, o], t2))
-         - asym('4/5')(
-                numpy.einsum('ci,klad->iaklcd', f[v, o], t2))
-         + asym('2/3|4/5')(
-                numpy.einsum('adel,kice->iaklcd', g[v, v, v, o], t2))
-         - asym('2/3|4/5')(
-                numpy.einsum('mdil,kmca->iaklcd', g[o, v, o, o], t2))
-         + numpy.einsum('makl,micd->iaklcd', g[o, v, o, o], t2)
-         - numpy.einsum('cdei,klea->iaklcd', g[v, v, v, o], t2)
+                numpy.einsum('iamk,mlcd->iaklcd', i['o,o'], t2))
          + asym('4/5')(
-                numpy.einsum('daei,klce->iaklcd', g[v, v, v, o], t2))
-         - asym('2/3')(
-                numpy.einsum('mali,kmcd->iaklcd', g[o, v, o, o], t2)))
+                numpy.einsum('iace,kled->iaklcd', i['v,v'], t2))
+         - asym('2/3|4/5')(
+                numpy.einsum('lead,kice->iaklcd', govvv, t2))
+         - asym('2/3|4/5')(
+                numpy.einsum('ilmd,kmca->iaklcd', gooov, t2))
+         + numpy.einsum('klma,micd->iaklcd', gooov, t2)
+         + numpy.einsum('iecd,klea->iaklcd', govvv, t2))
     b_cmp = fermitools.math.asym.compound_index(b, {2: (2, 3), 3: (4, 5)})
     return numpy.reshape(b_cmp, (nsingles, ndoubles))
 
@@ -219,12 +224,13 @@ def main():
     m2 = ocepa0.doubles_density(m1_ref, m1_cor, k2)
 
     a_orb = diagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
-    a_mix = diagonal_mixed_hessian(o, v, g, f, t2)
+    a_mix = diagonal_mixed_hessian(f[o, v], g[o, o, o, v], g[o, v, v, v], t2)
     a_amp = diagonal_amplitude_hessian(f[o, o], f[v, v], g[o, o, o, o],
                                        g[o, v, o, v], g[v, v, v, v])
 
     b_orb = offdiagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
-    b_mix = offdiagonal_mixed_hessian(o, v, g, f, t2)
+    b_mix = offdiagonal_mixed_hessian(f[o, v], g[o, o, o, v], g[o, v, v, v],
+                                      t2)
     b_amp = numpy.zeros_like(a_amp)
     a = numpy.bmat([[a_orb, -a_mix], [-a_mix.T, a_amp]])
     b = numpy.bmat([[b_orb, -b_mix], [-b_mix.T, b_amp]])

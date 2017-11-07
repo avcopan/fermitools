@@ -44,6 +44,26 @@ def fancy_repulsion(ffoo, ffvv, goooo, govov, gvvvv, m1oo, m1vv):
     return {'o,o,o,o': fgoooo, 'o,v,o,v': fgovov, 'v,v,v,v': fgvvvv}
 
 
+def fancy_mixed_interaction(fov, gooov, govvv, m1oo, m1vv):
+    no, uo = spla.eigh(m1oo)
+    nv, uv = spla.eigh(m1vv)
+    n1oo = fermitools.math.broadcast_sum({2: no, 3: no}) - 1
+    n1vv = fermitools.math.broadcast_sum({2: nv, 3: nv}) - 1
+    io = numpy.eye(*uo.shape)
+    iv = numpy.eye(*uv.shape)
+    ioo = (+ numpy.einsum('ik,la->iakl', io, fov)
+           - numpy.einsum('mlka,im->iakl', gooov, m1oo)
+           + numpy.einsum('ilke,ae->iakl', gooov, m1vv))
+    ivv = (- numpy.einsum('ac,id->iadc', iv, fov)
+           + numpy.einsum('mcad,im->iadc', govvv, m1oo)
+           - numpy.einsum('iced,ae->iadc', govvv, m1vv))
+    tfioo = fermitools.math.transform(ioo, {2: uo, 3: uo}) / n1oo
+    tfivv = fermitools.math.transform(ivv, {2: uv, 3: uv}) / n1vv
+    fioo = fermitools.math.transform(tfioo, {2: uo.T, 3: uo.T})
+    fivv = fermitools.math.transform(tfivv, {2: uv.T, 3: uv.T})
+    return {'o,o': fioo, 'v,v': fivv}
+
+
 def diagonal_amplitude_hessian(ffoo, ffvv, goooo, govov, gvvvv,
                                fgoooo, fgovov, fgvvvv, t2):
     a_cepa = cepa_diagonal_amplitude_hessian(foo=+ffoo, fvv=-ffvv,
@@ -78,6 +98,50 @@ def offdiagonal_amplitude_hessian(fgoooo, fgovov,  fgvvvv, t2):
     b_cmp = fermitools.math.asym.compound_index(b, {0: (0, 1), 1: (2, 3),
                                                     2: (4, 5), 3: (6, 7)})
     return numpy.reshape(b_cmp, (ndoubles, ndoubles))
+
+
+def diagonal_mixed_hessian(gooov, govvv, fioo, fivv, t2):
+    no, _, nv, _ = t2.shape
+    nsingles = no * nv
+    ndoubles = no * (no - 1) * nv * (nv - 1) // 4
+    io = numpy.eye(no)
+    iv = numpy.eye(nv)
+    a = (- asym('2/3')(
+                numpy.einsum('ik,lacd->iaklcd', io, govvv))
+         - asym('4/5')(
+                numpy.einsum('ac,klid->iaklcd', iv, gooov))
+         - asym('2/3')(
+                numpy.einsum('iakm,mlcd->iaklcd', fioo, t2))
+         - asym('4/5')(
+                numpy.einsum('iaec,kled->iaklcd', fivv, t2))
+         - asym('2/3|4/5')(
+                numpy.einsum('ik,mcae,mled->iaklcd', io, govvv, t2))
+         - asym('2/3|4/5')(
+                numpy.einsum('ac,imke,mled->iaklcd', iv, gooov, t2))
+         - 1./2 * asym('2/3')(
+                numpy.einsum('ik,mnla,mncd->iaklcd', io, gooov, t2))
+         - 1./2 * asym('4/5')(
+                numpy.einsum('ac,idef,klef->iaklcd', iv, govvv, t2)))
+    a_cmp = fermitools.math.asym.compound_index(a, {2: (2, 3), 3: (4, 5)})
+    return numpy.reshape(a_cmp, (nsingles, ndoubles))
+
+
+def offdiagonal_mixed_hessian(gooov, govvv, fioo, fivv, t2):
+    no, _, nv, _ = t2.shape
+    nsingles = no * nv
+    ndoubles = no * (no - 1) * nv * (nv - 1) // 4
+    b = (- asym('2/3')(
+                numpy.einsum('iamk,mlcd->iaklcd', fioo, t2))
+         - asym('4/5')(
+                numpy.einsum('iace,kled->iaklcd', fivv, t2))
+         - asym('2/3|4/5')(
+                numpy.einsum('lead,kice->iaklcd', govvv, t2))
+         - asym('2/3|4/5')(
+                numpy.einsum('ilmd,kmca->iaklcd', gooov, t2))
+         + numpy.einsum('klma,micd->iaklcd', gooov, t2)
+         + numpy.einsum('iecd,klea->iaklcd', govvv, t2))
+    b_cmp = fermitools.math.asym.compound_index(b, {2: (2, 3), 3: (4, 5)})
+    return numpy.reshape(b_cmp, (nsingles, ndoubles))
 
 
 def main():
@@ -151,20 +215,34 @@ def main():
     b_amp = offdiagonal_amplitude_hessian(fg['o,o,o,o'], fg['o,v,o,v'],
                                           fg['v,v,v,v'], t2)
 
+    fi = fancy_mixed_interaction(f[o, v], g[o, o, o, v], g[o, v, v, v],
+                                 m1[o, o], m1[v, v])
+    a_mix = diagonal_mixed_hessian(g[o, o, o, v], g[o, v, v, v],
+                                   fi['o,o'], fi['v,v'], t2)
+    b_mix = offdiagonal_mixed_hessian(g[o, o, o, v], g[o, v, v, v],
+                                      fi['o,o'], fi['v,v'], t2)
+    print(a_mix.shape)
+    print(b_mix.shape)
+
     # Get blocks of the electronic Hessian numerically
     import os
     data_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                              'data')
     en_dt2 = numpy.load(os.path.join(data_path,
                                      'lr_odc12/neutral/en_dt2.npy'))
-    en_dxdx = numpy.load(os.path.join(data_path,
-                                      'lr_odc12/neutral/en_dxdx.npy'))
+    en_dxdx = numpy.real(numpy.load(os.path.join(data_path,
+                         'lr_odc12/neutral/en_dxdx.npy')))
+    en_dxdt = numpy.real(numpy.load(os.path.join(data_path,
+                         'lr_odc12/neutral/en_dxdt.npy')))
     en_dtdt = numpy.real(numpy.load(os.path.join(data_path,
                          'lr_odc12/neutral/en_dtdt.npy')))
 
     print("Checking orbital Hessian:")
     print((en_dxdx - 2*(a_orb + b_orb)).round(8))
     print(spla.norm(en_dxdx - 2*(a_orb + b_orb)))
+    print("Checking mixed Hessian:")
+    print((en_dxdt + 2*(a_mix + b_mix)).round(8))
+    print(spla.norm(en_dxdt + 2*(a_mix + b_mix)))
     print("Checking amplitude Hessian:")
     print((en_dtdt - 2*(a_amp + b_amp)).round(8))
     print(spla.norm(en_dtdt - 2*(a_amp + b_amp)))
