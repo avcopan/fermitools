@@ -94,13 +94,22 @@ def test__lr_scf():
                            r_thresh=1e-12, print_conv=200)
 
     # Evaluate the excitation energies by linear response theory
+    o = slice(None, nocc)
+    v = slice(nocc, None)
     h = fermitools.math.transform(h_aso, {0: c, 1: c})
     g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
     m1 = scf.singles_density(norb=norb, nocc=nocc)
     m2 = scf.doubles_density(m1)
-    a_orb = lr.diagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
-    b_orb = lr.offdiagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
-    w_rpa = lr.spectrum(a_orb, b_orb)
+    a = lr.diagonal_orbital_hessian(h[o, o], h[v, v], g[o, o, o, o],
+                                    g[o, o, v, v], g[o, v, o, v],
+                                    g[v, v, v, v], m1[o, o], m1[v, v],
+                                    m2[o, o, o, o], m2[o, o, v, v],
+                                    m2[o, v, o, v], m2[v, v, v, v])
+    b = lr.offdiagonal_orbital_hessian(g[o, o, o, o], g[o, o, v, v],
+                                       g[o, v, o, v], g[v, v, v, v],
+                                       m2[o, o, o, o], m2[o, o, v, v],
+                                       m2[o, v, o, v], m2[v, v, v, v])
+    w_rpa = lr.spectrum(a, b)
 
     # Compare to RPA energies posted on Crawdad
     from numpy.testing import assert_almost_equal
@@ -121,18 +130,15 @@ def test__lr_scf():
     data_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                              'data')
     en_dxdx = numpy.load(os.path.join(data_path, 'lr_scf/en_dxdx.npy'))
-    assert_almost_equal(en_dxdx, 2*(a_orb + b_orb), decimal=9)
+    assert_almost_equal(en_dxdx, 2*(a + b), decimal=9)
 
     # Evaluate dipole polarizability using linear response theory
     p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
     p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
     p = fermitools.math.transform(p_aso, {1: c, 2: c})
-    o = slice(None, nocc)
-    v = slice(nocc, None)
-    t_orb = numpy.transpose([
-        lr.orbital_property_gradient(o, v, px, m1) for px in p])
-    r_orb = lr.static_response_vector(a_orb, b_orb, t_orb)
-    alpha = lr.static_linear_response_function(t_orb, r_orb)
+    t = lr.orbital_property_gradient(p[:, o, v], m1[o, o], m1[v, v])
+    r = lr.static_response_vector(a, b, t)
+    alpha = lr.static_linear_response_function(t, r)
 
     # Evaluate dipole polarizability as energy derivative
     en_f_func = scf.perturbed_energy_function(norb=norb, nocc=nocc,

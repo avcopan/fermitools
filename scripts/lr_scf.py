@@ -7,44 +7,69 @@ import interfaces.psi4 as interface
 from . import scf
 
 
-def second_order_orbital_variation_tensor(h, g, m1, m2):
-    i = numpy.eye(*h.shape)
-    fc = scf.first_order_orbital_variation_matrix(h, g, m1, m2)
-    fcs = (fc + numpy.transpose(fc)) / 2.
-    hc = (+ numpy.einsum('pr,qs->pqrs', h, m1)
-          + numpy.einsum('pr,qs->pqrs', m1, h)
-          - numpy.einsum('pr,qs->pqrs', i, fcs)
-          - numpy.einsum('pr,qs->pqrs', fcs, i)
-          + numpy.einsum('pxry,qxsy->pqrs', g, m2)
-          + numpy.einsum('pxry,qxsy->pqrs', m2, g)
-          - 1./2. * numpy.einsum('psxy,qrxy->pqrs', g, m2)
-          - 1./2. * numpy.einsum('psxy,qrxy->pqrs', m2, g))
-    return hc
+def diagonal_orbital_hessian(hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv,
+                             m2oooo, m2oovv, m2ovov, m2vvvv):
+    no, nv, _, _ = govov.shape
+    nsingles = no * nv
+    io = numpy.eye(no)
+    iv = numpy.eye(nv)
+    fcoo = (numpy.dot(hoo, m1oo)
+            + 1./2 * numpy.einsum('imno,jmno->ij', goooo, m2oooo)
+            + 1./2 * numpy.einsum('imef,jmef->ij', goovv, m2oovv)
+            + numpy.einsum('iemf,jemf->ij', govov, m2ovov))
+    fcvv = (numpy.dot(hvv, m1vv)
+            + numpy.einsum('nema,nemb->ab', govov, m2ovov)
+            + 1./2 * numpy.einsum('mnae,mnbe', goovv, m2oovv)
+            + 1./2 * numpy.einsum('aefg,befg', gvvvv, m2vvvv))
+    fsoo = (fcoo + numpy.transpose(fcoo)) / 2.
+    fsvv = (fcvv + numpy.transpose(fcvv)) / 2.
+    a = (+ numpy.einsum('ij,ab->iajb', hoo, m1vv)
+         + numpy.einsum('ij,ab->iajb', m1oo, hvv)
+         - numpy.einsum('ij,ab->iajb', io, fsvv)
+         - numpy.einsum('ij,ab->iajb', fsoo, iv)
+         + numpy.einsum('minj,manb->iajb', goooo, m2ovov)
+         + numpy.einsum('minj,manb->iajb', m2oooo, govov)
+         + numpy.einsum('iejf,aebf->iajb', govov, m2vvvv)
+         + numpy.einsum('iejf,aebf->iajb', m2ovov, gvvvv)
+         + numpy.einsum('ibme,jame->iajb', govov, m2ovov)
+         + numpy.einsum('ibme,jame->iajb', m2ovov, govov))
+    return numpy.reshape(a, (nsingles, nsingles))
 
 
-def diagonal_orbital_hessian(nocc, norb, h, g, m1, m2):
-    o = slice(None, nocc)
-    v = slice(nocc, None)
-    no = nocc
-    nv = norb - nocc
-    h = second_order_orbital_variation_tensor(h, g, m1, m2)
-    a = h[o, v, o, v]
-    return numpy.reshape(a, (no * nv, no * nv))
+def offdiagonal_orbital_hessian(goooo, goovv, govov, gvvvv, m2oooo, m2oovv,
+                                m2ovov, m2vvvv):
+    no, nv, _, _ = govov.shape
+    nsingles = no * nv
+    b = (+ numpy.einsum('imbe,jema->iajb', goovv, m2ovov)
+         + numpy.einsum('imbe,jema->iajb', m2oovv, govov)
+         + numpy.einsum('iemb,jmae->iajb', govov, m2oovv)
+         + numpy.einsum('iemb,jmae->iajb', m2ovov, goovv)
+         + 1./2 * numpy.einsum('ijmn,mnab->iajb', goooo, m2oovv)
+         + 1./2 * numpy.einsum('ijmn,mnab->iajb', m2oooo, goovv)
+         + 1./2 * numpy.einsum('ijef,efab->iajb', goovv, m2vvvv)
+         + 1./2 * numpy.einsum('ijef,efab->iajb', m2oovv, gvvvv))
+    return numpy.reshape(b, (nsingles, nsingles))
 
 
-def offdiagonal_orbital_hessian(nocc, norb, h, g, m1, m2):
-    o = slice(None, nocc)
-    v = slice(nocc, None)
-    no = nocc
-    nv = norb - nocc
-    h = second_order_orbital_variation_tensor(h, g, m1, m2)
-    b = -numpy.transpose(h[o, v, v, o], (0, 1, 3, 2))
-    return numpy.reshape(b, (no * nv, no * nv))
+def orbital_property_gradient(pov, m1oo, m1vv):
+    no, _ = m1oo.shape
+    nv, _ = m1vv.shape
+    nsingles = no * nv
+    t = (+ numpy.einsum('...ie,ea->ia...', pov, m1vv)
+         - numpy.einsum('im,...ma->ia...', m1oo, pov))
+    shape = (nsingles,) + t.shape[2:]
+    return numpy.reshape(t, shape)
 
 
-def orbital_property_gradient(o, v, p, m1):
-    t = (numpy.dot(p, m1) - numpy.dot(m1, p))[o, v]
-    return numpy.ravel(t)
+def orbital_metric(m1oo, m1vv):
+    no, _ = m1oo.shape
+    nv, _ = m1vv.shape
+    nsingles = no * nv
+    io = numpy.eye(no)
+    iv = numpy.eye(nv)
+    s = (+ numpy.einsum('ij,ab->iajb', m1oo, iv)
+         - numpy.einsum('ij,ab->iajb', io, m1vv))
+    return numpy.reshape(s, (nsingles, nsingles))
 
 
 def static_response_vector(a, b, t):
@@ -59,7 +84,8 @@ def static_response_vector(a, b, t):
     :returns: the response vector(s), (x + y) = 2 * (a + b)^-1 * t
     :rtype: numpy.ndarray
     """
-    return spla.solve(a + b, 2 * t, sym_pos=True)
+    r, _, _, _ = spla.lstsq(a + b, 2 * t)
+    return r
 
 
 def static_linear_response_function(t, r):
@@ -72,16 +98,12 @@ def static_linear_response_function(t, r):
     :returns: the response function(s)
     :rtype: float or numpy.ndarray
     """
-    return numpy.dot(numpy.transpose(t), r)
+    return numpy.tensordot(t, r, axes=(0, 0))
 
 
 def spectrum(a, b):
     w2 = spla.eigvals(numpy.dot(a + b, a - b))
     return numpy.array(sorted(numpy.sqrt(w2.real)))
-
-
-def tamm_dancoff_spectrum(a):
-    return spla.eigvalsh(a)
 
 
 def main():
@@ -125,12 +147,21 @@ def main():
     print('{:20.15f}'.format(en_tot))
 
     # Evalute the dipole polarizability as a linear response function
+    o = slice(None, nocc)
+    v = slice(nocc, None)
     h = fermitools.math.transform(h_aso, {0: c, 1: c})
     g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
     m1 = scf.singles_density(norb=norb, nocc=nocc)
     m2 = scf.doubles_density(m1)
-    a_orb = diagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
-    b_orb = offdiagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
+    a_orb = diagonal_orbital_hessian(h[o, o], h[v, v], g[o, o, o, o],
+                                     g[o, o, v, v], g[o, v, o, v],
+                                     g[v, v, v, v], m1[o, o], m1[v, v],
+                                     m2[o, o, o, o], m2[o, o, v, v],
+                                     m2[o, v, o, v], m2[v, v, v, v])
+    b_orb = offdiagonal_orbital_hessian(g[o, o, o, o], g[o, o, v, v],
+                                        g[o, v, o, v], g[v, v, v, v],
+                                        m2[o, o, o, o], m2[o, o, v, v],
+                                        m2[o, v, o, v], m2[v, v, v, v])
 
     w_rpa = spectrum(a_orb, b_orb)
 
@@ -150,30 +181,16 @@ def main():
 
     # Test derivatives
     import os
-
-    no = nocc
-    nv = norb - nocc
-    x = numpy.zeros(no * nv)
+    from numpy.testing import assert_almost_equal
 
     data_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                              'data')
-
-    en_dxdx_func = scf.orbital_hessian_functional(norb=norb, nocc=nocc,
-                                                  h_aso=h_aso, g_aso=g_aso,
-                                                  c=c, step=0.05, npts=11)
-
-    def generate_orbital_hessian():
-        en_dxdx = en_dxdx_func(x)
-        numpy.save(os.path.join(data_path, 'lr_scf/en_dxdx.npy'), en_dxdx)
-
-    # generate_orbital_hessian()
-    en_dxdx = numpy.load(os.path.join(data_path, 'lr_scf/en_dxdx.npy'))
+    en_dxdx = numpy.load(os.path.join(data_path,
+                                      'lr_scf/en_dxdx.npy'))
 
     print("Checking orbital Hessian:")
-    print((en_dxdx - 2*(a_orb + b_orb)).round(8))
+    print(numpy.diag(a_orb + b_orb) / numpy.diag(en_dxdx))
     print(spla.norm(en_dxdx - 2*(a_orb + b_orb)))
-
-    from numpy.testing import assert_almost_equal
 
     assert_almost_equal(en_dxdx, 2*(a_orb + b_orb), decimal=9)
 
@@ -181,13 +198,11 @@ def main():
     p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
     p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
     p = fermitools.math.transform(p_aso, {1: c, 2: c})
-
-    o = slice(None, nocc)
-    v = slice(nocc, None)
-    t_orb = numpy.transpose([
-        orbital_property_gradient(o, v, px, m1) for px in p])
+    t_orb = orbital_property_gradient(p[:, o, v], m1[o, o], m1[v, v])
     r_orb = static_response_vector(a_orb, b_orb, t_orb)
     alpha = static_linear_response_function(t_orb, r_orb)
+
+    print(numpy.real(alpha).round(8))
 
     # Evaluate dipole polarizability as energy derivative
     en_f_func = scf.perturbed_energy_function(norb=norb, nocc=nocc,
@@ -202,9 +217,18 @@ def main():
     print(numpy.diag(alpha).round(10))
     print((numpy.diag(alpha) / en_df2))
 
-    from numpy.testing import assert_almost_equal
-
     assert_almost_equal(numpy.diag(alpha), -en_df2, decimal=9)
+
+    # Evaluate the excitation energies
+    s_orb = orbital_metric(m1[o, o], m1[v, v])
+
+    e_orb = numpy.bmat([[a_orb, b_orb], [b_orb, a_orb]])
+    m_orb = spla.block_diag(s_orb, -s_orb)
+    w_orb = numpy.array(sorted(numpy.real(spla.eigvals(e_orb, b=m_orb))))
+    pos_idx = numpy.nonzero(w_orb > 0.)
+    w_orb_pos = w_orb[pos_idx]
+    print(w_orb_pos)
+    assert_almost_equal(w_orb_pos, w_rpa_ref, decimal=10)
 
 
 if __name__ == '__main__':
