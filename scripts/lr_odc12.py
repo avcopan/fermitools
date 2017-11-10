@@ -2,6 +2,7 @@ import numpy
 import scipy.linalg as spla
 
 import fermitools
+from fermitools.math import einsum
 from fermitools.math.asym import antisymmetrizer_product as asym
 
 import interfaces.psi4 as interface
@@ -50,13 +51,13 @@ def fancy_repulsion(ffoo, ffvv, goooo, govov, gvvvv, m1oo, m1vv):
     tgoooo = fermitools.math.transform(goooo, {0: uo, 1: uo, 2: uo, 3: uo})
     tgovov = fermitools.math.transform(govov, {0: uo, 1: uv, 2: uo, 3: uv})
     tgvvvv = fermitools.math.transform(gvvvv, {0: uv, 1: uv, 2: uv, 3: uv})
-    tfgoooo = ((tgoooo - numpy.einsum('il,jk->ikjl', tffoo, io)
-                       - numpy.einsum('il,jk->ikjl', io, tffoo))
-               / numpy.einsum('ij,kl->ikjl', n1oo, n1oo))
-    tfgovov = tgovov / numpy.einsum('ij,ab->iajb', n1oo, n1vv)
-    tfgvvvv = ((tgvvvv - numpy.einsum('ad,bc->acbd', tffvv, iv)
-                       - numpy.einsum('ad,bc->acbd', iv, tffvv))
-               / numpy.einsum('ab,cd->acbd', n1vv, n1vv))
+    tfgoooo = ((tgoooo - einsum('il,jk->ikjl', tffoo, io)
+                       - einsum('il,jk->ikjl', io, tffoo))
+               / einsum('ij,kl->ikjl', n1oo, n1oo))
+    tfgovov = tgovov / einsum('ij,ab->iajb', n1oo, n1vv)
+    tfgvvvv = ((tgvvvv - einsum('ad,bc->acbd', tffvv, iv)
+                       - einsum('ad,bc->acbd', iv, tffvv))
+               / einsum('ab,cd->acbd', n1vv, n1vv))
     fgoooo = fermitools.math.transform(tfgoooo, {0: uo.T, 1: uo.T,
                                                  2: uo.T, 3: uo.T})
     fgovov = fermitools.math.transform(tfgovov, {0: uo.T, 1: uv.T,
@@ -73,12 +74,12 @@ def fancy_mixed_interaction(fov, gooov, govvv, m1oo, m1vv):
     n1vv = fermitools.math.broadcast_sum({2: nv, 3: nv}) - 1
     io = numpy.eye(*uo.shape)
     iv = numpy.eye(*uv.shape)
-    ioo = (+ numpy.einsum('ik,la->iakl', io, fov)
-           - numpy.einsum('mlka,im->iakl', gooov, m1oo)
-           + numpy.einsum('ilke,ae->iakl', gooov, m1vv))
-    ivv = (- numpy.einsum('ac,id->iadc', iv, fov)
-           + numpy.einsum('mcad,im->iadc', govvv, m1oo)
-           - numpy.einsum('iced,ae->iadc', govvv, m1vv))
+    ioo = (+ einsum('ik,la->iakl', io, fov)
+           - einsum('mlka,im->iakl', gooov, m1oo)
+           + einsum('ilke,ae->iakl', gooov, m1vv))
+    ivv = (- einsum('ac,id->iadc', iv, fov)
+           + einsum('mcad,im->iadc', govvv, m1oo)
+           - einsum('iced,ae->iadc', govvv, m1vv))
     tfioo = fermitools.math.transform(ioo, {2: uo, 3: uo}) / n1oo
     tfivv = fermitools.math.transform(ivv, {2: uv, 3: uv}) / n1vv
     fioo = fermitools.math.transform(tfioo, {2: uo.T, 3: uo.T})
@@ -92,13 +93,13 @@ def diagonal_amplitude_hessian(ffoo, ffvv, goooo, govov, gvvvv,
                                              goooo=goooo, govov=govov,
                                              gvvvv=gvvvv)
     a_dc = (+ asym('2/3|6/7')(
-                  numpy.einsum('afec,ijeb,klfd->ijabklcd', fgvvvv, t2, t2))
+                  einsum('afec,ijeb,klfd->ijabklcd', fgvvvv, t2, t2))
             + asym('2/3|4/5')(
-                  numpy.einsum('kame,ijeb,mlcd->ijabklcd', fgovov, t2, t2))
+                  einsum('kame,ijeb,mlcd->ijabklcd', fgovov, t2, t2))
             + asym('0/1|6/7')(
-                  numpy.einsum('meic,mjab,kled->ijabklcd', fgovov, t2, t2))
+                  einsum('meic,mjab,kled->ijabklcd', fgovov, t2, t2))
             + asym('0/1|4/5')(
-                  numpy.einsum('mkin,mjab,nlcd->ijabklcd', fgoooo, t2, t2))
+                  einsum('mkin,mjab,nlcd->ijabklcd', fgoooo, t2, t2))
             )
     a_dc_cmp = fermitools.math.asym.compound_index(a_dc,
                                                    {0: (0, 1), 1: (2, 3),
@@ -110,13 +111,13 @@ def offdiagonal_amplitude_hessian(fgoooo, fgovov,  fgvvvv, t2):
     no, nv, _, _ = fgovov.shape
     ndoubles = no * (no - 1) * nv * (nv - 1) // 4
     b = (+ asym('2/3|6/7')(
-                numpy.einsum('acef,ijeb,klfd->ijabklcd', fgvvvv, t2, t2))
+                einsum('acef,ijeb,klfd->ijabklcd', fgvvvv, t2, t2))
          + asym('2/3|4/5')(
-                numpy.einsum('nake,ijeb,nlcd->ijabklcd', fgovov, t2, t2))
+                einsum('nake,ijeb,nlcd->ijabklcd', fgovov, t2, t2))
          + asym('0/1|6/7')(
-                numpy.einsum('mcif,mjab,klfd->ijabklcd', fgovov, t2, t2))
+                einsum('mcif,mjab,klfd->ijabklcd', fgovov, t2, t2))
          + asym('0/1|4/5')(
-                numpy.einsum('mnik,mjab,nlcd->ijabklcd', fgoooo, t2, t2)))
+                einsum('mnik,mjab,nlcd->ijabklcd', fgoooo, t2, t2)))
     b_cmp = fermitools.math.asym.compound_index(b, {0: (0, 1), 1: (2, 3),
                                                     2: (4, 5), 3: (6, 7)})
     return numpy.reshape(b_cmp, (ndoubles, ndoubles))
@@ -129,21 +130,21 @@ def diagonal_mixed_hessian(gooov, govvv, fioo, fivv, t2):
     io = numpy.eye(no)
     iv = numpy.eye(nv)
     a = (- asym('2/3')(
-                numpy.einsum('ik,lacd->iaklcd', io, govvv))
+                einsum('ik,lacd->iaklcd', io, govvv))
          - asym('4/5')(
-                numpy.einsum('ac,klid->iaklcd', iv, gooov))
+                einsum('ac,klid->iaklcd', iv, gooov))
          - asym('2/3')(
-                numpy.einsum('iakm,mlcd->iaklcd', fioo, t2))
+                einsum('iakm,mlcd->iaklcd', fioo, t2))
          - asym('4/5')(
-                numpy.einsum('iaec,kled->iaklcd', fivv, t2))
+                einsum('iaec,kled->iaklcd', fivv, t2))
          - asym('2/3|4/5')(
-                numpy.einsum('ik,mcae,mled->iaklcd', io, govvv, t2))
+                einsum('ik,mcae,mled->iaklcd', io, govvv, t2))
          - asym('2/3|4/5')(
-                numpy.einsum('ac,imke,mled->iaklcd', iv, gooov, t2))
+                einsum('ac,imke,mled->iaklcd', iv, gooov, t2))
          - 1./2 * asym('2/3')(
-                numpy.einsum('ik,mnla,mncd->iaklcd', io, gooov, t2))
+                einsum('ik,mnla,mncd->iaklcd', io, gooov, t2))
          - 1./2 * asym('4/5')(
-                numpy.einsum('ac,idef,klef->iaklcd', iv, govvv, t2)))
+                einsum('ac,idef,klef->iaklcd', iv, govvv, t2)))
     a_cmp = fermitools.math.asym.compound_index(a, {2: (2, 3), 3: (4, 5)})
     return numpy.reshape(a_cmp, (nsingles, ndoubles))
 
@@ -153,15 +154,15 @@ def offdiagonal_mixed_hessian(gooov, govvv, fioo, fivv, t2):
     nsingles = no * nv
     ndoubles = no * (no - 1) * nv * (nv - 1) // 4
     b = (- asym('2/3')(
-                numpy.einsum('iamk,mlcd->iaklcd', fioo, t2))
+                einsum('iamk,mlcd->iaklcd', fioo, t2))
          - asym('4/5')(
-                numpy.einsum('iace,kled->iaklcd', fivv, t2))
+                einsum('iace,kled->iaklcd', fivv, t2))
          - asym('2/3|4/5')(
-                numpy.einsum('lead,kice->iaklcd', govvv, t2))
+                einsum('lead,kice->iaklcd', govvv, t2))
          - asym('2/3|4/5')(
-                numpy.einsum('ilmd,kmca->iaklcd', gooov, t2))
-         + numpy.einsum('klma,micd->iaklcd', gooov, t2)
-         + numpy.einsum('iecd,klea->iaklcd', govvv, t2))
+                einsum('ilmd,kmca->iaklcd', gooov, t2))
+         + einsum('klma,micd->iaklcd', gooov, t2)
+         + einsum('iecd,klea->iaklcd', govvv, t2))
     b_cmp = fermitools.math.asym.compound_index(b, {2: (2, 3), 3: (4, 5)})
     return numpy.reshape(b_cmp, (nsingles, ndoubles))
 

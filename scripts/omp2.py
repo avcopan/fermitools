@@ -3,6 +3,7 @@ import interfaces.psi4 as interface
 
 import numpy
 import scipy.linalg as spla
+from fermitools.math import einsum
 from fermitools.math.asym import antisymmetrizer_product as asym
 
 
@@ -16,21 +17,21 @@ def doubles_numerator(goovv, foo, fvv, t2):
     numpy.fill_diagonal(foo, 0.)
     numpy.fill_diagonal(fvv, 0.)
     num2 = (goovv
-            + asym("2/3")(numpy.einsum('ac,ijcb->ijab', fvv, t2))
-            - asym("0/1")(numpy.einsum('ki,kjab->ijab', foo, t2)))
+            + asym("2/3")(einsum('ac,ijcb->ijab', fvv, t2))
+            - asym("0/1")(einsum('ki,kjab->ijab', foo, t2)))
     return num2
 
 
 def singles_correlation_density(t2):
-    m1oo = - 1./2 * numpy.einsum('jkab,ikab->ij', t2, t2)
-    m1vv = + 1./2 * numpy.einsum('ijac,ijbc->ab', t2, t2)
+    m1oo = - 1./2 * einsum('jkab,ikab->ij', t2, t2)
+    m1vv = + 1./2 * einsum('ijac,ijbc->ab', t2, t2)
     return spla.block_diag(m1oo, m1vv)
 
 
 def doubles_density(m1_ref, m1_cor, k2):
     m2 = (k2
-          + asym("0/1|2/3")(numpy.einsum('pr,qs->pqrs', m1_ref, m1_cor))
-          + asym("2/3")(numpy.einsum('pr,qs->pqrs', m1_ref, m1_ref)))
+          + asym("0/1|2/3")(einsum('pr,qs->pqrs', m1_ref, m1_cor))
+          + asym("2/3")(einsum('pr,qs->pqrs', m1_ref, m1_ref)))
     return m2
 
 
@@ -48,8 +49,8 @@ def doubles_cumulant(t2):
 
 
 def orbital_gradient(o, v, h, g, m1, m2):
-    fcap = (numpy.einsum('px,qx->pq', h, m1)
-            + 1. / 2 * numpy.einsum('pxyz,qxyz->pq', g, m2))
+    fcap = (einsum('px,qx->pq', h, m1)
+            + 1. / 2 * einsum('pxyz,qxyz->pq', g, m2))
     res1 = (numpy.transpose(fcap) - fcap)[o, v]
     return res1
 

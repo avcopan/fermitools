@@ -5,6 +5,7 @@ import functools
 import warnings
 
 import fermitools
+from fermitools.math import einsum
 from fermitools.math.asym import antisymmetrizer_product as asym
 
 import interfaces.psi4 as interface
@@ -33,8 +34,8 @@ def fancy_fock(foo, fvv, m1oo, m1vv):
 
 
 def singles_correlation_density(t2):
-    doo = -1./2 * numpy.einsum('ikcd,jkcd->ij', t2, t2)
-    dvv = -1./2 * numpy.einsum('klac,klbc->ab', t2, t2)
+    doo = -1./2 * einsum('ikcd,jkcd->ij', t2, t2)
+    dvv = -1./2 * einsum('klac,klbc->ab', t2, t2)
     ioo = numpy.eye(*doo.shape)
     ivv = numpy.eye(*dvv.shape)
     m1oo = -1./2 * ioo + numpy.real(spla.sqrtm(doo + 1./4 * ioo))
@@ -43,7 +44,7 @@ def singles_correlation_density(t2):
 
 
 def doubles_density(m1, k2):
-    m2 = k2 + asym("2/3")(numpy.einsum('pr,qs->pqrs', m1, m1))
+    m2 = k2 + asym("2/3")(einsum('pr,qs->pqrs', m1, m1))
     return m2
 
 

@@ -4,6 +4,7 @@ import scipy.linalg as spla
 import warnings
 
 import fermitools
+from fermitools.math import einsum
 from fermitools.math.asym import antisymmetrizer_product as asym
 
 import interfaces.psi4 as interface
@@ -22,13 +23,13 @@ def singles_density(norb, nocc):
 
 
 def doubles_density(m1):
-    m2 = asym("2/3")(numpy.einsum('pr,qs->pqrs', m1, m1))
+    m2 = asym("2/3")(einsum('pr,qs->pqrs', m1, m1))
     return m2
 
 
 def first_order_orbital_variation_matrix(h, g, m1, m2):
-    fc = (numpy.einsum('px,qx->pq', h, m1)
-          + 1. / 2 * numpy.einsum('pxyz,qxyz->pq', g, m2))
+    fc = (einsum('px,qx->pq', h, m1)
+          + 1. / 2 * einsum('pxyz,qxyz->pq', g, m2))
     return fc
 
 

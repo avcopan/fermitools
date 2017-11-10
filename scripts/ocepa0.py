@@ -5,6 +5,7 @@ import functools
 import warnings
 
 import fermitools
+from fermitools.math import einsum
 from fermitools.math.asym import antisymmetrizer_product as asym
 
 import interfaces.psi4 as interface
@@ -20,11 +21,11 @@ def doubles_numerator(goooo, goovv, govov, gvvvv, foo, fvv, t2):
     numpy.fill_diagonal(foo, 0.)
     numpy.fill_diagonal(fvv, 0.)
     num2 = (goovv
-            + asym("2/3")(numpy.einsum('ac,ijcb->ijab', fvv, t2))
-            - asym("0/1")(numpy.einsum('ki,kjab->ijab', foo, t2))
-            + 1. / 2 * numpy.einsum("abcd,ijcd->ijab", gvvvv, t2)
-            + 1. / 2 * numpy.einsum("klij,klab->ijab", goooo, t2)
-            - asym("0/1|2/3")(numpy.einsum("kaic,jkbc->ijab", govov, t2)))
+            + asym("2/3")(einsum('ac,ijcb->ijab', fvv, t2))
+            - asym("0/1")(einsum('ki,kjab->ijab', foo, t2))
+            + 1. / 2 * einsum("abcd,ijcd->ijab", gvvvv, t2)
+            + 1. / 2 * einsum("klij,klab->ijab", goooo, t2)
+            - asym("0/1|2/3")(einsum("kaic,jkbc->ijab", govov, t2)))
     return num2
 
 
@@ -35,8 +36,8 @@ def singles_reference_density(norb, nocc):
 
 
 def singles_correlation_density(t2):
-    m1oo = - 1./2 * numpy.einsum('jkab,ikab->ij', t2, t2)
-    m1vv = + 1./2 * numpy.einsum('ijac,ijbc->ab', t2, t2)
+    m1oo = - 1./2 * einsum('jkab,ikab->ij', t2, t2)
+    m1vv = + 1./2 * einsum('ijac,ijbc->ab', t2, t2)
     return spla.block_diag(m1oo, m1vv)
 
 
@@ -49,9 +50,9 @@ def doubles_cumulant(t2):
     k2 = numpy.zeros((n, n, n, n))
     k2[o, o, v, v] = t2
     k2[v, v, o, o] = numpy.transpose(t2)
-    k2[v, v, v, v] = 1./2 * numpy.einsum('klab,klcd->abcd', t2, t2)
-    k2[o, o, o, o] = 1./2 * numpy.einsum('ijcd,klcd->ijkl', t2, t2)
-    k_jabi = numpy.einsum('ikac,jkbc->jabi', t2, t2)
+    k2[v, v, v, v] = 1./2 * einsum('klab,klcd->abcd', t2, t2)
+    k2[o, o, o, o] = 1./2 * einsum('ijcd,klcd->ijkl', t2, t2)
+    k_jabi = einsum('ikac,jkbc->jabi', t2, t2)
     k2[o, v, v, o] = +numpy.transpose(k_jabi, (0, 1, 2, 3))
     k2[o, v, o, v] = -numpy.transpose(k_jabi, (0, 1, 3, 2))
     k2[v, o, v, o] = -numpy.transpose(k_jabi, (1, 0, 2, 3))
@@ -62,14 +63,14 @@ def doubles_cumulant(t2):
 
 def doubles_density(m1_ref, m1_cor, k2):
     m2 = (k2
-          + asym("0/1|2/3")(numpy.einsum('pr,qs->pqrs', m1_ref, m1_cor))
-          + asym("2/3")(numpy.einsum('pr,qs->pqrs', m1_ref, m1_ref)))
+          + asym("0/1|2/3")(einsum('pr,qs->pqrs', m1_ref, m1_cor))
+          + asym("2/3")(einsum('pr,qs->pqrs', m1_ref, m1_ref)))
     return m2
 
 
 def first_order_orbital_variation_matrix(h, g, m1, m2):
-    fc = (numpy.einsum('px,qx->pq', h, m1)
-          + 1. / 2 * numpy.einsum('pxyz,qxyz->pq', g, m2))
+    fc = (einsum('px,qx->pq', h, m1)
+          + 1. / 2 * einsum('pxyz,qxyz->pq', g, m2))
     return fc
 
 

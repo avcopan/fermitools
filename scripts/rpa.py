@@ -2,6 +2,7 @@ import numpy
 import scipy.linalg as spla
 
 import fermitools
+from fermitools.math import einsum
 
 import interfaces.psi4 as interface
 
@@ -10,9 +11,9 @@ def diagonal_orbital_hessian(govov, foo, fvv):
     no, nv, _, _ = govov.shape
     ioo = numpy.eye(no)
     ivv = numpy.eye(nv)
-    a = (+ numpy.einsum('ab,ij->iajb', fvv, ioo)
-         - numpy.einsum('ij,ab->iajb', foo, ivv)
-         - numpy.einsum('ibja->iajb', govov))
+    a = (+ einsum('ab,ij->iajb', fvv, ioo)
+         - einsum('ij,ab->iajb', foo, ivv)
+         - einsum('ibja->iajb', govov))
     return numpy.reshape(a, (no * nv, no * nv))
 
 
