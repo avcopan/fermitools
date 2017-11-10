@@ -21,6 +21,23 @@ from .lr_ocepa0 import static_linear_response_function
 from .lr_ocepa0 import orbital_metric
 
 
+def fancy_property(poo, pvv, m1oo, m1vv):
+    '''
+    ff_ov and ff_vo are undefined, so return a dictionary with the diagonal
+    blocks.
+    '''
+    no, uo = spla.eigh(m1oo)
+    nv, uv = spla.eigh(m1vv)
+    ax1, ax2 = poo.ndim - 2, poo.ndim - 1
+    n1oo = fermitools.math.broadcast_sum({ax1: no, ax2: no}) - 1
+    n1vv = fermitools.math.broadcast_sum({ax1: nv, ax2: nv}) - 1
+    tfpoo = fermitools.math.transform(poo, {ax1: uo, ax2: uo}) / n1oo
+    tfpvv = fermitools.math.transform(pvv, {ax1: uv, ax2: uv}) / n1vv
+    fpoo = fermitools.math.transform(tfpoo, {ax1: uo.T, ax2: uo.T})
+    fpvv = fermitools.math.transform(tfpvv, {ax1: uv.T, ax2: uv.T})
+    return {'o,o': fpoo, 'v,v': fpvv}
+
+
 def fancy_repulsion(ffoo, ffvv, goooo, govov, gvvvv, m1oo, m1vv):
     no, uo = spla.eigh(m1oo)
     nv, uv = spla.eigh(m1vv)
@@ -213,14 +230,21 @@ def main():
     fi = fancy_mixed_interaction(f[o, v], g[o, o, o, v], g[o, v, v, v],
                                  m1[o, o], m1[v, v])
 
-    a_orb = diagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
+    a_orb = diagonal_orbital_hessian(h[o, o], h[v, v], g[o, o, o, o],
+                                     g[o, o, v, v], g[o, v, o, v],
+                                     g[v, v, v, v], m1[o, o], m1[v, v],
+                                     m2[o, o, o, o], m2[o, o, v, v],
+                                     m2[o, v, o, v], m2[v, v, v, v])
     a_mix = diagonal_mixed_hessian(g[o, o, o, v], g[o, v, v, v],
                                    fi['o,o'], fi['v,v'], t2)
     a_amp = diagonal_amplitude_hessian(ff['o,o'], ff['v,v'], g[o, o, o, o],
                                        g[o, v, o, v], g[v, v, v, v],
                                        fg['o,o,o,o'], fg['o,v,o,v'],
                                        fg['v,v,v,v'], t2)
-    b_orb = offdiagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
+    b_orb = offdiagonal_orbital_hessian(g[o, o, o, o], g[o, o, v, v],
+                                        g[o, v, o, v], g[v, v, v, v],
+                                        m2[o, o, o, o], m2[o, o, v, v],
+                                        m2[o, v, o, v], m2[v, v, v, v])
     b_mix = offdiagonal_mixed_hessian(g[o, o, o, v], g[o, v, v, v],
                                       fi['o,o'], fi['v,v'], t2)
     b_amp = offdiagonal_amplitude_hessian(fg['o,o,o,o'], fg['o,v,o,v'],
@@ -232,12 +256,9 @@ def main():
     p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
     p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
     p = fermitools.math.transform(p_aso, {1: c, 2: c})
-    fp = numpy.array([
-        odc12.fancy_fock(px[o, o], px[v, v], m1[o, o], m1[v, v]) for px in p])
-    t_orb = numpy.transpose([
-        orbital_property_gradient(o, v, px, m1) for px in p])
-    t_amp = numpy.transpose([
-        amplitude_property_gradient(px['o,o'], -px['v,v'], t2) for px in fp])
+    fp = fancy_property(p[:, o, o], p[:, v, v], m1[o, o], m1[v, v])
+    t_orb = orbital_property_gradient(p[:, o, v], m1[o, o], m1[v, v])
+    t_amp = amplitude_property_gradient(fp['o,o'], -fp['v,v'], t2)
 
     a = numpy.bmat([[a_orb, -a_mix], [-a_mix.T, a_amp]])
     b = numpy.bmat([[b_orb, -b_mix], [-b_mix.T, b_amp]])

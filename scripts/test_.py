@@ -213,13 +213,20 @@ def test__lr_ocepa0_cation():
     k2 = ocepa0.doubles_cumulant(t2)
     m2 = ocepa0.doubles_density(m1_ref, m1_cor, k2)
 
-    a_orb = lr.diagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
+    a_orb = lr.diagonal_orbital_hessian(h[o, o], h[v, v], g[o, o, o, o],
+                                        g[o, o, v, v], g[o, v, o, v],
+                                        g[v, v, v, v], m1[o, o], m1[v, v],
+                                        m2[o, o, o, o], m2[o, o, v, v],
+                                        m2[o, v, o, v], m2[v, v, v, v])
     a_mix = lr.diagonal_mixed_hessian(f[o, v], g[o, o, o, v], g[o, v, v, v],
                                       t2)
     a_amp = lr.diagonal_amplitude_hessian(f[o, o], f[v, v], g[o, o, o, o],
                                           g[o, v, o, v], g[v, v, v, v])
 
-    b_orb = lr.offdiagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
+    b_orb = lr.offdiagonal_orbital_hessian(g[o, o, o, o], g[o, o, v, v],
+                                           g[o, v, o, v], g[v, v, v, v],
+                                           m2[o, o, o, o], m2[o, o, v, v],
+                                           m2[o, v, o, v], m2[v, v, v, v])
     b_mix = lr.offdiagonal_mixed_hessian(f[o, v], g[o, o, o, v], g[o, v, v, v],
                                          t2)
     b_amp = lr.numpy.zeros_like(a_amp)
@@ -244,10 +251,8 @@ def test__lr_ocepa0_cation():
     p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
     p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
     p = fermitools.math.transform(p_aso, {1: c, 2: c})
-    t_orb = numpy.transpose([
-        lr.orbital_property_gradient(o, v, px, m1) for px in p])
-    t_amp = numpy.transpose([
-        lr.amplitude_property_gradient(px[o, o], px[v, v], t2) for px in p])
+    t_orb = lr.orbital_property_gradient(p[:, o, v], m1[o, o], m1[v, v])
+    t_amp = lr.amplitude_property_gradient(p[:, o, o], p[:, v, v], t2)
 
     a = numpy.bmat([[a_orb, -a_mix], [-a_mix.T, a_amp]])
     b = numpy.bmat([[b_orb, -b_mix], [-b_mix.T, b_amp]])
@@ -331,13 +336,20 @@ def test__lr_ocepa0_neutral():
     k2 = ocepa0.doubles_cumulant(t2)
     m2 = ocepa0.doubles_density(m1_ref, m1_cor, k2)
 
-    a_orb = lr.diagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
+    a_orb = lr.diagonal_orbital_hessian(h[o, o], h[v, v], g[o, o, o, o],
+                                        g[o, o, v, v], g[o, v, o, v],
+                                        g[v, v, v, v], m1[o, o], m1[v, v],
+                                        m2[o, o, o, o], m2[o, o, v, v],
+                                        m2[o, v, o, v], m2[v, v, v, v])
     a_mix = lr.diagonal_mixed_hessian(f[o, v], g[o, o, o, v], g[o, v, v, v],
                                       t2)
     a_amp = lr.diagonal_amplitude_hessian(f[o, o], f[v, v], g[o, o, o, o],
                                           g[o, v, o, v], g[v, v, v, v])
 
-    b_orb = lr.offdiagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
+    b_orb = lr.offdiagonal_orbital_hessian(g[o, o, o, o], g[o, o, v, v],
+                                           g[o, v, o, v], g[v, v, v, v],
+                                           m2[o, o, o, o], m2[o, o, v, v],
+                                           m2[o, v, o, v], m2[v, v, v, v])
     b_mix = lr.offdiagonal_mixed_hessian(f[o, v], g[o, o, o, v], g[o, v, v, v],
                                          t2)
     b_amp = lr.numpy.zeros_like(a_amp)
@@ -366,10 +378,8 @@ def test__lr_ocepa0_neutral():
     p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
     p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
     p = fermitools.math.transform(p_aso, {1: c, 2: c})
-    t_orb = numpy.transpose([
-        lr.orbital_property_gradient(o, v, px, m1) for px in p])
-    t_amp = numpy.transpose([
-        lr.amplitude_property_gradient(px[o, o], px[v, v], t2) for px in p])
+    t_orb = lr.orbital_property_gradient(p[:, o, v], m1[o, o], m1[v, v])
+    t_amp = lr.amplitude_property_gradient(p[:, o, o], p[:, v, v], t2)
 
     a = numpy.bmat([[a_orb, -a_mix], [-a_mix.T, a_amp]])
     b = numpy.bmat([[b_orb, -b_mix], [-b_mix.T, b_amp]])
@@ -459,14 +469,21 @@ def test__lr_odc12_cation():
     fi = lr.fancy_mixed_interaction(f[o, v], g[o, o, o, v], g[o, v, v, v],
                                     m1[o, o], m1[v, v])
 
-    a_orb = lr.diagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
+    a_orb = lr.diagonal_orbital_hessian(h[o, o], h[v, v], g[o, o, o, o],
+                                        g[o, o, v, v], g[o, v, o, v],
+                                        g[v, v, v, v], m1[o, o], m1[v, v],
+                                        m2[o, o, o, o], m2[o, o, v, v],
+                                        m2[o, v, o, v], m2[v, v, v, v])
     a_mix = lr.diagonal_mixed_hessian(g[o, o, o, v], g[o, v, v, v],
                                       fi['o,o'], fi['v,v'], t2)
     a_amp = lr.diagonal_amplitude_hessian(ff['o,o'], ff['v,v'], g[o, o, o, o],
                                           g[o, v, o, v], g[v, v, v, v],
                                           fg['o,o,o,o'], fg['o,v,o,v'],
                                           fg['v,v,v,v'], t2)
-    b_orb = lr.offdiagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
+    b_orb = lr.offdiagonal_orbital_hessian(g[o, o, o, o], g[o, o, v, v],
+                                           g[o, v, o, v], g[v, v, v, v],
+                                           m2[o, o, o, o], m2[o, o, v, v],
+                                           m2[o, v, o, v], m2[v, v, v, v])
     b_mix = lr.offdiagonal_mixed_hessian(g[o, o, o, v], g[o, v, v, v],
                                          fi['o,o'], fi['v,v'], t2)
     b_amp = lr.offdiagonal_amplitude_hessian(fg['o,o,o,o'], fg['o,v,o,v'],
@@ -496,13 +513,9 @@ def test__lr_odc12_cation():
     p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
     p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
     p = fermitools.math.transform(p_aso, {1: c, 2: c})
-    fp = numpy.array([
-        odc12.fancy_fock(px[o, o], px[v, v], m1[o, o], m1[v, v]) for px in p])
-    t_orb = numpy.transpose([
-        lr.orbital_property_gradient(o, v, px, m1) for px in p])
-    t_amp = numpy.transpose([
-        lr.amplitude_property_gradient(px['o,o'], -px['v,v'], t2)
-        for px in fp])
+    fp = lr.fancy_property(p[:, o, o], p[:, v, v], m1[o, o], m1[v, v])
+    t_orb = lr.orbital_property_gradient(p[:, o, v], m1[o, o], m1[v, v])
+    t_amp = lr.amplitude_property_gradient(fp['o,o'], -fp['v,v'], t2)
 
     a = numpy.bmat([[a_orb, -a_mix], [-a_mix.T, a_amp]])
     b = numpy.bmat([[b_orb, -b_mix], [-b_mix.T, b_amp]])
@@ -592,14 +605,21 @@ def test__lr_odc12_neutral():
     fi = lr.fancy_mixed_interaction(f[o, v], g[o, o, o, v], g[o, v, v, v],
                                     m1[o, o], m1[v, v])
 
-    a_orb = lr.diagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
+    a_orb = lr.diagonal_orbital_hessian(h[o, o], h[v, v], g[o, o, o, o],
+                                        g[o, o, v, v], g[o, v, o, v],
+                                        g[v, v, v, v], m1[o, o], m1[v, v],
+                                        m2[o, o, o, o], m2[o, o, v, v],
+                                        m2[o, v, o, v], m2[v, v, v, v])
     a_mix = lr.diagonal_mixed_hessian(g[o, o, o, v], g[o, v, v, v],
                                       fi['o,o'], fi['v,v'], t2)
     a_amp = lr.diagonal_amplitude_hessian(ff['o,o'], ff['v,v'], g[o, o, o, o],
                                           g[o, v, o, v], g[v, v, v, v],
                                           fg['o,o,o,o'], fg['o,v,o,v'],
                                           fg['v,v,v,v'], t2)
-    b_orb = lr.offdiagonal_orbital_hessian(nocc, norb, h, g, m1, m2)
+    b_orb = lr.offdiagonal_orbital_hessian(g[o, o, o, o], g[o, o, v, v],
+                                           g[o, v, o, v], g[v, v, v, v],
+                                           m2[o, o, o, o], m2[o, o, v, v],
+                                           m2[o, v, o, v], m2[v, v, v, v])
     b_mix = lr.offdiagonal_mixed_hessian(g[o, o, o, v], g[o, v, v, v],
                                          fi['o,o'], fi['v,v'], t2)
     b_amp = lr.offdiagonal_amplitude_hessian(fg['o,o,o,o'], fg['o,v,o,v'],
@@ -629,13 +649,9 @@ def test__lr_odc12_neutral():
     p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
     p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
     p = fermitools.math.transform(p_aso, {1: c, 2: c})
-    fp = numpy.array([
-        odc12.fancy_fock(px[o, o], px[v, v], m1[o, o], m1[v, v]) for px in p])
-    t_orb = numpy.transpose([
-        lr.orbital_property_gradient(o, v, px, m1) for px in p])
-    t_amp = numpy.transpose([
-        lr.amplitude_property_gradient(px['o,o'], -px['v,v'], t2)
-        for px in fp])
+    fp = lr.fancy_property(p[:, o, o], p[:, v, v], m1[o, o], m1[v, v])
+    t_orb = lr.orbital_property_gradient(p[:, o, v], m1[o, o], m1[v, v])
+    t_amp = lr.amplitude_property_gradient(fp['o,o'], -fp['v,v'], t2)
 
     a = numpy.bmat([[a_orb, -a_mix], [-a_mix.T, a_amp]])
     b = numpy.bmat([[b_orb, -b_mix], [-b_mix.T, b_amp]])
