@@ -55,9 +55,9 @@ def offdiagonal_orbital_hessian(goooo, goovv, govov, gvvvv, m2oooo, m2oovv,
     return numpy.reshape(b, (nsingles, nsingles))
 
 
-def diagonal_orbital_hessian_operator(hoo, hvv, goooo, goovv, govov, gvvvv,
-                                      m1oo, m1vv, m2oooo, m2oovv, m2ovov,
-                                      m2vvvv):
+def diagonal_orbital_hessian_sigma(hoo, hvv, goooo, goovv, govov, gvvvv,
+                                   m1oo, m1vv, m2oooo, m2oovv, m2ovov,
+                                   m2vvvv):
     no, nv, _, _ = govov.shape
     nsingles = no * nv
     fcoo = (numpy.dot(hoo, m1oo)
@@ -89,8 +89,8 @@ def diagonal_orbital_hessian_operator(hoo, hvv, goooo, goovv, govov, gvvvv,
     return _sigma
 
 
-def offdiagonal_orbital_hessian_operator(goooo, goovv, govov, gvvvv, m2oooo,
-                                         m2oovv, m2ovov, m2vvvv):
+def offdiagonal_orbital_hessian_sigma(goooo, goovv, govov, gvvvv, m2oooo,
+                                      m2oovv, m2ovov, m2vvvv):
     no, nv, _, _ = govov.shape
     nsingles = no * nv
 
@@ -160,23 +160,17 @@ def static_linear_response_function(t, r):
     return numpy.tensordot(t, r, axes=(0, 0))
 
 
-def solve_response_vector(hoo, hvv, goooo, goovv, govov, gvvvv, pov):
+def solve_response_vector(hoo, hvv, goooo, goovv, govov, gvvvv, pov, m1oo,
+                          m1vv, m2oooo, m2oovv, m2ovov, m2vvvv):
     no, nv, _, _ = govov.shape
     nsingles = no * nv
-    o = slice(None, no)
-    v = slice(no, None)
-    m1 = scf.singles_density(norb=no+nv, nocc=no)
-    m2 = scf.doubles_density(m1)
-    t = orbital_property_gradient(pov, m1[o, o], m1[v, v])
-    sig_a = diagonal_orbital_hessian_operator(hoo, hvv, goooo, goovv, govov,
-                                              gvvvv, m1[o, o], m1[v, v],
-                                              m2[o, o, o, o], m2[o, o, v, v],
-                                              m2[o, v, o, v], m2[v, v, v, v])
-    sig_b = offdiagonal_orbital_hessian_operator(goooo, goovv, govov, gvvvv,
-                                                 m2[o, o, o, o],
-                                                 m2[o, o, v, v],
-                                                 m2[o, v, o, v],
-                                                 m2[v, v, v, v])
+    t = orbital_property_gradient(pov, m1oo, m1vv)
+    sig_a = diagonal_orbital_hessian_sigma(hoo, hvv, goooo, goovv, govov,
+                                           gvvvv, m1oo, m1vv, m2oooo,
+                                           m2oovv, m2ovov, m2vvvv)
+    sig_b = offdiagonal_orbital_hessian_sigma(goooo, goovv, govov, gvvvv,
+                                              m2oooo, m2oovv, m2ovov,
+                                              m2vvvv)
     a_op = scipy.sparse.linalg.LinearOperator((nsingles, nsingles),
                                               matvec=sig_a)
     b_op = scipy.sparse.linalg.LinearOperator((nsingles, nsingles),
@@ -264,7 +258,9 @@ def main():
     alpha_old = static_linear_response_function(t, r)
 
     r = solve_response_vector(h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v],
-                              g[o, v, o, v], g[v, v, v, v], p[:, o, v])
+                              g[o, v, o, v], g[v, v, v, v], p[:, o, v],
+                              m1[o, o], m1[v, v], m2[o, o, o, o],
+                              m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v])
     alpha = numpy.tensordot(r, t, axes=(0, 0))
     print(numpy.diag(alpha) / numpy.diag(alpha_old))
 
