@@ -160,24 +160,13 @@ def static_linear_response_function(t, r):
     return numpy.tensordot(t, r, axes=(0, 0))
 
 
-def solve_response_vector(hoo, hvv, goooo, goovv, govov, gvvvv, pov, m1oo,
-                          m1vv, m2oooo, m2oovv, m2ovov, m2vvvv):
-    no, nv, _, _ = govov.shape
+def solve_static_response_vector(no, nv, sig_a, sig_b, t):
     nsingles = no * nv
-    t = orbital_property_gradient(pov, m1oo, m1vv)
-    sig_a = diagonal_orbital_hessian_sigma(hoo, hvv, goooo, goovv, govov,
-                                           gvvvv, m1oo, m1vv, m2oooo,
-                                           m2oovv, m2ovov, m2vvvv)
-    sig_b = offdiagonal_orbital_hessian_sigma(goooo, goovv, govov, gvvvv,
-                                              m2oooo, m2oovv, m2ovov,
-                                              m2vvvv)
-    a_op = scipy.sparse.linalg.LinearOperator((nsingles, nsingles),
-                                              matvec=sig_a)
-    b_op = scipy.sparse.linalg.LinearOperator((nsingles, nsingles),
-                                              matvec=sig_b)
+    a_ = scipy.sparse.linalg.LinearOperator((nsingles, nsingles), matvec=sig_a)
+    b_ = scipy.sparse.linalg.LinearOperator((nsingles, nsingles), matvec=sig_b)
 
     def _solve(t_):
-        r, info = scipy.sparse.linalg.cg(a_op + b_op, t_)
+        r, info = scipy.sparse.linalg.cg(a_ + b_, 2 * t_)
         if info != 0:
             warnings.warn("Did not converge!  Output code {:d}".format(info))
         return r
@@ -257,10 +246,18 @@ def main():
     r = static_response_vector(a, b, t)
     alpha_old = static_linear_response_function(t, r)
 
-    r = solve_response_vector(h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v],
-                              g[o, v, o, v], g[v, v, v, v], p[:, o, v],
-                              m1[o, o], m1[v, v], m2[o, o, o, o],
-                              m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v])
+    no = nocc
+    nv = norb - nocc
+    sig_a = diagonal_orbital_hessian_sigma(h[o, o], h[v, v], g[o, o, o, o],
+                                           g[o, o, v, v], g[o, v, o, v],
+                                           g[v, v, v, v], m1[o, o], m1[v, v],
+                                           m2[o, o, o, o], m2[o, o, v, v],
+                                           m2[o, v, o, v], m2[v, v, v, v])
+    sig_b = offdiagonal_orbital_hessian_sigma(g[o, o, o, o], g[o, o, v, v],
+                                              g[o, v, o, v], g[v, v, v, v],
+                                              m2[o, o, o, o], m2[o, o, v, v],
+                                              m2[o, v, o, v], m2[v, v, v, v])
+    r = solve_static_response_vector(no, nv, sig_a, sig_b, t)
     alpha = numpy.tensordot(r, t, axes=(0, 0))
     print(numpy.diag(alpha) / numpy.diag(alpha_old))
 
