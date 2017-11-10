@@ -1,5 +1,8 @@
 import numpy
 import scipy.linalg as spla
+import scipy.sparse.linalg
+
+import warnings
 
 import fermitools
 from fermitools.math import einsum
@@ -35,20 +38,6 @@ def diagonal_orbital_hessian(hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv,
          + einsum('ibme,jame->iajb', govov, m2ovov)
          + einsum('ibme,jame->iajb', m2ovov, govov))
     return numpy.reshape(a, (nsingles, nsingles))
-# def diagonal_orbital_hessian_operator(hoo, hvv, goooo, goovv, govov, gvvvv,
-#                                       m1oo, m1vv, m2oooo, m2oovv, m2ovov,
-#                                       m2vvvv):
-#     fcoo = (numpy.dot(hoo, m1oo)
-#             + 1./2 * einsum('imno,jmno->ij', goooo, m2oooo)
-#             + 1./2 * einsum('imef,jmef->ij', goovv, m2oovv)
-#             + einsum('iemf,jemf->ij', govov, m2ovov))
-#     fcvv = (numpy.dot(hvv, m1vv)
-#             + einsum('nema,nemb->ab', govov, m2ovov)
-#             + 1./2 * einsum('mnae,mnbe', goovv, m2oovv)
-#             + 1./2 * einsum('aefg,befg', gvvvv, m2vvvv))
-#     fsoo = (fcoo + numpy.transpose(fcoo)) / 2.
-#     fsvv = (fcvv + numpy.transpose(fcvv)) / 2.
-#     def _sigma(r1):
 
 
 def offdiagonal_orbital_hessian(goooo, goovv, govov, gvvvv, m2oooo, m2oovv,
@@ -64,6 +53,61 @@ def offdiagonal_orbital_hessian(goooo, goovv, govov, gvvvv, m2oooo, m2oovv,
          + 1./2 * einsum('ijef,efab->iajb', goovv, m2vvvv)
          + 1./2 * einsum('ijef,efab->iajb', m2oovv, gvvvv))
     return numpy.reshape(b, (nsingles, nsingles))
+
+
+def diagonal_orbital_hessian_operator(hoo, hvv, goooo, goovv, govov, gvvvv,
+                                      m1oo, m1vv, m2oooo, m2oovv, m2ovov,
+                                      m2vvvv):
+    no, nv, _, _ = govov.shape
+    nsingles = no * nv
+    fcoo = (numpy.dot(hoo, m1oo)
+            + 1./2 * einsum('imno,jmno->ij', goooo, m2oooo)
+            + 1./2 * einsum('imef,jmef->ij', goovv, m2oovv)
+            + einsum('iemf,jemf->ij', govov, m2ovov))
+    fcvv = (numpy.dot(hvv, m1vv)
+            + einsum('nema,nemb->ab', govov, m2ovov)
+            + 1./2 * einsum('mnae,mnbe', goovv, m2oovv)
+            + 1./2 * einsum('aefg,befg', gvvvv, m2vvvv))
+    fsoo = (fcoo + numpy.transpose(fcoo)) / 2.
+    fsvv = (fcvv + numpy.transpose(fcvv)) / 2.
+
+    def _sigma(r1_flat):
+        cols = 1 if r1_flat.ndim is 1 else r1_flat.shape[1]
+        r1 = numpy.reshape(r1_flat, (no, nv, cols))
+        a_times_r1 = (+ einsum('ij,ab,jbx->iax', hoo, m1vv, r1)
+                      + einsum('ij,ab,jbx->iax', m1oo, hvv, r1)
+                      - einsum('ab,ibx->iax', fsvv, r1)
+                      - einsum('ij,jax->iax', fsoo, r1)
+                      + einsum('minj,manb,jbx->iax', goooo, m2ovov, r1)
+                      + einsum('minj,manb,jbx->iax', m2oooo, govov, r1)
+                      + einsum('iejf,aebf,jbx->iax', govov, m2vvvv, r1)
+                      + einsum('iejf,aebf,jbx->iax', m2ovov, gvvvv, r1)
+                      + einsum('ibme,jame,jbx->iax', govov, m2ovov, r1)
+                      + einsum('ibme,jame,jbx->iax', m2ovov, govov, r1))
+        return numpy.squeeze(numpy.reshape(a_times_r1, (nsingles, cols)))
+
+    return _sigma
+
+
+def offdiagonal_orbital_hessian_operator(goooo, goovv, govov, gvvvv, m2oooo,
+                                         m2oovv, m2ovov, m2vvvv):
+    no, nv, _, _ = govov.shape
+    nsingles = no * nv
+
+    def _sigma(r1_flat):
+        cols = 1 if r1_flat.ndim is 1 else r1_flat.shape[1]
+        r1 = numpy.reshape(r1_flat, (no, nv, cols))
+        b_times_r1 = (+ einsum('imbe,jema,jbx->iax', goovv, m2ovov, r1)
+                      + einsum('imbe,jema,jbx->iax', m2oovv, govov, r1)
+                      + einsum('iemb,jmae,jbx->iax', govov, m2oovv, r1)
+                      + einsum('iemb,jmae,jbx->iax', m2ovov, goovv, r1)
+                      + 1./2 * einsum('ijmn,mnab,jbx->iax', goooo, m2oovv, r1)
+                      + 1./2 * einsum('ijmn,mnab,jbx->iax', m2oooo, goovv, r1)
+                      + 1./2 * einsum('ijef,efab,jbx->iax', goovv, m2vvvv, r1)
+                      + 1./2 * einsum('ijef,efab,jbx->iax', m2oovv, gvvvv, r1))
+        return numpy.squeeze(numpy.reshape(b_times_r1, (nsingles, cols)))
+
+    return _sigma
 
 
 def orbital_property_gradient(pov, m1oo, m1vv):
@@ -114,6 +158,39 @@ def static_linear_response_function(t, r):
     :rtype: float or numpy.ndarray
     """
     return numpy.tensordot(t, r, axes=(0, 0))
+
+
+def solve_response_vector(hoo, hvv, goooo, goovv, govov, gvvvv, pov):
+    no, nv, _, _ = govov.shape
+    nsingles = no * nv
+    o = slice(None, no)
+    v = slice(no, None)
+    m1 = scf.singles_density(norb=no+nv, nocc=no)
+    m2 = scf.doubles_density(m1)
+    t = orbital_property_gradient(pov, m1[o, o], m1[v, v])
+    sig_a = diagonal_orbital_hessian_operator(hoo, hvv, goooo, goovv, govov,
+                                              gvvvv, m1[o, o], m1[v, v],
+                                              m2[o, o, o, o], m2[o, o, v, v],
+                                              m2[o, v, o, v], m2[v, v, v, v])
+    sig_b = offdiagonal_orbital_hessian_operator(goooo, goovv, govov, gvvvv,
+                                                 m2[o, o, o, o],
+                                                 m2[o, o, v, v],
+                                                 m2[o, v, o, v],
+                                                 m2[v, v, v, v])
+    a_op = scipy.sparse.linalg.LinearOperator((nsingles, nsingles),
+                                              matvec=sig_a)
+    b_op = scipy.sparse.linalg.LinearOperator((nsingles, nsingles),
+                                              matvec=sig_b)
+
+    def _solve(t_):
+        r, info = scipy.sparse.linalg.cg(a_op + b_op, t_)
+        if info != 0:
+            warnings.warn("Did not converge!  Output code {:d}".format(info))
+        return r
+
+    ts = map(numpy.moveaxis(t, 0, -1).__getitem__, numpy.ndindex(t.shape[1:]))
+    rs = tuple(map(_solve, ts))
+    return numpy.reshape(numpy.moveaxis(rs, -1, 0), t.shape)
 
 
 def spectrum(a, b):
@@ -168,82 +245,28 @@ def main():
     g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
     m1 = scf.singles_density(norb=norb, nocc=nocc)
     m2 = scf.doubles_density(m1)
-    a_orb = diagonal_orbital_hessian(h[o, o], h[v, v], g[o, o, o, o],
-                                     g[o, o, v, v], g[o, v, o, v],
-                                     g[v, v, v, v], m1[o, o], m1[v, v],
-                                     m2[o, o, o, o], m2[o, o, v, v],
-                                     m2[o, v, o, v], m2[v, v, v, v])
-    b_orb = offdiagonal_orbital_hessian(g[o, o, o, o], g[o, o, v, v],
-                                        g[o, v, o, v], g[v, v, v, v],
-                                        m2[o, o, o, o], m2[o, o, v, v],
-                                        m2[o, v, o, v], m2[v, v, v, v])
-
-    w_rpa = spectrum(a_orb, b_orb)
-
-    from numpy.testing import assert_almost_equal
-    w_rpa_ref = [0.2851637170, 0.2851637170, 0.2851637170, 0.2997434467,
-                 0.2997434467, 0.2997434467, 0.3526266606, 0.3526266606,
-                 0.3526266606, 0.3547782530, 0.3651313107, 0.3651313107,
-                 0.3651313107, 0.4153174946, 0.5001011401, 0.5106610509,
-                 0.5106610509, 0.5106610509, 0.5460719086, 0.5460719086,
-                 0.5460719086, 0.5513718846, 0.6502707118, 0.8734253708,
-                 1.1038187957, 1.1038187957, 1.1038187957, 1.1957870714,
-                 1.1957870714, 1.1957870714, 1.2832053178, 1.3237421886,
-                 19.9585040647, 19.9585040647, 19.9585040647, 20.0109471551,
-                 20.0113074586, 20.0113074586, 20.0113074586, 20.0504919449]
-
-    assert_almost_equal(w_rpa, w_rpa_ref, decimal=10)
-
-    # Test derivatives
-    import os
-    from numpy.testing import assert_almost_equal
-
-    data_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                             'data')
-    en_dxdx = numpy.load(os.path.join(data_path,
-                                      'lr_scf/en_dxdx.npy'))
-
-    print("Checking orbital Hessian:")
-    print(numpy.diag(a_orb + b_orb) / numpy.diag(en_dxdx))
-    print(spla.norm(en_dxdx - 2*(a_orb + b_orb)))
-
-    assert_almost_equal(en_dxdx, 2*(a_orb + b_orb), decimal=9)
+    a = diagonal_orbital_hessian(h[o, o], h[v, v], g[o, o, o, o],
+                                 g[o, o, v, v], g[o, v, o, v],
+                                 g[v, v, v, v], m1[o, o], m1[v, v],
+                                 m2[o, o, o, o], m2[o, o, v, v],
+                                 m2[o, v, o, v], m2[v, v, v, v])
+    b = offdiagonal_orbital_hessian(g[o, o, o, o], g[o, o, v, v],
+                                    g[o, v, o, v], g[v, v, v, v],
+                                    m2[o, o, o, o], m2[o, o, v, v],
+                                    m2[o, v, o, v], m2[v, v, v, v])
 
     # Evaluate dipole polarizability using linear response theory
     p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
     p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
     p = fermitools.math.transform(p_aso, {1: c, 2: c})
-    t_orb = orbital_property_gradient(p[:, o, v], m1[o, o], m1[v, v])
-    r_orb = static_response_vector(a_orb, b_orb, t_orb)
-    alpha = static_linear_response_function(t_orb, r_orb)
+    t = orbital_property_gradient(p[:, o, v], m1[o, o], m1[v, v])
+    r = static_response_vector(a, b, t)
+    alpha_old = static_linear_response_function(t, r)
 
-    print(numpy.real(alpha).round(8))
-
-    # Evaluate dipole polarizability as energy derivative
-    en_f_func = scf.perturbed_energy_function(norb=norb, nocc=nocc,
-                                              h_aso=h_aso, p_aso=p_aso,
-                                              g_aso=g_aso, c_guess=c,
-                                              niter=200, e_thresh=1e-14,
-                                              r_thresh=1e-12, print_conv=True)
-    en_df2 = fermitools.math.central_difference(en_f_func, [0., 0., 0.],
-                                                step=0.01, nder=2, npts=9)
-    print("Compare d2E/df2 to <<mu; mu>>_0:")
-    print(en_df2.round(10))
-    print(numpy.diag(alpha).round(10))
-    print((numpy.diag(alpha) / en_df2))
-
-    assert_almost_equal(numpy.diag(alpha), -en_df2, decimal=9)
-
-    # Evaluate the excitation energies
-    s_orb = orbital_metric(m1[o, o], m1[v, v])
-
-    e_orb = numpy.bmat([[a_orb, b_orb], [b_orb, a_orb]])
-    m_orb = spla.block_diag(s_orb, -s_orb)
-    w_orb = numpy.array(sorted(numpy.real(spla.eigvals(e_orb, b=m_orb))))
-    pos_idx = numpy.nonzero(w_orb > 0.)
-    w_orb_pos = w_orb[pos_idx]
-    print(w_orb_pos)
-    assert_almost_equal(w_orb_pos, w_rpa_ref, decimal=10)
+    r = solve_response_vector(h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v],
+                              g[o, v, o, v], g[v, v, v, v], p[:, o, v])
+    alpha = numpy.tensordot(r, t, axes=(0, 0))
+    print(numpy.diag(alpha) / numpy.diag(alpha_old))
 
 
 if __name__ == '__main__':
