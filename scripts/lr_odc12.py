@@ -129,21 +129,21 @@ def diagonal_mixed_hessian(gooov, govvv, fioo, fivv, t2):
     ndoubles = no * (no - 1) * nv * (nv - 1) // 4
     io = numpy.eye(no)
     iv = numpy.eye(nv)
-    a = (- asym('2/3')(
+    a = (+ asym('2/3')(
                 einsum('ik,lacd->iaklcd', io, govvv))
-         - asym('4/5')(
+         + asym('4/5')(
                 einsum('ac,klid->iaklcd', iv, gooov))
-         - asym('2/3')(
+         + asym('2/3')(
                 einsum('iakm,mlcd->iaklcd', fioo, t2))
-         - asym('4/5')(
+         + asym('4/5')(
                 einsum('iaec,kled->iaklcd', fivv, t2))
-         - asym('2/3|4/5')(
+         + asym('2/3|4/5')(
                 einsum('ik,mcae,mled->iaklcd', io, govvv, t2))
-         - asym('2/3|4/5')(
+         + asym('2/3|4/5')(
                 einsum('ac,imke,mled->iaklcd', iv, gooov, t2))
-         - 1./2 * asym('2/3')(
+         + 1./2 * asym('2/3')(
                 einsum('ik,mnla,mncd->iaklcd', io, gooov, t2))
-         - 1./2 * asym('4/5')(
+         + 1./2 * asym('4/5')(
                 einsum('ac,idef,klef->iaklcd', iv, govvv, t2)))
     a_cmp = fermitools.math.asym.compound_index(a, {2: (2, 3), 3: (4, 5)})
     return numpy.reshape(a_cmp, (nsingles, ndoubles))
@@ -153,16 +153,16 @@ def offdiagonal_mixed_hessian(gooov, govvv, fioo, fivv, t2):
     no, _, nv, _ = t2.shape
     nsingles = no * nv
     ndoubles = no * (no - 1) * nv * (nv - 1) // 4
-    b = (- asym('2/3')(
+    b = (+ asym('2/3')(
                 einsum('iamk,mlcd->iaklcd', fioo, t2))
-         - asym('4/5')(
+         + asym('4/5')(
                 einsum('iace,kled->iaklcd', fivv, t2))
-         - asym('2/3|4/5')(
+         + asym('2/3|4/5')(
                 einsum('lead,kice->iaklcd', govvv, t2))
-         - asym('2/3|4/5')(
+         + asym('2/3|4/5')(
                 einsum('ilmd,kmca->iaklcd', gooov, t2))
-         + einsum('klma,micd->iaklcd', gooov, t2)
-         + einsum('iecd,klea->iaklcd', govvv, t2))
+         - einsum('klma,micd->iaklcd', gooov, t2)
+         - einsum('iecd,klea->iaklcd', govvv, t2))
     b_cmp = fermitools.math.asym.compound_index(b, {2: (2, 3), 3: (4, 5)})
     return numpy.reshape(b_cmp, (nsingles, ndoubles))
 

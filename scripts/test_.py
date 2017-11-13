@@ -153,11 +153,6 @@ def test__lr_scf():
     assert_almost_equal(numpy.diag(alpha), -en_df2, decimal=9)
 
 
-def test__lr_ocepa0():
-    import scripts.lr_ocepa0
-    scripts.lr_ocepa0.main()
-
-
 def test__lr_ocepa0_cation():
     import scripts.lr_ocepa0 as lr
     import scripts.ocepa0 as ocepa0
@@ -249,7 +244,7 @@ def test__lr_ocepa0_cation():
     en_dtdt = numpy.load(os.path.join(data_path, 'lr_ocepa0/en_dtdt.npy'))
 
     assert_almost_equal(en_dxdx, 2*(a_orb + b_orb), decimal=9)
-    assert_almost_equal(en_dxdt, -2*(a_mix + b_mix), decimal=9)
+    assert_almost_equal(en_dxdt, 2*(a_mix + b_mix), decimal=9)
     assert_almost_equal(en_dxdt, numpy.transpose(en_dtdx), decimal=9)
     assert_almost_equal(en_dtdt, 2*(a_amp + b_amp), decimal=9)
 
@@ -260,8 +255,8 @@ def test__lr_ocepa0_cation():
     t_orb = lr.orbital_property_gradient(p[:, o, v], m1[o, o], m1[v, v])
     t_amp = lr.amplitude_property_gradient(p[:, o, o], p[:, v, v], t2)
 
-    a = numpy.bmat([[a_orb, -a_mix], [-a_mix.T, a_amp]])
-    b = numpy.bmat([[b_orb, -b_mix], [-b_mix.T, b_amp]])
+    a = numpy.bmat([[a_orb, a_mix], [a_mix.T, a_amp]])
+    b = numpy.bmat([[b_orb, b_mix], [b_mix.T, b_amp]])
     t = numpy.bmat([[t_orb], [t_amp]])
     r = lr.static_response_vector(a, b, t)
     alpha = lr.static_linear_response_function(t, r)
@@ -376,7 +371,7 @@ def test__lr_ocepa0_neutral():
                                       'lr_ocepa0/neutral/en_dtdt.npy'))
 
     assert_almost_equal(en_dxdx, 2*(a_orb + b_orb), decimal=9)
-    assert_almost_equal(en_dxdt, -2*(a_mix + b_mix), decimal=9)
+    assert_almost_equal(en_dxdt, 2*(a_mix + b_mix), decimal=9)
     assert_almost_equal(en_dxdt, numpy.transpose(en_dtdx), decimal=9)
     assert_almost_equal(en_dtdt, 2*(a_amp + b_amp), decimal=9)
 
@@ -387,8 +382,8 @@ def test__lr_ocepa0_neutral():
     t_orb = lr.orbital_property_gradient(p[:, o, v], m1[o, o], m1[v, v])
     t_amp = lr.amplitude_property_gradient(p[:, o, o], p[:, v, v], t2)
 
-    a = numpy.bmat([[a_orb, -a_mix], [-a_mix.T, a_amp]])
-    b = numpy.bmat([[b_orb, -b_mix], [-b_mix.T, b_amp]])
+    a = numpy.bmat([[a_orb, a_mix], [a_mix.T, a_amp]])
+    b = numpy.bmat([[b_orb, b_mix], [b_mix.T, b_amp]])
     t = numpy.bmat([[t_orb], [t_amp]])
     r = lr.static_response_vector(a, b, t)
     alpha = lr.static_linear_response_function(t, r)
@@ -511,7 +506,7 @@ def test__lr_odc12_cation():
                          'lr_odc12/cation/en_dtdt.npy')))
 
     assert_almost_equal(en_dxdx, 2*(a_orb + b_orb), decimal=9)
-    assert_almost_equal(en_dxdt, -2*(a_mix + b_mix), decimal=9)
+    assert_almost_equal(en_dxdt, 2*(a_mix + b_mix), decimal=9)
     assert_almost_equal(en_dxdt, numpy.transpose(en_dtdx), decimal=9)
     assert_almost_equal(en_dtdt, 2*(a_amp + b_amp), decimal=8)
 
@@ -523,8 +518,8 @@ def test__lr_odc12_cation():
     t_orb = lr.orbital_property_gradient(p[:, o, v], m1[o, o], m1[v, v])
     t_amp = lr.amplitude_property_gradient(fp['o,o'], -fp['v,v'], t2)
 
-    a = numpy.bmat([[a_orb, -a_mix], [-a_mix.T, a_amp]])
-    b = numpy.bmat([[b_orb, -b_mix], [-b_mix.T, b_amp]])
+    a = numpy.bmat([[a_orb, a_mix], [a_mix.T, a_amp]])
+    b = numpy.bmat([[b_orb, b_mix], [b_mix.T, b_amp]])
     t = numpy.bmat([[t_orb], [t_amp]])
     r = lr.static_response_vector(a, b, t)
     alpha = lr.static_linear_response_function(t, r)
@@ -647,7 +642,7 @@ def test__lr_odc12_neutral():
                          'lr_odc12/neutral/en_dtdt.npy')))
 
     assert_almost_equal(en_dxdx, 2*(a_orb + b_orb), decimal=9)
-    assert_almost_equal(en_dxdt, -2*(a_mix + b_mix), decimal=9)
+    assert_almost_equal(en_dxdt, 2*(a_mix + b_mix), decimal=9)
     assert_almost_equal(en_dxdt, numpy.transpose(en_dtdx), decimal=9)
     assert_almost_equal(en_dtdt, 2*(a_amp + b_amp), decimal=8)
 
@@ -659,8 +654,8 @@ def test__lr_odc12_neutral():
     t_orb = lr.orbital_property_gradient(p[:, o, v], m1[o, o], m1[v, v])
     t_amp = lr.amplitude_property_gradient(fp['o,o'], -fp['v,v'], t2)
 
-    a = numpy.bmat([[a_orb, -a_mix], [-a_mix.T, a_amp]])
-    b = numpy.bmat([[b_orb, -b_mix], [-b_mix.T, b_amp]])
+    a = numpy.bmat([[a_orb, a_mix], [a_mix.T, a_amp]])
+    b = numpy.bmat([[b_orb, b_mix], [b_mix.T, b_amp]])
     t = numpy.bmat([[t_orb], [t_amp]])
     r = lr.static_response_vector(a, b, t)
     alpha = lr.static_linear_response_function(t, r)
