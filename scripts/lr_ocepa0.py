@@ -9,6 +9,7 @@ from .lr_scf import diagonal_orbital_hessian
 from .lr_scf import offdiagonal_orbital_hessian
 from .lr_scf import orbital_property_gradient
 from .lr_scf import diagonal_orbital_metric
+from .lr_scf import diagonal_orbital_hessian_sigma
 from .lr_scf import static_response_vector
 from .lr_scf import static_linear_response_function
 
@@ -31,6 +32,30 @@ def diagonal_amplitude_hessian(foo, fvv, goooo, govov, gvvvv):
     a_cmp = fermitools.math.asym.compound_index(a, {0: (0, 1), 1: (2, 3),
                                                     2: (4, 5), 3: (6, 7)})
     return numpy.reshape(a_cmp, (ndoubles, ndoubles))
+
+
+def diagonal_amplitude_hessian_sigma(foo, fvv, goooo, govov, gvvvv):
+    no, nv, _, _ = govov.shape
+    noo = no * (no - 1) // 2
+    nvv = nv * (nv - 1) // 2
+    ndoubles = noo * nvv
+
+    def _sigma(r2_flat):
+        cols = 1 if r2_flat.ndim is 1 else r2_flat.shape[1]
+        r2_cmp = numpy.reshape(r2_flat, (noo, nvv, cols))
+        r2 = fermitools.math.asym.unravel_compound_index(r2_cmp, {0: (0, 1),
+                                                                  1: (2, 3)})
+        ar2 = (+ asym('2/3')(einsum('ac,ijcbx->ijabx', fvv, r2))
+               - asym('0/1')(einsum('ik,kjabx->ijabx', foo, r2))
+               + 1./2 * einsum('abcd,ijcdx->ijabx', gvvvv, r2)
+               + 1./2 * einsum('ijkl,klabx->ijabx', goooo, r2)
+               - asym('0/1|2/3')(einsum('jcla,ilcbx->ijabx', govov, r2))
+               )
+        ar2_cmp = fermitools.math.asym.compound_index(ar2, {0: (0, 1),
+                                                            1: (2, 3)})
+        return numpy.squeeze(numpy.reshape(ar2_cmp, (ndoubles, cols)))
+
+    return _sigma
 
 
 def mixed_interaction(fov, gooov, govvv):
@@ -222,6 +247,22 @@ def main():
     m = spla.block_diag(s, -s)
     w = numpy.real(spla.eigvals(e, b=m))
     print(numpy.array(sorted(w)))
+
+    # Test sigmas
+    no = nocc
+    nv = norb - nocc
+    nsingles = no * nv
+    ndoubles = no * (no - 1) * nv * (nv - 1) // 4
+    i1 = numpy.eye(nsingles)
+    i2 = numpy.eye(ndoubles)
+    sigma_a_orb = diagonal_orbital_hessian_sigma(
+            h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
+            g[v, v, v, v], m1[o, o], m1[v, v], m2[o, o, o, o], m2[o, o, v, v],
+            m2[o, v, o, v], m2[v, v, v, v])
+    sigma_a_amp = diagonal_amplitude_hessian_sigma(
+            f[o, o], f[v, v], g[o, o, o, o], g[o, v, o, v], g[v, v, v, v])
+    print(numpy.linalg.norm(sigma_a_orb(i1) - a_orb))
+    print(numpy.linalg.norm(sigma_a_amp(i2) - a_amp))
 
 
 if __name__ == '__main__':
