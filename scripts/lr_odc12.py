@@ -19,7 +19,7 @@ from .lr_ocepa0 import orbital_property_gradient
 from .lr_ocepa0 import amplitude_property_gradient
 from .lr_ocepa0 import static_response_vector
 from .lr_ocepa0 import static_linear_response_function
-from .lr_ocepa0 import orbital_metric
+from .lr_ocepa0 import diagonal_orbital_metric
 
 
 def fancy_property(poo, pvv, m1oo, m1vv):
@@ -270,7 +270,7 @@ def main():
     print(numpy.real(alpha).round(8))
 
     # Evaluate the excitation energies
-    s_orb = orbital_metric(m1[o, o], m1[v, v])
+    s_orb = diagonal_orbital_metric(m1[o, o], m1[v, v])
     s_amp = numpy.eye(*a_amp.shape)
     s = spla.block_diag(s_orb, s_amp)
 

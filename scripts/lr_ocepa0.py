@@ -8,7 +8,7 @@ import interfaces.psi4 as interface
 from .lr_scf import diagonal_orbital_hessian
 from .lr_scf import offdiagonal_orbital_hessian
 from .lr_scf import orbital_property_gradient
-from .lr_scf import orbital_metric
+from .lr_scf import diagonal_orbital_metric
 from .lr_scf import static_response_vector
 from .lr_scf import static_linear_response_function
 
@@ -214,7 +214,7 @@ def main():
     print(numpy.real(alpha).round(8))
 
     # Evaluate the excitation energies
-    s_orb = orbital_metric(m1[o, o], m1[v, v])
+    s_orb = diagonal_orbital_metric(m1[o, o], m1[v, v])
     s_amp = numpy.eye(*a_amp.shape)
     s = spla.block_diag(s_orb, s_amp)
 
