@@ -9,13 +9,16 @@ from .lr_scf import diagonal_orbital_hessian
 from .lr_scf import offdiagonal_orbital_hessian
 from .lr_scf import orbital_property_gradient
 from .lr_scf import diagonal_orbital_metric
+from .lr_scf import static_response_vector
+from .lr_scf import static_linear_response_function
+from .lr_scf import solve_static_response_vector
+
+# sigmas
 from .lr_scf import diagonal_orbital_hessian_sigma
 from .lr_scf import offdiagonal_orbital_hessian_sigma
 from .lr_scf import diagonal_orbital_metric_sigma
-from .lr_scf import static_response_vector
-from .lr_scf import static_linear_response_function
-from .lr_scf import solve_spectrum
-from .lr_scf import solve_static_response_vector
+from .lr_scf import orbital_hessian_sum_sigma
+from .lr_scf import orbital_hessian_diff_sigma
 
 
 def diagonal_amplitude_hessian(foo, fvv, goooo, govov, gvvvv):
@@ -229,11 +232,148 @@ def offdiagonal_mixed_hessian_left_sigma(fov, gooov, govvv, t2):
     return _sigma
 
 
+# Sum/difference sigmas
+def mixed_hessian_right_sum_sigma(fov, gooov, govvv, t2):
+    no, _, nv, _ = t2.shape
+    nsingles = no * nv
+    noo = no * (no - 1) // 2
+    nvv = nv * (nv - 1) // 2
+    i = mixed_interaction(fov, gooov, govvv)
+
+    def _sigma(r2_flat):
+        cols = 1 if r2_flat.ndim is 1 else r2_flat.shape[1]
+        r2_cmp = numpy.reshape(r2_flat, (noo, nvv, cols))
+        r2 = fermitools.math.asym.unravel_compound_index(r2_cmp, {0: (0, 1),
+                                                                  1: (2, 3)})
+        ar2 = (
+            # a terms
+            + 1./2 * einsum('lacd,ilcdx->iax', govvv, r2)
+            + 1./2 * einsum('klid,kladx->iax', gooov, r2)
+            + 1./2 * einsum('iakm,mlcd,klcdx->iax', i['o,o'], t2, r2)
+            - 1./2 * einsum('iaec,kled,klcdx->iax', i['v,v'], t2, r2)
+            + einsum('mcae,mled,ilcdx->iax', govvv, t2, r2)
+            + einsum('imke,mled,kladx->iax', gooov, t2, r2)
+            + 1./4 * einsum('mnla,mncd,ilcdx->iax', gooov, t2, r2)
+            + 1./4 * einsum('idef,klef,kladx->iax', govvv, t2, r2)
+            # b terms
+            + 1./2 * einsum('iamk,mlcd,klcdx->iax', i['o,o'], t2, r2)
+            - 1./2 * einsum('iace,kled,klcdx->iax', i['v,v'], t2, r2)
+            + einsum('lead,kice,klcdx->iax', govvv, t2, r2)
+            + einsum('ilmd,kmca,klcdx->iax', gooov, t2, r2)
+            - 1./4 * einsum('klma,micd,klcdx->iax', gooov, t2, r2)
+            - 1./4 * einsum('iecd,klea,klcdx->iax', govvv, t2, r2))
+        return numpy.squeeze(numpy.reshape(ar2, (nsingles, cols)))
+
+    return _sigma
+
+
+def mixed_hessian_right_diff_sigma(fov, gooov, govvv, t2):
+    no, _, nv, _ = t2.shape
+    nsingles = no * nv
+    noo = no * (no - 1) // 2
+    nvv = nv * (nv - 1) // 2
+    i = mixed_interaction(fov, gooov, govvv)
+
+    def _sigma(r2_flat):
+        cols = 1 if r2_flat.ndim is 1 else r2_flat.shape[1]
+        r2_cmp = numpy.reshape(r2_flat, (noo, nvv, cols))
+        r2 = fermitools.math.asym.unravel_compound_index(r2_cmp, {0: (0, 1),
+                                                                  1: (2, 3)})
+        ar2 = (
+            # a terms
+            + 1./2 * einsum('lacd,ilcdx->iax', govvv, r2)
+            + 1./2 * einsum('klid,kladx->iax', gooov, r2)
+            + 1./2 * einsum('iakm,mlcd,klcdx->iax', i['o,o'], t2, r2)
+            - 1./2 * einsum('iaec,kled,klcdx->iax', i['v,v'], t2, r2)
+            + einsum('mcae,mled,ilcdx->iax', govvv, t2, r2)
+            + einsum('imke,mled,kladx->iax', gooov, t2, r2)
+            + 1./4 * einsum('mnla,mncd,ilcdx->iax', gooov, t2, r2)
+            + 1./4 * einsum('idef,klef,kladx->iax', govvv, t2, r2)
+            # b terms
+            - 1./2 * einsum('iamk,mlcd,klcdx->iax', i['o,o'], t2, r2)
+            + 1./2 * einsum('iace,kled,klcdx->iax', i['v,v'], t2, r2)
+            - einsum('lead,kice,klcdx->iax', govvv, t2, r2)
+            - einsum('ilmd,kmca,klcdx->iax', gooov, t2, r2)
+            + 1./4 * einsum('klma,micd,klcdx->iax', gooov, t2, r2)
+            + 1./4 * einsum('iecd,klea,klcdx->iax', govvv, t2, r2))
+        return numpy.squeeze(numpy.reshape(ar2, (nsingles, cols)))
+
+    return _sigma
+
+
+def mixed_hessian_left_sum_sigma(fov, gooov, govvv, t2):
+    no, _, nv, _ = t2.shape
+    noo = no * (no - 1) // 2
+    nvv = nv * (nv - 1) // 2
+    ndoubles = noo * nvv
+    i = mixed_interaction(fov, gooov, govvv)
+
+    def _sigma(r1_flat):
+        cols = 1 if r1_flat.ndim is 1 else r1_flat.shape[1]
+        r1 = numpy.reshape(r1_flat, (no, nv, cols))
+        ar1 = (
+            # a terms
+            + asym('0/1')(einsum('jcab,icx->ijabx', govvv, r1))
+            + asym('2/3')(einsum('ijkb,kax->ijabx', gooov, r1))
+            + asym('0/1')(einsum('kcim,mjab,kcx->ijabx', i['o,o'], t2, r1))
+            - asym('2/3')(einsum('kcea,ijeb,kcx->ijabx', i['v,v'], t2, r1))
+            + asym('0/1|2/3')(einsum('mace,mjeb,icx->ijabx', govvv, t2, r1))
+            + asym('0/1|2/3')(einsum('kmie,mjeb,kax->ijabx', gooov, t2, r1))
+            + 1./2 * asym('0/1')(einsum('mnjc,mnab,icx->ijabx', gooov, t2, r1))
+            + 1./2 * asym('2/3')(einsum('kbef,ijef,kax->ijabx', govvv, t2, r1))
+            # b terms
+            + asym('0/1')(einsum('kcmi,mjab,kcx->ijabx', i['o,o'], t2, r1))
+            - asym('2/3')(einsum('kcae,ijeb,kcx->ijabx', i['v,v'], t2, r1))
+            + asym('0/1|2/3')(einsum('jecb,ikae,kcx->ijabx', govvv, t2, r1))
+            + asym('0/1|2/3')(einsum('kjmb,imac,kcx->ijabx', gooov, t2, r1))
+            - einsum('ijmc,mkab,kcx->ijabx', gooov, t2, r1)
+            - einsum('keab,ijec,kcx->ijabx', govvv, t2, r1))
+        ar1_cmp = fermitools.math.asym.compound_index(ar1, {0: (0, 1),
+                                                            1: (2, 3)})
+        return numpy.squeeze(numpy.reshape(ar1_cmp, (ndoubles, cols)))
+
+    return _sigma
+
+
+def mixed_hessian_left_diff_sigma(fov, gooov, govvv, t2):
+    no, _, nv, _ = t2.shape
+    noo = no * (no - 1) // 2
+    nvv = nv * (nv - 1) // 2
+    ndoubles = noo * nvv
+    i = mixed_interaction(fov, gooov, govvv)
+
+    def _sigma(r1_flat):
+        cols = 1 if r1_flat.ndim is 1 else r1_flat.shape[1]
+        r1 = numpy.reshape(r1_flat, (no, nv, cols))
+        ar1 = (
+            # a terms
+            + asym('0/1')(einsum('jcab,icx->ijabx', govvv, r1))
+            + asym('2/3')(einsum('ijkb,kax->ijabx', gooov, r1))
+            + asym('0/1')(einsum('kcim,mjab,kcx->ijabx', i['o,o'], t2, r1))
+            - asym('2/3')(einsum('kcea,ijeb,kcx->ijabx', i['v,v'], t2, r1))
+            + asym('0/1|2/3')(einsum('mace,mjeb,icx->ijabx', govvv, t2, r1))
+            + asym('0/1|2/3')(einsum('kmie,mjeb,kax->ijabx', gooov, t2, r1))
+            + 1./2 * asym('0/1')(einsum('mnjc,mnab,icx->ijabx', gooov, t2, r1))
+            + 1./2 * asym('2/3')(einsum('kbef,ijef,kax->ijabx', govvv, t2, r1))
+            # b terms
+            - asym('0/1')(einsum('kcmi,mjab,kcx->ijabx', i['o,o'], t2, r1))
+            + asym('2/3')(einsum('kcae,ijeb,kcx->ijabx', i['v,v'], t2, r1))
+            - asym('0/1|2/3')(einsum('jecb,ikae,kcx->ijabx', govvv, t2, r1))
+            - asym('0/1|2/3')(einsum('kjmb,imac,kcx->ijabx', gooov, t2, r1))
+            + einsum('ijmc,mkab,kcx->ijabx', gooov, t2, r1)
+            + einsum('keab,ijec,kcx->ijabx', govvv, t2, r1))
+        ar1_cmp = fermitools.math.asym.compound_index(ar1, {0: (0, 1),
+                                                            1: (2, 3)})
+        return numpy.squeeze(numpy.reshape(ar1_cmp, (ndoubles, cols)))
+
+    return _sigma
+
+
 def main():
     import scripts.ocepa0 as ocepa0
 
     import numpy
-    import scipy.linalg as spla
+    import scipy.linalg
 
     import fermitools
 
@@ -263,9 +403,9 @@ def main():
     # Orbitals
     ac, bc = interface.hf.unrestricted_orbitals(BASIS, LABELS, COORDS,
                                                 CHARGE, SPIN)
-    c_unsrt = spla.block_diag(ac, bc)
+    c_unsrt = scipy.linalg.block_diag(ac, bc)
     sortvec = fermitools.math.spinorb.ab2ov(dim=nbf, na=na, nb=nb)
-    c_unsrt = spla.block_diag(ac, bc)
+    c_unsrt = scipy.linalg.block_diag(ac, bc)
     c = fermitools.math.spinorb.sort(c_unsrt, order=sortvec, axes=(1,))
 
     # Solve OCEPA0
@@ -341,12 +481,12 @@ def main():
     # Evaluate the excitation energies
     s_orb = diagonal_orbital_metric(m1[o, o], m1[v, v])
     s_amp = numpy.eye(*a_amp.shape)
-    s = spla.block_diag(s_orb, s_amp)
+    s = scipy.linalg.block_diag(s_orb, s_amp)
 
     e = numpy.bmat([[a, b], [b, a]])
-    m = spla.block_diag(s, -s)
-    w = numpy.real(spla.eigvals(e, b=m))
-    print(numpy.array(sorted(w)))
+    m = scipy.linalg.block_diag(s, -s)
+    w_old = numpy.real(sorted(scipy.linalg.eigvals(e, b=m)))
+    print(w_old)
 
     # Test sigmas
     no = nocc
@@ -406,14 +546,60 @@ def main():
     print(numpy.linalg.norm(sig_s_amp(i2) - s_amp))
 
     # Excitation energies
+    # Orbital terms
+    sig_e_orb_plus = orbital_hessian_sum_sigma(
+        h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
+        g[v, v, v, v], m1[o, o], m1[v, v], m2[o, o, o, o], m2[o, o, v, v],
+        m2[o, v, o, v], m2[v, v, v, v])
+    sig_e_orb_minus = orbital_hessian_diff_sigma(
+        h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
+        g[v, v, v, v], m1[o, o], m1[v, v], m2[o, o, o, o], m2[o, o, v, v],
+        m2[o, v, o, v], m2[v, v, v, v])
+    s_orb_inv = scipy.linalg.inv(s_orb)
+    sig_s_orb_inv = scipy.sparse.linalg.aslinearoperator(s_orb_inv)
+    # Mixted right terms
+    rsig_e_mix_plus = mixed_hessian_right_sum_sigma(
+        f[o, v], g[o, o, o, v], g[o, v, v, v], t2)
+    rsig_e_mix_minus = mixed_hessian_right_diff_sigma(
+        f[o, v], g[o, o, o, v], g[o, v, v, v], t2)
+    # Mixed left terms
+    lsig_e_mix_plus = mixed_hessian_left_sum_sigma(
+        f[o, v], g[o, o, o, v], g[o, v, v, v], t2)
+    lsig_e_mix_minus = mixed_hessian_left_diff_sigma(
+        f[o, v], g[o, o, o, v], g[o, v, v, v], t2)
+    # Amplitude terms
+    sig_e_amp_plus = sig_e_amp_minus = diagonal_amplitude_hessian_sigma(
+        f[o, o], f[v, v], g[o, o, o, o], g[o, v, o, v], g[v, v, v, v])
+    sig_s_amp_inv = sig_s_amp
+
+    def sig_e_plus(z1z2):
+        z1, z2 = numpy.split(z1z2, (nsingles,))
+        return numpy.concatenate((sig_e_orb_plus(z1) + rsig_e_mix_plus(z2),
+                                  lsig_e_mix_plus(z1) + sig_e_amp_plus(z2)),
+                                 axis=0)
+
+    def sig_e_minus(z1z2):
+        z1, z2 = numpy.split(z1z2, (nsingles,))
+        return numpy.concatenate((sig_e_orb_minus(z1) + rsig_e_mix_minus(z2),
+                                  lsig_e_mix_minus(z1) + sig_e_amp_minus(z2)),
+                                 axis=0)
+
+    def sig_s_inv(z1z2):
+        z1, z2 = numpy.split(z1z2, (nsingles,))
+        return numpy.concatenate((sig_s_orb_inv(z1), sig_s_amp_inv(z2)),
+                                 axis=0)
+
+    def sig_e_eff(z1z2):
+        return sig_s_inv(sig_e_plus(sig_s_inv(sig_e_minus(z1z2))))
+
     dim = nsingles + ndoubles
-    w, u = solve_spectrum(dim, sig_a, sig_b, sig_s, k=2)
-    w = numpy.real(sorted(w))
+    e_ = scipy.sparse.linalg.LinearOperator((dim, dim), matvec=sig_e_eff)
+    w2, u = scipy.sparse.linalg.eigs(e_, k=dim-2, which='SR')
+    w = numpy.sqrt(numpy.real(sorted(w2)))
     print(w)
+    print(w / w_old[dim:2*dim-2])
 
     # Response function
-    print(nsingles + ndoubles)
-    print(t.shape)
     r = solve_static_response_vector(dim, sig_a, sig_b, t)
     alpha = numpy.tensordot(r, t, axes=(0, 0))
     print(alpha.round(10))
