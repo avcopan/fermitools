@@ -187,6 +187,7 @@ def main():
     nbf = interface.integrals.nbf(BASIS, LABELS)
     norb = 2 * nbf
     h_ao = interface.integrals.core_hamiltonian(BASIS, LABELS, COORDS)
+    p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
     r_ao = interface.integrals.repulsion(BASIS, LABELS, COORDS)
 
     h_aso = fermitools.math.spinorb.expand(h_ao, brakets=((0, 1),))
@@ -210,7 +211,7 @@ def main():
                                  e_thresh=1e-14, r_thresh=1e-12,
                                  print_conv=True)
     en_tot = en_elec + en_nuc
-    print("Total energy:")
+    print("\nGround state energy:")
     print('{:20.15f}'.format(en_tot))
 
     # Build blocks of the electronic Hessian
@@ -250,34 +251,47 @@ def main():
                                       fi['o,o'], fi['v,v'], t2)
     b_amp = offdiagonal_amplitude_hessian(fg['o,o,o,o'], fg['o,v,o,v'],
                                           fg['v,v,v,v'], t2)
-    print(a_mix.shape)
-    print(b_mix.shape)
-
-    # Evaluate dipole polarizability using linear response theory
-    p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
-    p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
-    p = fermitools.math.transform(p_aso, {1: c, 2: c})
-    fp = fancy_property(p[:, o, o], p[:, v, v], m1[o, o], m1[v, v])
-    t_orb = orbital_property_gradient(p[:, o, v], m1[o, o], m1[v, v])
-    t_amp = amplitude_property_gradient(fp['o,o'], -fp['v,v'], t2)
-
-    a = numpy.bmat([[a_orb, -a_mix], [-a_mix.T, a_amp]])
-    b = numpy.bmat([[b_orb, -b_mix], [-b_mix.T, b_amp]])
-    t = numpy.bmat([[t_orb], [t_amp]])
-    r = static_response_vector(a, b, t)
-    alpha = static_linear_response_function(t, r)
-
-    print(numpy.real(alpha).round(8))
-
     # Evaluate the excitation energies
+    a = numpy.bmat([[a_orb, a_mix], [a_mix.T, a_amp]])
+    b = numpy.bmat([[b_orb, b_mix], [b_mix.T, b_amp]])
+
     s_orb = diagonal_orbital_metric(m1[o, o], m1[v, v])
     s_amp = numpy.eye(*a_amp.shape)
     s = spla.block_diag(s_orb, s_amp)
 
     e = numpy.bmat([[a, b], [b, a]])
     m = spla.block_diag(s, -s)
-    w = numpy.real(spla.eigvals(e, b=m))
-    print(numpy.array(sorted(w)))
+    w = numpy.real(sorted(spla.eigvals(e, b=m)))
+    print("\nSpectrum:")
+    print(w)
+
+    # Evaluate dipole polarizability using linear response theory
+    p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
+    p = fermitools.math.transform(p_aso, {1: c, 2: c})
+    fp = fancy_property(p[:, o, o], p[:, v, v], m1[o, o], m1[v, v])
+    t_orb = orbital_property_gradient(p[:, o, v], m1[o, o], m1[v, v])
+    t_amp = amplitude_property_gradient(fp['o,o'], -fp['v,v'], t2)
+    t = numpy.bmat([[t_orb], [t_amp]])
+    r = static_response_vector(a, b, t)
+    alpha = static_linear_response_function(t, r)
+
+    # Evaluate dipole polarizability as energy derivative
+    en_f_func = odc12.perturbed_energy_function(norb=norb, nocc=nocc,
+                                                h_aso=h_aso, p_aso=p_aso,
+                                                g_aso=g_aso, c_guess=c,
+                                                t2_guess=t2, niter=200,
+                                                e_thresh=1e-14,
+                                                r_thresh=1e-12,
+                                                print_conv=True)
+    print("\nSolving polarizability by finite differences...")
+    en_df2 = fermitools.math.central_difference(en_f_func, [0., 0., 0.],
+                                                step=0.02, nder=2, npts=11)
+
+    print("\n<<mu; mu>>_0:")
+    print(numpy.real(alpha).round(8))
+
+    print("\nd^2E/df^2:")
+    print(en_df2.round(8))
 
 
 if __name__ == '__main__':

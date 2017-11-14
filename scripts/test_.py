@@ -150,7 +150,7 @@ def test__lr_scf():
                                                 step=0.01, nder=2, npts=9)
 
     # Compare the two
-    assert_almost_equal(numpy.diag(alpha), -en_df2, decimal=9)
+    assert_almost_equal(numpy.diag(alpha), en_df2, decimal=9)
 
 
 def test__lr_ocepa0_cation():
@@ -273,7 +273,7 @@ def test__lr_ocepa0_cation():
                                                 step=0.01, nder=2, npts=9)
 
     # Compare the two
-    assert_almost_equal(numpy.diag(alpha), -en_df2, decimal=9)
+    assert_almost_equal(numpy.diag(alpha), en_df2, decimal=9)
 
 
 def test__lr_ocepa0_neutral():
@@ -400,7 +400,7 @@ def test__lr_ocepa0_neutral():
                                                 step=0.01, nder=2, npts=9)
 
     # Compare the two
-    assert_almost_equal(numpy.diag(alpha), -en_df2, decimal=9)
+    assert_almost_equal(numpy.diag(alpha), en_df2, decimal=9)
 
 
 def test__lr_odc12_cation():
@@ -536,7 +536,7 @@ def test__lr_odc12_cation():
                                                 step=0.01, nder=2, npts=9)
 
     # Compare the two
-    assert_almost_equal(numpy.diag(alpha), -en_df2, decimal=9)
+    assert_almost_equal(numpy.diag(alpha), en_df2, decimal=9)
 
 
 def test__lr_odc12_neutral():
@@ -672,4 +672,4 @@ def test__lr_odc12_neutral():
                                                 step=0.01, nder=2, npts=9)
 
     # Compare the two
-    assert_almost_equal(numpy.diag(alpha), -en_df2, decimal=8)
+    assert_almost_equal(numpy.diag(alpha), en_df2, decimal=8)

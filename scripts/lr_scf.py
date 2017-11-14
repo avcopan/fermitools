@@ -246,7 +246,7 @@ def static_response_vector(a, b, t):
     :returns: the response vector(s), (x + y) = 2 * (a + b)^-1 * t
     :rtype: numpy.ndarray
     """
-    r, _, _, _ = scipy.linalg.lstsq(a + b, 2 * t)
+    r, _, _, _ = scipy.linalg.lstsq(a + b, -2 * t)
     return r
 
 
