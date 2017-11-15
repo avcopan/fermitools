@@ -11,15 +11,14 @@ from .odc12 import singles_reference_density
 from .odc12 import singles_correlation_density
 from .odc12 import doubles_cumulant
 from .odc12 import doubles_density
-from .lr_ocepa0 import diagonal_orbital_hessian
-from .lr_ocepa0 import offdiagonal_orbital_hessian
-from .lr_ocepa0 import (diagonal_amplitude_hessian as
-                        cepa_diagonal_amplitude_hessian)
+from .lr_ocepa0 import orbital_hessian_diag
+from .lr_ocepa0 import orbital_hessian_offd
+from .lr_ocepa0 import amplitude_hessian as cepa_amplitude_hessian
 from .lr_ocepa0 import orbital_property_gradient
 from .lr_ocepa0 import amplitude_property_gradient
 from .lr_ocepa0 import static_response_vector
 from .lr_ocepa0 import static_linear_response_function
-from .lr_ocepa0 import diagonal_orbital_metric
+from .lr_ocepa0 import orbital_metric
 
 
 def fancy_property(poo, pvv, m1oo, m1vv):
@@ -87,11 +86,10 @@ def fancy_mixed_interaction(fov, gooov, govvv, m1oo, m1vv):
     return {'o,o': fioo, 'v,v': fivv}
 
 
-def diagonal_amplitude_hessian(ffoo, ffvv, goooo, govov, gvvvv,
-                               fgoooo, fgovov, fgvvvv, t2):
-    a_cepa = cepa_diagonal_amplitude_hessian(foo=+ffoo, fvv=-ffvv,
-                                             goooo=goooo, govov=govov,
-                                             gvvvv=gvvvv)
+def amplitude_hessian_diag(ffoo, ffvv, goooo, govov, gvvvv, fgoooo, fgovov,
+                           fgvvvv, t2):
+    a_cepa = cepa_amplitude_hessian(foo=+ffoo, fvv=-ffvv, goooo=goooo,
+                                    govov=govov, gvvvv=gvvvv)
     a_dc = (+ asym('2/3|6/7')(
                   einsum('afec,ijeb,klfd->ijabklcd', fgvvvv, t2, t2))
             + asym('2/3|4/5')(
@@ -107,7 +105,7 @@ def diagonal_amplitude_hessian(ffoo, ffvv, goooo, govov, gvvvv,
     return a_cepa + numpy.reshape(a_dc_cmp, a_cepa.shape)
 
 
-def offdiagonal_amplitude_hessian(fgoooo, fgovov,  fgvvvv, t2):
+def amplitude_hessian_offd(fgoooo, fgovov,  fgvvvv, t2):
     no, nv, _, _ = fgovov.shape
     ndoubles = no * (no - 1) * nv * (nv - 1) // 4
     b = (+ asym('2/3|6/7')(
@@ -123,7 +121,7 @@ def offdiagonal_amplitude_hessian(fgoooo, fgovov,  fgvvvv, t2):
     return numpy.reshape(b_cmp, (ndoubles, ndoubles))
 
 
-def diagonal_mixed_hessian(gooov, govvv, fioo, fivv, t2):
+def mixed_hessian_diag(gooov, govvv, fioo, fivv, t2):
     no, _, nv, _ = t2.shape
     nsingles = no * nv
     ndoubles = no * (no - 1) * nv * (nv - 1) // 4
@@ -149,7 +147,7 @@ def diagonal_mixed_hessian(gooov, govvv, fioo, fivv, t2):
     return numpy.reshape(a_cmp, (nsingles, ndoubles))
 
 
-def offdiagonal_mixed_hessian(gooov, govvv, fioo, fivv, t2):
+def mixed_hessian_offd(gooov, govvv, fioo, fivv, t2):
     no, _, nv, _ = t2.shape
     nsingles = no * nv
     ndoubles = no * (no - 1) * nv * (nv - 1) // 4
@@ -205,11 +203,10 @@ def main():
     # Solve OCEPA0
     en_nuc = fermitools.chem.nuc.energy(labels=LABELS, coords=COORDS)
     t2_guess = numpy.zeros((nocc, nocc, norb-nocc, norb-nocc))
-    en_elec, c, t2 = odc12.solve(norb=norb, nocc=nocc, h_aso=h_aso,
-                                 g_aso=g_aso, c_guess=c,
-                                 t2_guess=t2_guess, niter=200,
-                                 e_thresh=1e-14, r_thresh=1e-12,
-                                 print_conv=True)
+    en_elec, c, t2 = odc12.solve(
+            norb=norb, nocc=nocc, h_aso=h_aso, g_aso=g_aso, c_guess=c,
+            t2_guess=t2_guess, niter=200, e_thresh=1e-14, r_thresh=1e-12,
+            print_conv=True)
     en_tot = en_elec + en_nuc
     print("\nGround state energy:")
     print('{:20.15f}'.format(en_tot))
@@ -227,35 +224,33 @@ def main():
     o = slice(None, nocc)
     v = slice(nocc, None)
     ff = odc12.fancy_fock(f[o, o], f[v, v], m1[o, o], m1[v, v])
-    fg = fancy_repulsion(ff['o,o'], ff['v,v'], g[o, o, o, o], g[o, v, o, v],
-                         g[v, v, v, v], m1[o, o], m1[v, v])
-    fi = fancy_mixed_interaction(f[o, v], g[o, o, o, v], g[o, v, v, v],
-                                 m1[o, o], m1[v, v])
+    fg = fancy_repulsion(
+            ff['o,o'], ff['v,v'], g[o, o, o, o], g[o, v, o, v], g[v, v, v, v],
+            m1[o, o], m1[v, v])
+    fi = fancy_mixed_interaction(
+            f[o, v], g[o, o, o, v], g[o, v, v, v], m1[o, o], m1[v, v])
 
-    a_orb = diagonal_orbital_hessian(h[o, o], h[v, v], g[o, o, o, o],
-                                     g[o, o, v, v], g[o, v, o, v],
-                                     g[v, v, v, v], m1[o, o], m1[v, v],
-                                     m2[o, o, o, o], m2[o, o, v, v],
-                                     m2[o, v, o, v], m2[v, v, v, v])
-    a_mix = diagonal_mixed_hessian(g[o, o, o, v], g[o, v, v, v],
-                                   fi['o,o'], fi['v,v'], t2)
-    a_amp = diagonal_amplitude_hessian(ff['o,o'], ff['v,v'], g[o, o, o, o],
-                                       g[o, v, o, v], g[v, v, v, v],
-                                       fg['o,o,o,o'], fg['o,v,o,v'],
-                                       fg['v,v,v,v'], t2)
-    b_orb = offdiagonal_orbital_hessian(g[o, o, o, o], g[o, o, v, v],
-                                        g[o, v, o, v], g[v, v, v, v],
-                                        m2[o, o, o, o], m2[o, o, v, v],
-                                        m2[o, v, o, v], m2[v, v, v, v])
-    b_mix = offdiagonal_mixed_hessian(g[o, o, o, v], g[o, v, v, v],
-                                      fi['o,o'], fi['v,v'], t2)
-    b_amp = offdiagonal_amplitude_hessian(fg['o,o,o,o'], fg['o,v,o,v'],
-                                          fg['v,v,v,v'], t2)
+    a_orb = orbital_hessian_diag(
+            h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
+            g[v, v, v, v], m1[o, o], m1[v, v], m2[o, o, o, o], m2[o, o, v, v],
+            m2[o, v, o, v], m2[v, v, v, v])
+    a_mix = mixed_hessian_diag(
+            g[o, o, o, v], g[o, v, v, v], fi['o,o'], fi['v,v'], t2)
+    a_amp = amplitude_hessian_diag(
+            ff['o,o'], ff['v,v'], g[o, o, o, o], g[o, v, o, v], g[v, v, v, v],
+            fg['o,o,o,o'], fg['o,v,o,v'], fg['v,v,v,v'], t2)
+    b_orb = orbital_hessian_offd(
+            g[o, o, o, o], g[o, o, v, v], g[o, v, o, v], g[v, v, v, v],
+            m2[o, o, o, o], m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v])
+    b_mix = mixed_hessian_offd(
+            g[o, o, o, v], g[o, v, v, v], fi['o,o'], fi['v,v'], t2)
+    b_amp = amplitude_hessian_offd(
+            fg['o,o,o,o'], fg['o,v,o,v'], fg['v,v,v,v'], t2)
     # Evaluate the excitation energies
     a = numpy.bmat([[a_orb, a_mix], [a_mix.T, a_amp]])
     b = numpy.bmat([[b_orb, b_mix], [b_mix.T, b_amp]])
 
-    s_orb = diagonal_orbital_metric(m1[o, o], m1[v, v])
+    s_orb = orbital_metric(m1[o, o], m1[v, v])
     s_amp = numpy.eye(*a_amp.shape)
     s = spla.block_diag(s_orb, s_amp)
 
@@ -276,16 +271,13 @@ def main():
     alpha = static_linear_response_function(t, r)
 
     # Evaluate dipole polarizability as energy derivative
-    en_f_func = odc12.perturbed_energy_function(norb=norb, nocc=nocc,
-                                                h_aso=h_aso, p_aso=p_aso,
-                                                g_aso=g_aso, c_guess=c,
-                                                t2_guess=t2, niter=200,
-                                                e_thresh=1e-14,
-                                                r_thresh=1e-12,
-                                                print_conv=True)
+    en_f_func = odc12.perturbed_energy_function(
+            norb=norb, nocc=nocc, h_aso=h_aso, p_aso=p_aso, g_aso=g_aso,
+            c_guess=c, t2_guess=t2, niter=200, e_thresh=1e-14, r_thresh=1e-12,
+            print_conv=True)
     print("\nSolving polarizability by finite differences...")
-    en_df2 = fermitools.math.central_difference(en_f_func, [0., 0., 0.],
-                                                step=0.02, nder=2, npts=11)
+    en_df2 = fermitools.math.central_difference(
+            en_f_func, [0., 0., 0.], step=0.02, nder=2, npts=11)
 
     print("\n<<mu; mu>>_0:")
     print(numpy.real(alpha).round(8))

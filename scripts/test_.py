@@ -100,15 +100,13 @@ def test__lr_scf():
     g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
     m1 = scf.singles_density(norb=norb, nocc=nocc)
     m2 = scf.doubles_density(m1)
-    a = lr.diagonal_orbital_hessian(h[o, o], h[v, v], g[o, o, o, o],
-                                    g[o, o, v, v], g[o, v, o, v],
-                                    g[v, v, v, v], m1[o, o], m1[v, v],
-                                    m2[o, o, o, o], m2[o, o, v, v],
-                                    m2[o, v, o, v], m2[v, v, v, v])
-    b = lr.offdiagonal_orbital_hessian(g[o, o, o, o], g[o, o, v, v],
-                                       g[o, v, o, v], g[v, v, v, v],
-                                       m2[o, o, o, o], m2[o, o, v, v],
-                                       m2[o, v, o, v], m2[v, v, v, v])
+    a = lr.orbital_hessian_diag(
+            h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
+            g[v, v, v, v], m1[o, o], m1[v, v], m2[o, o, o, o], m2[o, o, v, v],
+            m2[o, v, o, v], m2[v, v, v, v])
+    b = lr.orbital_hessian_offd(
+            g[o, o, o, o], g[o, o, v, v], g[o, v, o, v], g[v, v, v, v],
+            m2[o, o, o, o], m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v])
     w_rpa = lr.spectrum(a, b)
 
     # Compare to RPA energies posted on Crawdad
@@ -214,22 +212,18 @@ def test__lr_ocepa0_cation():
     k2 = ocepa0.doubles_cumulant(t2)
     m2 = ocepa0.doubles_density(m1_ref, m1_cor, k2)
 
-    a_orb = lr.diagonal_orbital_hessian(h[o, o], h[v, v], g[o, o, o, o],
-                                        g[o, o, v, v], g[o, v, o, v],
-                                        g[v, v, v, v], m1[o, o], m1[v, v],
-                                        m2[o, o, o, o], m2[o, o, v, v],
-                                        m2[o, v, o, v], m2[v, v, v, v])
-    a_mix = lr.diagonal_mixed_hessian(f[o, v], g[o, o, o, v], g[o, v, v, v],
-                                      t2)
-    a_amp = lr.diagonal_amplitude_hessian(f[o, o], f[v, v], g[o, o, o, o],
-                                          g[o, v, o, v], g[v, v, v, v])
+    a_orb = lr.orbital_hessian_diag(
+            h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
+            g[v, v, v, v], m1[o, o], m1[v, v], m2[o, o, o, o], m2[o, o, v, v],
+            m2[o, v, o, v], m2[v, v, v, v])
+    a_mix = lr.mixed_hessian_diag(f[o, v], g[o, o, o, v], g[o, v, v, v], t2)
+    a_amp = lr.amplitude_hessian(
+            f[o, o], f[v, v], g[o, o, o, o], g[o, v, o, v], g[v, v, v, v])
 
-    b_orb = lr.offdiagonal_orbital_hessian(g[o, o, o, o], g[o, o, v, v],
-                                           g[o, v, o, v], g[v, v, v, v],
-                                           m2[o, o, o, o], m2[o, o, v, v],
-                                           m2[o, v, o, v], m2[v, v, v, v])
-    b_mix = lr.offdiagonal_mixed_hessian(f[o, v], g[o, o, o, v], g[o, v, v, v],
-                                         t2)
+    b_orb = lr.orbital_hessian_offd(
+            g[o, o, o, o], g[o, o, v, v], g[o, v, o, v], g[v, v, v, v],
+            m2[o, o, o, o], m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v])
+    b_mix = lr.mixed_hessian_offd(f[o, v], g[o, o, o, v], g[o, v, v, v], t2)
     b_amp = lr.numpy.zeros_like(a_amp)
 
     # Test the orbital and amplitude Hessians
@@ -337,22 +331,18 @@ def test__lr_ocepa0_neutral():
     k2 = ocepa0.doubles_cumulant(t2)
     m2 = ocepa0.doubles_density(m1_ref, m1_cor, k2)
 
-    a_orb = lr.diagonal_orbital_hessian(h[o, o], h[v, v], g[o, o, o, o],
-                                        g[o, o, v, v], g[o, v, o, v],
-                                        g[v, v, v, v], m1[o, o], m1[v, v],
-                                        m2[o, o, o, o], m2[o, o, v, v],
-                                        m2[o, v, o, v], m2[v, v, v, v])
-    a_mix = lr.diagonal_mixed_hessian(f[o, v], g[o, o, o, v], g[o, v, v, v],
-                                      t2)
-    a_amp = lr.diagonal_amplitude_hessian(f[o, o], f[v, v], g[o, o, o, o],
-                                          g[o, v, o, v], g[v, v, v, v])
+    a_orb = lr.orbital_hessian_diag(
+            h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
+            g[v, v, v, v], m1[o, o], m1[v, v], m2[o, o, o, o], m2[o, o, v, v],
+            m2[o, v, o, v], m2[v, v, v, v])
+    a_mix = lr.mixed_hessian_diag(f[o, v], g[o, o, o, v], g[o, v, v, v], t2)
+    a_amp = lr.amplitude_hessian(
+            f[o, o], f[v, v], g[o, o, o, o], g[o, v, o, v], g[v, v, v, v])
 
-    b_orb = lr.offdiagonal_orbital_hessian(g[o, o, o, o], g[o, o, v, v],
-                                           g[o, v, o, v], g[v, v, v, v],
-                                           m2[o, o, o, o], m2[o, o, v, v],
-                                           m2[o, v, o, v], m2[v, v, v, v])
-    b_mix = lr.offdiagonal_mixed_hessian(f[o, v], g[o, o, o, v], g[o, v, v, v],
-                                         t2)
+    b_orb = lr.orbital_hessian_offd(
+            g[o, o, o, o], g[o, o, v, v], g[o, v, o, v], g[v, v, v, v],
+            m2[o, o, o, o], m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v])
+    b_mix = lr.mixed_hessian_offd(f[o, v], g[o, o, o, v], g[o, v, v, v], t2)
     b_amp = lr.numpy.zeros_like(a_amp)
 
     # Test the orbital and amplitude Hessians
@@ -470,25 +460,22 @@ def test__lr_odc12_cation():
     fi = lr.fancy_mixed_interaction(f[o, v], g[o, o, o, v], g[o, v, v, v],
                                     m1[o, o], m1[v, v])
 
-    a_orb = lr.diagonal_orbital_hessian(h[o, o], h[v, v], g[o, o, o, o],
-                                        g[o, o, v, v], g[o, v, o, v],
-                                        g[v, v, v, v], m1[o, o], m1[v, v],
-                                        m2[o, o, o, o], m2[o, o, v, v],
-                                        m2[o, v, o, v], m2[v, v, v, v])
-    a_mix = lr.diagonal_mixed_hessian(g[o, o, o, v], g[o, v, v, v],
-                                      fi['o,o'], fi['v,v'], t2)
-    a_amp = lr.diagonal_amplitude_hessian(ff['o,o'], ff['v,v'], g[o, o, o, o],
-                                          g[o, v, o, v], g[v, v, v, v],
-                                          fg['o,o,o,o'], fg['o,v,o,v'],
-                                          fg['v,v,v,v'], t2)
-    b_orb = lr.offdiagonal_orbital_hessian(g[o, o, o, o], g[o, o, v, v],
-                                           g[o, v, o, v], g[v, v, v, v],
-                                           m2[o, o, o, o], m2[o, o, v, v],
-                                           m2[o, v, o, v], m2[v, v, v, v])
-    b_mix = lr.offdiagonal_mixed_hessian(g[o, o, o, v], g[o, v, v, v],
-                                         fi['o,o'], fi['v,v'], t2)
-    b_amp = lr.offdiagonal_amplitude_hessian(fg['o,o,o,o'], fg['o,v,o,v'],
-                                             fg['v,v,v,v'], t2)
+    a_orb = lr.orbital_hessian_diag(
+            h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
+            g[v, v, v, v], m1[o, o], m1[v, v], m2[o, o, o, o], m2[o, o, v, v],
+            m2[o, v, o, v], m2[v, v, v, v])
+    a_mix = lr.mixed_hessian_diag(
+            g[o, o, o, v], g[o, v, v, v], fi['o,o'], fi['v,v'], t2)
+    a_amp = lr.amplitude_hessian_diag(
+            ff['o,o'], ff['v,v'], g[o, o, o, o], g[o, v, o, v], g[v, v, v, v],
+            fg['o,o,o,o'], fg['o,v,o,v'], fg['v,v,v,v'], t2)
+    b_orb = lr.orbital_hessian_offd(
+            g[o, o, o, o], g[o, o, v, v], g[o, v, o, v], g[v, v, v, v],
+            m2[o, o, o, o], m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v])
+    b_mix = lr.mixed_hessian_offd(
+            g[o, o, o, v], g[o, v, v, v], fi['o,o'], fi['v,v'], t2)
+    b_amp = lr.amplitude_hessian_offd(
+            fg['o,o,o,o'], fg['o,v,o,v'], fg['v,v,v,v'], t2)
 
     # Test the orbital and amplitude Hessians
     import os
@@ -606,25 +593,22 @@ def test__lr_odc12_neutral():
     fi = lr.fancy_mixed_interaction(f[o, v], g[o, o, o, v], g[o, v, v, v],
                                     m1[o, o], m1[v, v])
 
-    a_orb = lr.diagonal_orbital_hessian(h[o, o], h[v, v], g[o, o, o, o],
-                                        g[o, o, v, v], g[o, v, o, v],
-                                        g[v, v, v, v], m1[o, o], m1[v, v],
-                                        m2[o, o, o, o], m2[o, o, v, v],
-                                        m2[o, v, o, v], m2[v, v, v, v])
-    a_mix = lr.diagonal_mixed_hessian(g[o, o, o, v], g[o, v, v, v],
-                                      fi['o,o'], fi['v,v'], t2)
-    a_amp = lr.diagonal_amplitude_hessian(ff['o,o'], ff['v,v'], g[o, o, o, o],
-                                          g[o, v, o, v], g[v, v, v, v],
-                                          fg['o,o,o,o'], fg['o,v,o,v'],
-                                          fg['v,v,v,v'], t2)
-    b_orb = lr.offdiagonal_orbital_hessian(g[o, o, o, o], g[o, o, v, v],
-                                           g[o, v, o, v], g[v, v, v, v],
-                                           m2[o, o, o, o], m2[o, o, v, v],
-                                           m2[o, v, o, v], m2[v, v, v, v])
-    b_mix = lr.offdiagonal_mixed_hessian(g[o, o, o, v], g[o, v, v, v],
-                                         fi['o,o'], fi['v,v'], t2)
-    b_amp = lr.offdiagonal_amplitude_hessian(fg['o,o,o,o'], fg['o,v,o,v'],
-                                             fg['v,v,v,v'], t2)
+    a_orb = lr.orbital_hessian_diag(
+            h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
+            g[v, v, v, v], m1[o, o], m1[v, v], m2[o, o, o, o], m2[o, o, v, v],
+            m2[o, v, o, v], m2[v, v, v, v])
+    a_mix = lr.mixed_hessian_diag(
+            g[o, o, o, v], g[o, v, v, v], fi['o,o'], fi['v,v'], t2)
+    a_amp = lr.amplitude_hessian_diag(
+            ff['o,o'], ff['v,v'], g[o, o, o, o], g[o, v, o, v], g[v, v, v, v],
+            fg['o,o,o,o'], fg['o,v,o,v'], fg['v,v,v,v'], t2)
+    b_orb = lr.orbital_hessian_offd(
+            g[o, o, o, o], g[o, o, v, v], g[o, v, o, v], g[v, v, v, v],
+            m2[o, o, o, o], m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v])
+    b_mix = lr.mixed_hessian_offd(
+            g[o, o, o, v], g[o, v, v, v], fi['o,o'], fi['v,v'], t2)
+    b_amp = lr.amplitude_hessian_offd(
+            fg['o,o,o,o'], fg['o,v,o,v'], fg['v,v,v,v'], t2)
 
     # Test the orbital and amplitude Hessians
     import os
