@@ -15,14 +15,13 @@ from .lr_scf import solve_static_response_vector
 from .lr_scf import effective_response_hamiltonian_sigma
 
 # sigmas
-from .lr_scf import orbital_hessian_sum_sigma
-from .lr_scf import orbital_hessian_diff_sigma
+from .lr_scf import orbital_hessian_diag_sigma
+from .lr_scf import orbital_hessian_offd_sigma
 
 
 def amplitude_hessian(foo, fvv, goooo, govov, gvvvv):
-    no, nv, _, _ = govov.shape
-    io = numpy.eye(no)
-    iv = numpy.eye(nv)
+    io = numpy.eye(*foo.shape)
+    iv = numpy.eye(*fvv.shape)
     return (
         + asym('2/3|4/5|6/7')(
               einsum('ik,jl,ac,bd->ijabklcd', io, io, fvv, iv))
@@ -37,7 +36,7 @@ def amplitude_hessian(foo, fvv, goooo, govov, gvvvv):
 
 
 def mixed_interaction(fov, gooov, govvv):
-    no, nv, _, _ = govvv.shape
+    no, nv = fov.shape
     io = numpy.eye(no)
     iv = numpy.eye(nv)
     ioo = (+ einsum('ik,la->iakl', io, fov)
@@ -73,56 +72,46 @@ def mixed_hessian_diag(fov, gooov, govvv, t2):
 
 def mixed_hessian_offd(fov, gooov, govvv, t2):
     i = mixed_interaction(fov, gooov, govvv)
-    return (+ asym('2/3')(
-                   einsum('iamk,mlcd->iaklcd', i['o,o'], t2))
-            - asym('4/5')(
-                   einsum('iace,kled->iaklcd', i['v,v'], t2))
-            + asym('2/3|4/5')(
-                   einsum('lead,kice->iaklcd', govvv, t2))
-            + asym('2/3|4/5')(
-                   einsum('ilmd,kmca->iaklcd', gooov, t2))
-            - einsum('klma,micd->iaklcd', gooov, t2)
-            - einsum('iecd,klea->iaklcd', govvv, t2))
+    return (
+        + asym('2/3')(
+               einsum('iamk,mlcd->iaklcd', i['o,o'], t2))
+        - asym('4/5')(
+               einsum('iace,kled->iaklcd', i['v,v'], t2))
+        + asym('2/3|4/5')(
+               einsum('lead,kice->iaklcd', govvv, t2))
+        + asym('2/3|4/5')(
+               einsum('ilmd,kmca->iaklcd', gooov, t2))
+        - einsum('klma,micd->iaklcd', gooov, t2)
+        - einsum('iecd,klea->iaklcd', govvv, t2))
 
 
 def amplitude_property_gradient(poo, pvv, t2):
-    return (+ asym('2/3')(
-                  einsum('...ac,ijcb->ijab...', pvv, t2))
-            - asym('0/1')(
-                  einsum('...ik,kjab->ijab...', poo, t2)))
+    return (
+        + asym('2/3')(
+              einsum('...ac,ijcb->ijab...', pvv, t2))
+        - asym('0/1')(
+              einsum('...ik,kjab->ijab...', poo, t2)))
 
 
 # Sigma vectors
 def amplitude_hessian_sigma(foo, fvv, goooo, govov, gvvvv):
-    no, nv, _, _ = govov.shape
-    noo = no * (no - 1) // 2
-    nvv = nv * (nv - 1) // 2
 
-    def _sigma(r2_flat):
-        shape = (noo, nvv) if r2_flat.ndim == 1 else (noo, nvv, r2_flat[1])
-        r2_cmp = numpy.reshape(r2_flat, shape)
-        r2 = fermitools.math.asym.unravel(r2_cmp, {0: (0, 1), 1: (2, 3)})
-        return (+ asym('2/3')(einsum('ac,ijcb...->ijab...', fvv, r2))
-                - asym('0/1')(einsum('ik,kjab...->ijab...', foo, r2))
-                + 1./2 * einsum('abcd,ijcd...->ijab...', gvvvv, r2)
-                + 1./2 * einsum('ijkl,klab...->ijab...', goooo, r2)
-                - asym('0/1|2/3')(einsum('jcla,ilcb...->ijab...', govov, r2)))
+    def _sigma(r2):
+        return (
+            + asym('2/3')(einsum('ac,ijcb...->ijab...', fvv, r2))
+            - asym('0/1')(einsum('ik,kjab...->ijab...', foo, r2))
+            + 1./2 * einsum('abcd,ijcd...->ijab...', gvvvv, r2)
+            + 1./2 * einsum('ijkl,klab...->ijab...', goooo, r2)
+            - asym('0/1|2/3')(einsum('jcla,ilcb...->ijab...', govov, r2)))
 
     return _sigma
 
 
-def mixed_hessian_right_sum_sigma(fov, gooov, govvv, t2):
-    no, _, nv, _ = t2.shape
-    noo = no * (no - 1) // 2
-    nvv = nv * (nv - 1) // 2
+def mixed_hessian_right_diag_sigma(fov, gooov, govvv, t2):
     i = mixed_interaction(fov, gooov, govvv)
 
-    def _sigma(r2_flat):
-        shape = (noo, nvv) if r2_flat.ndim == 1 else (noo, nvv, r2_flat[1])
-        r2_cmp = numpy.reshape(r2_flat, shape)
-        r2 = fermitools.math.asym.unravel(r2_cmp, {0: (0, 1), 1: (2, 3)})
+    def _sigma(r2):
         return (
-            # a terms
             + 1./2 * einsum('lacd,ilcd...->ia...', govvv, r2)
             + 1./2 * einsum('klid,klad...->ia...', gooov, r2)
             + 1./2 * einsum('iakm,mlcd,klcd...->ia...', i['o,o'], t2, r2)
@@ -130,8 +119,16 @@ def mixed_hessian_right_sum_sigma(fov, gooov, govvv, t2):
             + einsum('mcae,mled,ilcd...->ia...', govvv, t2, r2)
             + einsum('imke,mled,klad...->ia...', gooov, t2, r2)
             + 1./4 * einsum('mnla,mncd,ilcd...->ia...', gooov, t2, r2)
-            + 1./4 * einsum('idef,klef,klad...->ia...', govvv, t2, r2)
-            # b terms
+            + 1./4 * einsum('idef,klef,klad...->ia...', govvv, t2, r2))
+
+    return _sigma
+
+
+def mixed_hessian_right_offd_sigma(fov, gooov, govvv, t2):
+    i = mixed_interaction(fov, gooov, govvv)
+
+    def _sigma(r2):
+        return (
             + 1./2 * einsum('iamk,mlcd,klcd...->ia...', i['o,o'], t2, r2)
             - 1./2 * einsum('iace,kled,klcd...->ia...', i['v,v'], t2, r2)
             + einsum('lead,kice,klcd...->ia...', govvv, t2, r2)
@@ -142,46 +139,11 @@ def mixed_hessian_right_sum_sigma(fov, gooov, govvv, t2):
     return _sigma
 
 
-def mixed_hessian_right_diff_sigma(fov, gooov, govvv, t2):
-    no, _, nv, _ = t2.shape
-    noo = no * (no - 1) // 2
-    nvv = nv * (nv - 1) // 2
+def mixed_hessian_left_diag_sigma(fov, gooov, govvv, t2):
     i = mixed_interaction(fov, gooov, govvv)
 
-    def _sigma(r2_flat):
-        shape = (noo, nvv) if r2_flat.ndim == 1 else (noo, nvv, r2_flat[1])
-        r2_cmp = numpy.reshape(r2_flat, shape)
-        r2 = fermitools.math.asym.unravel(r2_cmp, {0: (0, 1), 1: (2, 3)})
+    def _sigma(r1):
         return (
-                # a terms
-                + 1./2 * einsum('lacd,ilcd...->ia...', govvv, r2)
-                + 1./2 * einsum('klid,klad...->ia...', gooov, r2)
-                + 1./2 * einsum('iakm,mlcd,klcd...->ia...', i['o,o'], t2, r2)
-                - 1./2 * einsum('iaec,kled,klcd...->ia...', i['v,v'], t2, r2)
-                + einsum('mcae,mled,ilcd...->ia...', govvv, t2, r2)
-                + einsum('imke,mled,klad...->ia...', gooov, t2, r2)
-                + 1./4 * einsum('mnla,mncd,ilcd...->ia...', gooov, t2, r2)
-                + 1./4 * einsum('idef,klef,klad...->ia...', govvv, t2, r2)
-                # b terms
-                - 1./2 * einsum('iamk,mlcd,klcd...->ia...', i['o,o'], t2, r2)
-                + 1./2 * einsum('iace,kled,klcd...->ia...', i['v,v'], t2, r2)
-                - einsum('lead,kice,klcd...->ia...', govvv, t2, r2)
-                - einsum('ilmd,kmca,klcd...->ia...', gooov, t2, r2)
-                + 1./4 * einsum('klma,micd,klcd...->ia...', gooov, t2, r2)
-                + 1./4 * einsum('iecd,klea,klcd...->ia...', govvv, t2, r2))
-
-    return _sigma
-
-
-def mixed_hessian_left_sum_sigma(fov, gooov, govvv, t2):
-    no, _, nv, _ = t2.shape
-    i = mixed_interaction(fov, gooov, govvv)
-
-    def _sigma(r1_flat):
-        shape = (no, nv) if r1_flat.ndim == 1 else (no, nv, r1_flat[1])
-        r1 = numpy.reshape(r1_flat, shape)
-        return (
-            # a terms
             + asym('0/1')(
                 einsum('jcab,ic...->ijab...', govvv, r1))
             + asym('2/3')(
@@ -197,8 +159,16 @@ def mixed_hessian_left_sum_sigma(fov, gooov, govvv, t2):
             + 1./2 * asym('0/1')(
                 einsum('mnjc,mnab,ic...->ijab...', gooov, t2, r1))
             + 1./2 * asym('2/3')(
-                einsum('kbef,ijef,ka...->ijab...', govvv, t2, r1))
-            # b terms
+                einsum('kbef,ijef,ka...->ijab...', govvv, t2, r1)))
+
+    return _sigma
+
+
+def mixed_hessian_left_offd_sigma(fov, gooov, govvv, t2):
+    i = mixed_interaction(fov, gooov, govvv)
+
+    def _sigma(r1):
+        return (
             + asym('0/1')(
                 einsum('kcmi,mjab,kc...->ijab...', i['o,o'], t2, r1))
             - asym('2/3')(
@@ -209,46 +179,6 @@ def mixed_hessian_left_sum_sigma(fov, gooov, govvv, t2):
                 einsum('kjmb,imac,kc...->ijab...', gooov, t2, r1))
             - einsum('ijmc,mkab,kc...->ijab...', gooov, t2, r1)
             - einsum('keab,ijec,kc...->ijab...', govvv, t2, r1))
-
-    return _sigma
-
-
-def mixed_hessian_left_diff_sigma(fov, gooov, govvv, t2):
-    no, _, nv, _ = t2.shape
-    i = mixed_interaction(fov, gooov, govvv)
-
-    def _sigma(r1_flat):
-        shape = (no, nv) if r1_flat.ndim == 1 else (no, nv, r1_flat[1])
-        r1 = numpy.reshape(r1_flat, shape)
-        return (
-            # a terms
-            + asym('0/1')(
-                einsum('jcab,ic...->ijab...', govvv, r1))
-            + asym('2/3')(
-                einsum('ijkb,ka...->ijab...', gooov, r1))
-            + asym('0/1')(
-                einsum('kcim,mjab,kc...->ijab...', i['o,o'], t2, r1))
-            - asym('2/3')(
-                einsum('kcea,ijeb,kc...->ijab...', i['v,v'], t2, r1))
-            + asym('0/1|2/3')(
-                einsum('mace,mjeb,ic...->ijab...', govvv, t2, r1))
-            + asym('0/1|2/3')(
-                einsum('kmie,mjeb,ka...->ijab...', gooov, t2, r1))
-            + 1./2 * asym('0/1')(
-                einsum('mnjc,mnab,ic...->ijab...', gooov, t2, r1))
-            + 1./2 * asym('2/3')(
-                einsum('kbef,ijef,ka...->ijab...', govvv, t2, r1))
-            # b terms
-            - asym('0/1')(
-                einsum('kcmi,mjab,kc...->ijab...', i['o,o'], t2, r1))
-            + asym('2/3')(
-                einsum('kcae,ijeb,kc...->ijab...', i['v,v'], t2, r1))
-            - asym('0/1|2/3')(
-                einsum('jecb,ikae,kc...->ijab...', govvv, t2, r1))
-            - asym('0/1|2/3')(
-                einsum('kjmb,imac,kc...->ijab...', gooov, t2, r1))
-            + einsum('ijmc,mkab,kc...->ijab...', gooov, t2, r1)
-            + einsum('keab,ijec,kc...->ijab...', govvv, t2, r1))
 
     return _sigma
 
@@ -278,8 +208,6 @@ def main():
 
     import numpy
     import scipy.linalg
-
-    import fermitools
 
     CHARGE = +0
     SPIN = 0
@@ -323,6 +251,7 @@ def main():
     no = nocc
     nv = norb - nocc
     nsingles = no * nv
+    ndoubles = no * (no - 1) * nv * (nv - 1) // 4
     o = slice(None, no)
     v = slice(no, None)
     h = fermitools.math.transform(h_aso, {0: c, 1: c})
@@ -341,6 +270,31 @@ def main():
             {0: ((0,), (1,)), 1: ((2, 3), (4, 5))})
     m_amp_raveler = fermitools.math.asym.megaraveler(
             {0: ((0, 1), (2, 3)), 1: ((4, 5), (6, 7))})
+
+    def v_orb_unraveler(r1):
+        shape = (no, nv) if r1.ndim == 1 else (no, nv) + r1.shape[1:]
+        return numpy.reshape(r1, shape)
+
+    def v_amp_unraveler(r2):
+        noo = no * (no - 1) // 2
+        nvv = nv * (nv - 1) // 2
+        shape = (noo, nvv) if r2.ndim == 1 else (noo, nvv) + r2.shape[1:]
+        unravf = fermitools.math.asym.unraveler({0: (0, 1), 1: (2, 3)})
+        return unravf(numpy.reshape(r2, shape))
+
+    def add(f, g):
+
+        def _sum(*args, **kwargs):
+            return f(*args, **kwargs) + g(*args, **kwargs)
+
+        return _sum
+
+    def sub(f, g):
+
+        def _diff(*args, **kwargs):
+            return f(*args, **kwargs) - g(*args, **kwargs)
+
+        return _diff
 
     a_orb = m_orb_raveler(orbital_hessian_diag(
             h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
@@ -385,52 +339,60 @@ def main():
 
     # Excitation energies
     from toolz import functoolz
-    no = nocc
-    nv = norb - nocc
-    nsingles = no * nv
-    ndoubles = no * (no - 1) * nv * (nv - 1) // 4
+
+    sig_a_orb = orbital_hessian_diag_sigma(
+            h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
+            g[v, v, v, v], m1[o, o], m1[v, v], m2[o, o, o, o], m2[o, o, v, v],
+            m2[o, v, o, v], m2[v, v, v, v])
+    sig_b_orb = orbital_hessian_offd_sigma(
+            g[o, o, o, o], g[o, o, v, v], g[o, v, o, v], g[v, v, v, v],
+            m2[o, o, o, o], m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v])
+    s_orb_inv = scipy.linalg.inv(s_orb)
+    sig_s_orb_inv = scipy.sparse.linalg.aslinearoperator(s_orb_inv)
+
+    rsig_a_mix = mixed_hessian_right_diag_sigma(
+            f[o, v], g[o, o, o, v], g[o, v, v, v], t2)
+    rsig_b_mix = mixed_hessian_right_offd_sigma(
+            f[o, v], g[o, o, o, v], g[o, v, v, v], t2)
+    lsig_a_mix = mixed_hessian_left_diag_sigma(
+            f[o, v], g[o, o, o, v], g[o, v, v, v], t2)
+    lsig_b_mix = mixed_hessian_left_offd_sigma(
+            f[o, v], g[o, o, o, v], g[o, v, v, v], t2)
+
+    sig_a_amp = amplitude_hessian_sigma(
+            f[o, o], f[v, v], g[o, o, o, o], g[o, v, o, v], g[v, v, v, v])
 
     # Orbital terms
     sig_e_orb_sum = functoolz.compose(
-            v_orb_raveler,
-            orbital_hessian_sum_sigma(
-                    h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v],
-                    g[o, v, o, v], g[v, v, v, v], m1[o, o], m1[v, v],
-                    m2[o, o, o, o], m2[o, o, v, v], m2[o, v, o, v],
-                    m2[v, v, v, v]))
+            v_orb_raveler, add(sig_a_orb, sig_b_orb), v_orb_unraveler)
     sig_e_orb_diff = functoolz.compose(
-            v_orb_raveler,
-            orbital_hessian_diff_sigma(
-                    h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v],
-                    g[o, v, o, v], g[v, v, v, v], m1[o, o], m1[v, v],
-                    m2[o, o, o, o], m2[o, o, v, v], m2[o, v, o, v],
-                    m2[v, v, v, v]))
-    s_orb_inv = scipy.linalg.inv(s_orb)
-    sig_s_orb_inv = scipy.sparse.linalg.aslinearoperator(s_orb_inv)
+            v_orb_raveler, sub(sig_a_orb, sig_b_orb), v_orb_unraveler)
     # Mixted right terms
     rsig_e_mix_sum = functoolz.compose(
-            v_orb_raveler,
-            mixed_hessian_right_sum_sigma(
-                    f[o, v], g[o, o, o, v], g[o, v, v, v], t2))
+            v_orb_raveler, add(rsig_a_mix, rsig_b_mix), v_amp_unraveler)
     rsig_e_mix_diff = functoolz.compose(
-            v_orb_raveler,
-            mixed_hessian_right_diff_sigma(
-                    f[o, v], g[o, o, o, v], g[o, v, v, v], t2))
+            v_orb_raveler, sub(rsig_a_mix, rsig_b_mix), v_amp_unraveler)
     # Mixed left terms
     lsig_e_mix_sum = functoolz.compose(
-            v_amp_raveler,
-            mixed_hessian_left_sum_sigma(
-                    f[o, v], g[o, o, o, v], g[o, v, v, v], t2))
+            v_amp_raveler, add(lsig_a_mix, lsig_b_mix), v_orb_unraveler)
     lsig_e_mix_diff = functoolz.compose(
-            v_amp_raveler,
-            mixed_hessian_left_diff_sigma(
-                    f[o, v], g[o, o, o, v], g[o, v, v, v], t2))
+            v_amp_raveler, sub(lsig_a_mix, lsig_b_mix), v_orb_unraveler)
     # Amplitude terms
     sig_e_amp_sum = sig_e_amp_diff = functoolz.compose(
-            v_amp_raveler,
-            amplitude_hessian_sigma(
-                    f[o, o], f[v, v], g[o, o, o, o], g[o, v, o, v],
-                    g[v, v, v, v]))
+            v_amp_raveler, sig_a_amp, v_amp_unraveler)
+
+    from numpy.testing import assert_almost_equal
+
+    i1 = numpy.eye(nsingles)
+    i2 = numpy.eye(ndoubles)
+    assert_almost_equal(sig_e_orb_sum(i1), a_orb + b_orb)
+    assert_almost_equal(sig_e_orb_diff(i1), a_orb - b_orb)
+    assert_almost_equal(rsig_e_mix_sum(i2), a_mix + b_mix)
+    assert_almost_equal(rsig_e_mix_diff(i2), a_mix - b_mix)
+    assert_almost_equal(lsig_e_mix_sum(i1), numpy.transpose(a_mix + b_mix))
+    assert_almost_equal(lsig_e_mix_diff(i1), numpy.transpose(a_mix - b_mix))
+    assert_almost_equal(sig_e_amp_sum(i2), a_amp + b_amp)
+    assert_almost_equal(sig_e_amp_diff(i2), a_amp - b_amp)
 
     sig_e_sum = combined_hessian_sigma(
             nsingles, sig_e_orb_sum, rsig_e_mix_sum, lsig_e_mix_sum,

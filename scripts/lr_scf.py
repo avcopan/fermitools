@@ -13,9 +13,8 @@ from . import scf
 
 def orbital_hessian_diag(hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv,
                          m2oooo, m2oovv, m2ovov, m2vvvv):
-    no, nv, _, _ = govov.shape
-    io = numpy.eye(no)
-    iv = numpy.eye(nv)
+    io = numpy.eye(*hoo.shape)
+    iv = numpy.eye(*hvv.shape)
     fcoo = (numpy.dot(hoo, m1oo)
             + 1./2 * einsum('imno,jmno->ij', goooo, m2oooo)
             + 1./2 * einsum('imef,jmef->ij', goovv, m2oovv)
@@ -26,45 +25,44 @@ def orbital_hessian_diag(hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv,
             + 1./2 * einsum('aefg,befg', gvvvv, m2vvvv))
     fsoo = (fcoo + numpy.transpose(fcoo)) / 2.
     fsvv = (fcvv + numpy.transpose(fcvv)) / 2.
-    return (+ einsum('ij,ab->iajb', hoo, m1vv)
-            + einsum('ij,ab->iajb', m1oo, hvv)
-            - einsum('ij,ab->iajb', io, fsvv)
-            - einsum('ij,ab->iajb', fsoo, iv)
-            + einsum('minj,manb->iajb', goooo, m2ovov)
-            + einsum('minj,manb->iajb', m2oooo, govov)
-            + einsum('iejf,aebf->iajb', govov, m2vvvv)
-            + einsum('iejf,aebf->iajb', m2ovov, gvvvv)
-            + einsum('ibme,jame->iajb', govov, m2ovov)
-            + einsum('ibme,jame->iajb', m2ovov, govov))
+    return (
+        + einsum('ij,ab->iajb', hoo, m1vv)
+        + einsum('ij,ab->iajb', m1oo, hvv)
+        - einsum('ij,ab->iajb', io, fsvv)
+        - einsum('ij,ab->iajb', fsoo, iv)
+        + einsum('minj,manb->iajb', goooo, m2ovov)
+        + einsum('minj,manb->iajb', m2oooo, govov)
+        + einsum('iejf,aebf->iajb', govov, m2vvvv)
+        + einsum('iejf,aebf->iajb', m2ovov, gvvvv)
+        + einsum('ibme,jame->iajb', govov, m2ovov)
+        + einsum('ibme,jame->iajb', m2ovov, govov))
 
 
 def orbital_hessian_offd(goooo, goovv, govov, gvvvv, m2oooo, m2oovv, m2ovov,
                          m2vvvv):
-    no, nv, _, _ = govov.shape
-    return (+ einsum('imbe,jema->iajb', goovv, m2ovov)
-            + einsum('imbe,jema->iajb', m2oovv, govov)
-            + einsum('iemb,jmae->iajb', govov, m2oovv)
-            + einsum('iemb,jmae->iajb', m2ovov, goovv)
-            + 1./2 * einsum('ijmn,mnab->iajb', goooo, m2oovv)
-            + 1./2 * einsum('ijmn,mnab->iajb', m2oooo, goovv)
-            + 1./2 * einsum('ijef,efab->iajb', goovv, m2vvvv)
-            + 1./2 * einsum('ijef,efab->iajb', m2oovv, gvvvv))
+    return (
+        + einsum('imbe,jema->iajb', goovv, m2ovov)
+        + einsum('imbe,jema->iajb', m2oovv, govov)
+        + einsum('iemb,jmae->iajb', govov, m2oovv)
+        + einsum('iemb,jmae->iajb', m2ovov, goovv)
+        + 1./2 * einsum('ijmn,mnab->iajb', goooo, m2oovv)
+        + 1./2 * einsum('ijmn,mnab->iajb', m2oooo, goovv)
+        + 1./2 * einsum('ijef,efab->iajb', goovv, m2vvvv)
+        + 1./2 * einsum('ijef,efab->iajb', m2oovv, gvvvv))
 
 
 def orbital_metric(m1oo, m1vv):
-    no, _ = m1oo.shape
-    nv, _ = m1vv.shape
-    io = numpy.eye(no)
-    iv = numpy.eye(nv)
-    return (+ einsum('ij,ab->iajb', m1oo, iv)
-            - einsum('ij,ab->iajb', io, m1vv))
+    io = numpy.eye(*m1oo.shape)
+    iv = numpy.eye(*m1vv.shape)
+    return (
+        + einsum('ij,ab->iajb', m1oo, iv)
+        - einsum('ij,ab->iajb', io, m1vv))
 
 
 def orbital_property_gradient(pov, m1oo, m1vv):
-    no, _ = m1oo.shape
-    nv, _ = m1vv.shape
-    return (+ einsum('...ie,ea->ia...', pov, m1vv)
-            - einsum('im,...ma->ia...', m1oo, pov))
+    return (
+        + einsum('...ie,ea->ia...', pov, m1vv)
+        - einsum('im,...ma->ia...', m1oo, pov))
 
 
 def static_response_vector(a, b, t):
@@ -101,9 +99,8 @@ def spectrum(a, b):
     return numpy.array(sorted(numpy.sqrt(w2.real)))
 
 
-def orbital_hessian_sum_sigma(hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv,
-                              m2oooo, m2oovv, m2ovov, m2vvvv):
-    no, nv, _, _ = govov.shape
+def orbital_hessian_diag_sigma(hoo, hvv, goooo, goovv, govov, gvvvv, m1oo,
+                               m1vv, m2oooo, m2oovv, m2ovov, m2vvvv):
     fcoo = (numpy.dot(hoo, m1oo)
             + 1./2 * einsum('imno,jmno->ij', goooo, m2oooo)
             + 1./2 * einsum('imef,jmef->ij', goovv, m2oovv)
@@ -115,12 +112,7 @@ def orbital_hessian_sum_sigma(hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv,
     fsoo = (fcoo + numpy.transpose(fcoo)) / 2.
     fsvv = (fcvv + numpy.transpose(fcvv)) / 2.
 
-    def _sigma(r1_flat):
-        if r1_flat.ndim is 1:
-            r1 = numpy.reshape(r1_flat, (no, nv))
-        else:
-            cols = r1_flat.shape[1]
-            r1 = numpy.reshape(r1_flat, (no, nv, cols))
+    def _sigma(r1):
         return (
             # a terms
             + einsum('ij,ab,jb...->ia...', hoo, m1vv, r1)
@@ -132,8 +124,16 @@ def orbital_hessian_sum_sigma(hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv,
             + einsum('iejf,aebf,jb...->ia...', govov, m2vvvv, r1)
             + einsum('iejf,aebf,jb...->ia...', m2ovov, gvvvv, r1)
             + einsum('ibme,jame,jb...->ia...', govov, m2ovov, r1)
-            + einsum('ibme,jame,jb...->ia...', m2ovov, govov, r1)
-            # b terms
+            + einsum('ibme,jame,jb...->ia...', m2ovov, govov, r1))
+
+    return _sigma
+
+
+def orbital_hessian_offd_sigma(goooo, goovv, govov, gvvvv, m2oooo, m2oovv,
+                               m2ovov, m2vvvv):
+
+    def _sigma(r1):
+        return (
             + einsum('imbe,jema,jb...->ia...', goovv, m2ovov, r1)
             + einsum('imbe,jema,jb...->ia...', m2oovv, govov, r1)
             + einsum('iemb,jmae,jb...->ia...', govov, m2oovv, r1)
@@ -142,51 +142,6 @@ def orbital_hessian_sum_sigma(hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv,
             + 1./2 * einsum('ijmn,mnab,jb...->ia...', m2oooo, goovv, r1)
             + 1./2 * einsum('ijef,efab,jb...->ia...', goovv, m2vvvv, r1)
             + 1./2 * einsum('ijef,efab,jb...->ia...', m2oovv, gvvvv, r1))
-
-    return _sigma
-
-
-def orbital_hessian_diff_sigma(hoo, hvv, goooo, goovv, govov, gvvvv, m1oo,
-                               m1vv, m2oooo, m2oovv, m2ovov, m2vvvv):
-    no, nv, _, _ = govov.shape
-    fcoo = (numpy.dot(hoo, m1oo)
-            + 1./2 * einsum('imno,jmno->ij', goooo, m2oooo)
-            + 1./2 * einsum('imef,jmef->ij', goovv, m2oovv)
-            + einsum('iemf,jemf->ij', govov, m2ovov))
-    fcvv = (numpy.dot(hvv, m1vv)
-            + einsum('nema,nemb->ab', govov, m2ovov)
-            + 1./2 * einsum('mnae,mnbe', goovv, m2oovv)
-            + 1./2 * einsum('aefg,befg', gvvvv, m2vvvv))
-    fsoo = (fcoo + numpy.transpose(fcoo)) / 2.
-    fsvv = (fcvv + numpy.transpose(fcvv)) / 2.
-
-    def _sigma(r1_flat):
-        if r1_flat.ndim is 1:
-            r1 = numpy.reshape(r1_flat, (no, nv))
-        else:
-            cols = r1_flat.shape[1]
-            r1 = numpy.reshape(r1_flat, (no, nv, cols))
-        return (
-            # a terms
-            + einsum('ij,ab,jb...->ia...', hoo, m1vv, r1)
-            + einsum('ij,ab,jb...->ia...', m1oo, hvv, r1)
-            - einsum('ab,ib...->ia...', fsvv, r1)
-            - einsum('ij,ja...->ia...', fsoo, r1)
-            + einsum('minj,manb,jb...->ia...', goooo, m2ovov, r1)
-            + einsum('minj,manb,jb...->ia...', m2oooo, govov, r1)
-            + einsum('iejf,aebf,jb...->ia...', govov, m2vvvv, r1)
-            + einsum('iejf,aebf,jb...->ia...', m2ovov, gvvvv, r1)
-            + einsum('ibme,jame,jb...->ia...', govov, m2ovov, r1)
-            + einsum('ibme,jame,jb...->ia...', m2ovov, govov, r1)
-            # b terms
-            - einsum('imbe,jema,jb...->ia...', goovv, m2ovov, r1)
-            - einsum('imbe,jema,jb...->ia...', m2oovv, govov, r1)
-            - einsum('iemb,jmae,jb...->ia...', govov, m2oovv, r1)
-            - einsum('iemb,jmae,jb...->ia...', m2ovov, goovv, r1)
-            - 1./2 * einsum('ijmn,mnab,jb...->ia...', goooo, m2oovv, r1)
-            - 1./2 * einsum('ijmn,mnab,jb...->ia...', m2oooo, goovv, r1)
-            - 1./2 * einsum('ijef,efab,jb...->ia...', goovv, m2vvvv, r1)
-            - 1./2 * einsum('ijef,efab,jb...->ia...', m2oovv, gvvvv, r1))
 
     return _sigma
 
@@ -267,6 +222,24 @@ def main():
     v_raveler = fermitools.math.raveler({0: (0, 1)})
     m_raveler = fermitools.math.raveler({0: (0, 1), 1: (2, 3)})
 
+    def v_unraveler(r1):
+        shape = (no, nv) if r1.ndim == 1 else (no, nv) + r1.shape[1:]
+        return numpy.reshape(r1, shape)
+
+    def add(f, g):
+
+        def _sum(*args, **kwargs):
+            return f(*args, **kwargs) + g(*args, **kwargs)
+
+        return _sum
+
+    def sub(f, g):
+
+        def _diff(*args, **kwargs):
+            return f(*args, **kwargs) - g(*args, **kwargs)
+
+        return _diff
+
     a = m_raveler(orbital_hessian_diag(
             h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
             g[v, v, v, v], m1[o, o], m1[v, v], m2[o, o, o, o], m2[o, o, v, v],
@@ -293,20 +266,26 @@ def main():
     from toolz import functoolz
 
     # Solve positive excitation energies only
+    sig_a = orbital_hessian_diag_sigma(
+            h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
+            g[v, v, v, v], m1[o, o], m1[v, v], m2[o, o, o, o], m2[o, o, v, v],
+            m2[o, v, o, v], m2[v, v, v, v])
+    sig_b = orbital_hessian_offd_sigma(
+            g[o, o, o, o], g[o, o, v, v], g[o, v, o, v], g[v, v, v, v],
+            m2[o, o, o, o], m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v])
     sig_e_sum = functoolz.compose(
             v_raveler,
-            orbital_hessian_sum_sigma(
-                    h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v],
-                    g[o, v, o, v], g[v, v, v, v], m1[o, o], m1[v, v],
-                    m2[o, o, o, o], m2[o, o, v, v], m2[o, v, o, v],
-                    m2[v, v, v, v]))
+            add(sig_a, sig_b),
+            v_unraveler)
     sig_e_diff = functoolz.compose(
             v_raveler,
-            orbital_hessian_diff_sigma(
-                    h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v],
-                    g[o, v, o, v], g[v, v, v, v], m1[o, o], m1[v, v],
-                    m2[o, o, o, o], m2[o, o, v, v], m2[o, v, o, v],
-                    m2[v, v, v, v]))
+            sub(sig_a, sig_b),
+            v_unraveler)
+
+    i1 = numpy.eye(nsingles)
+    assert_almost_equal(sig_e_sum(i1), a + b)
+    assert_almost_equal(sig_e_diff(i1), a - b)
+
     sig_s_inv = scipy.sparse.linalg.aslinearoperator(scipy.linalg.inv(s))
     sig_e_eff = effective_response_hamiltonian_sigma(
             sig_e_sum, sig_e_diff, sig_s_inv)
