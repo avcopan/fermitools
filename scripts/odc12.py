@@ -126,8 +126,7 @@ def energy_functional(norb, nocc, h_aso, g_aso, c):
     def _electronic_energy(t1_flat, t2_flat):
         t1 = numpy.reshape(t1_flat, (no, nv))
         t2_mat = numpy.reshape(t2_flat, (noo, nvv))
-        t2 = fermitools.math.asym.unravel_compound_index(t2_mat, {0: (0, 1),
-                                                                  1: (2, 3)})
+        t2 = fermitools.math.asym.unravel(t2_mat, {0: (0, 1), 1: (2, 3)})
         gen[v, o] = numpy.transpose(t1)
         gen[o, v] = -t1
         u = spla.expm(gen)
@@ -306,8 +305,7 @@ def main():
     nv = norb - nocc
 
     x = numpy.zeros(no * nv)
-    t = numpy.ravel(fermitools.math.asym.compound_index(t2, {0: (0, 1),
-                                                             1: (2, 3)}))
+    t = numpy.ravel(fermitools.math.asym.ravel(t2, {0: (0, 1), 1: (2, 3)}))
     en_dx_func = orbital_gradient_functional(norb=norb, nocc=nocc,
                                              h_aso=h_aso, g_aso=g_aso,
                                              c=c)

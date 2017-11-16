@@ -89,9 +89,9 @@ def test__lr_scf():
     c_unsrt = spla.block_diag(ac, bc)
     c = fermitools.math.spinorb.sort(c_unsrt, order=sortvec, axes=(1,))
 
-    en_elec, c = scf.solve(norb=norb, nocc=nocc, h_aso=h_aso, g_aso=g_aso,
-                           c_guess=c, niter=200, e_thresh=1e-14,
-                           r_thresh=1e-12, print_conv=200)
+    en_elec, c = scf.solve(
+            norb=norb, nocc=nocc, h_aso=h_aso, g_aso=g_aso, c_guess=c,
+            niter=200, e_thresh=1e-14, r_thresh=1e-12, print_conv=200)
 
     # Evaluate the excitation energies by linear response theory
     o = slice(None, nocc)
@@ -100,33 +100,38 @@ def test__lr_scf():
     g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
     m1 = scf.singles_density(norb=norb, nocc=nocc)
     m2 = scf.doubles_density(m1)
-    a = lr.orbital_hessian_diag(
+
+    v_raveler = fermitools.math.raveler({0: (0, 1)})
+    m_raveler = fermitools.math.raveler({0: (0, 1), 1: (2, 3)})
+
+    a = m_raveler(lr.orbital_hessian_diag(
             h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
             g[v, v, v, v], m1[o, o], m1[v, v], m2[o, o, o, o], m2[o, o, v, v],
-            m2[o, v, o, v], m2[v, v, v, v])
-    b = lr.orbital_hessian_offd(
+            m2[o, v, o, v], m2[v, v, v, v]))
+    b = m_raveler(lr.orbital_hessian_offd(
             g[o, o, o, o], g[o, o, v, v], g[o, v, o, v], g[v, v, v, v],
-            m2[o, o, o, o], m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v])
+            m2[o, o, o, o], m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v]))
     w_rpa = lr.spectrum(a, b)
 
     # Compare to RPA energies posted on Crawdad
     from numpy.testing import assert_almost_equal
-    w_rpa_ref = [0.2851637170, 0.2851637170, 0.2851637170, 0.2997434467,
-                 0.2997434467, 0.2997434467, 0.3526266606, 0.3526266606,
-                 0.3526266606, 0.3547782530, 0.3651313107, 0.3651313107,
-                 0.3651313107, 0.4153174946, 0.5001011401, 0.5106610509,
-                 0.5106610509, 0.5106610509, 0.5460719086, 0.5460719086,
-                 0.5460719086, 0.5513718846, 0.6502707118, 0.8734253708,
-                 1.1038187957, 1.1038187957, 1.1038187957, 1.1957870714,
-                 1.1957870714, 1.1957870714, 1.2832053178, 1.3237421886,
-                 19.9585040647, 19.9585040647, 19.9585040647, 20.0109471551,
-                 20.0113074586, 20.0113074586, 20.0113074586, 20.0504919449]
+    w_rpa_ref = [
+            0.2851637170, 0.2851637170, 0.2851637170, 0.2997434467,
+            0.2997434467, 0.2997434467, 0.3526266606, 0.3526266606,
+            0.3526266606, 0.3547782530, 0.3651313107, 0.3651313107,
+            0.3651313107, 0.4153174946, 0.5001011401, 0.5106610509,
+            0.5106610509, 0.5106610509, 0.5460719086, 0.5460719086,
+            0.5460719086, 0.5513718846, 0.6502707118, 0.8734253708,
+            1.1038187957, 1.1038187957, 1.1038187957, 1.1957870714,
+            1.1957870714, 1.1957870714, 1.2832053178, 1.3237421886,
+            19.9585040647, 19.9585040647, 19.9585040647, 20.0109471551,
+            20.0113074586, 20.0113074586, 20.0113074586, 20.0504919449]
     assert_almost_equal(w_rpa, w_rpa_ref, decimal=10)
 
     # Test derivatives
     import os
-    data_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                             'data')
+    data_path = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)), 'data')
     en_dxdx = numpy.load(os.path.join(data_path, 'lr_scf/en_dxdx.npy'))
     assert_almost_equal(en_dxdx, 2*(a + b), decimal=9)
 
@@ -134,18 +139,17 @@ def test__lr_scf():
     p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
     p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
     p = fermitools.math.transform(p_aso, {1: c, 2: c})
-    t = lr.orbital_property_gradient(p[:, o, v], m1[o, o], m1[v, v])
+    t = v_raveler(lr.orbital_property_gradient(p[:, o, v], m1[o, o], m1[v, v]))
     r = lr.static_response_vector(a, b, t)
     alpha = lr.static_linear_response_function(t, r)
 
     # Evaluate dipole polarizability as energy derivative
-    en_f_func = scf.perturbed_energy_function(norb=norb, nocc=nocc,
-                                              h_aso=h_aso, p_aso=p_aso,
-                                              g_aso=g_aso, c_guess=c,
-                                              niter=200, e_thresh=1e-14,
-                                              r_thresh=1e-12, print_conv=True)
-    en_df2 = fermitools.math.central_difference(en_f_func, [0., 0., 0.],
-                                                step=0.01, nder=2, npts=9)
+    en_f_func = scf.perturbed_energy_function(
+            norb=norb, nocc=nocc, h_aso=h_aso, p_aso=p_aso, g_aso=g_aso,
+            c_guess=c, niter=200, e_thresh=1e-14, r_thresh=1e-12,
+            print_conv=True)
+    en_df2 = fermitools.math.central_difference(
+            en_f_func, [0., 0., 0.], step=0.02, nder=2, npts=15)
 
     # Compare the two
     assert_almost_equal(numpy.diag(alpha), en_df2, decimal=9)
@@ -185,8 +189,8 @@ def test__lr_ocepa0_cation():
     g_aso = r_aso - numpy.transpose(r_aso, (0, 1, 3, 2))
 
     # Orbitals
-    ac, bc = interface.hf.unrestricted_orbitals(BASIS, LABELS, COORDS,
-                                                CHARGE, SPIN)
+    ac, bc = interface.hf.unrestricted_orbitals(
+            BASIS, LABELS, COORDS, CHARGE, SPIN)
     c_unsrt = spla.block_diag(ac, bc)
     sortvec = fermitools.math.spinorb.ab2ov(dim=nbf, na=na, nb=nb)
     c_unsrt = spla.block_diag(ac, bc)
@@ -194,11 +198,10 @@ def test__lr_ocepa0_cation():
 
     # Solve OCEPA0
     t2_guess = numpy.zeros((nocc, nocc, norb-nocc, norb-nocc))
-    en_elec, c, t2 = ocepa0.solve(norb=norb, nocc=nocc, h_aso=h_aso,
-                                  g_aso=g_aso, c_guess=c,
-                                  t2_guess=t2_guess, niter=200,
-                                  e_thresh=1e-14, r_thresh=1e-13,
-                                  print_conv=True)
+    en_elec, c, t2 = ocepa0.solve(
+            norb=norb, nocc=nocc, h_aso=h_aso, g_aso=g_aso, c_guess=c,
+            t2_guess=t2_guess, niter=200, e_thresh=1e-14, r_thresh=1e-13,
+            print_conv=True)
 
     # Build the diagonal orbital and amplitude Hessian
     o = slice(None, nocc)
@@ -212,30 +215,44 @@ def test__lr_ocepa0_cation():
     k2 = ocepa0.doubles_cumulant(t2)
     m2 = ocepa0.doubles_density(m1_ref, m1_cor, k2)
 
-    a_orb = lr.orbital_hessian_diag(
+    v_orb_raveler = fermitools.math.raveler({0: (0, 1)})
+    v_amp_raveler = fermitools.math.asym.megaraveler({0: ((0, 1), (2, 3))})
+    m_orb_raveler = fermitools.math.raveler({0: (0, 1), 1: (2, 3)})
+    m_mix_raveler = fermitools.math.asym.megaraveler(
+            {0: ((0,), (1,)), 1: ((2, 3), (4, 5))})
+    m_amp_raveler = fermitools.math.asym.megaraveler(
+            {0: ((0, 1), (2, 3)), 1: ((4, 5), (6, 7))})
+
+    a_orb = m_orb_raveler(lr.orbital_hessian_diag(
             h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
             g[v, v, v, v], m1[o, o], m1[v, v], m2[o, o, o, o], m2[o, o, v, v],
-            m2[o, v, o, v], m2[v, v, v, v])
-    a_mix = lr.mixed_hessian_diag(f[o, v], g[o, o, o, v], g[o, v, v, v], t2)
-    a_amp = lr.amplitude_hessian(
-            f[o, o], f[v, v], g[o, o, o, o], g[o, v, o, v], g[v, v, v, v])
+            m2[o, v, o, v], m2[v, v, v, v]))
+    a_mix = m_mix_raveler(lr.mixed_hessian_diag(
+            f[o, v], g[o, o, o, v], g[o, v, v, v], t2))
+    a_amp = m_amp_raveler(lr.amplitude_hessian(
+            f[o, o], f[v, v], g[o, o, o, o], g[o, v, o, v], g[v, v, v, v]))
 
-    b_orb = lr.orbital_hessian_offd(
+    b_orb = m_orb_raveler(lr.orbital_hessian_offd(
             g[o, o, o, o], g[o, o, v, v], g[o, v, o, v], g[v, v, v, v],
-            m2[o, o, o, o], m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v])
-    b_mix = lr.mixed_hessian_offd(f[o, v], g[o, o, o, v], g[o, v, v, v], t2)
+            m2[o, o, o, o], m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v]))
+    b_mix = m_mix_raveler(lr.mixed_hessian_offd(
+            f[o, v], g[o, o, o, v], g[o, v, v, v], t2))
     b_amp = lr.numpy.zeros_like(a_amp)
 
     # Test the orbital and amplitude Hessians
     import os
     from numpy.testing import assert_almost_equal
 
-    data_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                             'data')
-    en_dxdx = numpy.load(os.path.join(data_path, 'lr_ocepa0/en_dxdx.npy'))
-    en_dtdx = numpy.load(os.path.join(data_path, 'lr_ocepa0/en_dtdx.npy'))
-    en_dxdt = numpy.load(os.path.join(data_path, 'lr_ocepa0/en_dxdt.npy'))
-    en_dtdt = numpy.load(os.path.join(data_path, 'lr_ocepa0/en_dtdt.npy'))
+    data_path = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)), 'data')
+    en_dxdx = numpy.load(
+            os.path.join(data_path, 'lr_ocepa0/cation/en_dxdx.npy'))
+    en_dtdx = numpy.load(
+            os.path.join(data_path, 'lr_ocepa0/cation/en_dtdx.npy'))
+    en_dxdt = numpy.load(
+            os.path.join(data_path, 'lr_ocepa0/cation/en_dxdt.npy'))
+    en_dtdt = numpy.load(
+            os.path.join(data_path, 'lr_ocepa0/cation/en_dtdt.npy'))
 
     assert_almost_equal(en_dxdx, 2*(a_orb + b_orb), decimal=9)
     assert_almost_equal(en_dxdt, 2*(a_mix + b_mix), decimal=9)
@@ -246,8 +263,10 @@ def test__lr_ocepa0_cation():
     p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
     p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
     p = fermitools.math.transform(p_aso, {1: c, 2: c})
-    t_orb = lr.orbital_property_gradient(p[:, o, v], m1[o, o], m1[v, v])
-    t_amp = lr.amplitude_property_gradient(p[:, o, o], p[:, v, v], t2)
+    t_orb = v_orb_raveler(lr.orbital_property_gradient(
+            p[:, o, v], m1[o, o], m1[v, v]))
+    t_amp = v_amp_raveler(lr.amplitude_property_gradient(
+            p[:, o, o], p[:, v, v], t2))
 
     a = numpy.bmat([[a_orb, a_mix], [a_mix.T, a_amp]])
     b = numpy.bmat([[b_orb, b_mix], [b_mix.T, b_amp]])
@@ -256,15 +275,12 @@ def test__lr_ocepa0_cation():
     alpha = lr.static_linear_response_function(t, r)
 
     # Evaluate dipole polarizability as energy derivative
-    en_f_func = ocepa0.perturbed_energy_function(norb=norb, nocc=nocc,
-                                                 h_aso=h_aso, p_aso=p_aso,
-                                                 g_aso=g_aso, c_guess=c,
-                                                 t2_guess=t2, niter=200,
-                                                 e_thresh=1e-14,
-                                                 r_thresh=1e-12,
-                                                 print_conv=True)
-    en_df2 = fermitools.math.central_difference(en_f_func, [0., 0., 0.],
-                                                step=0.01, nder=2, npts=9)
+    en_f_func = ocepa0.perturbed_energy_function(
+            norb=norb, nocc=nocc, h_aso=h_aso, p_aso=p_aso, g_aso=g_aso,
+            c_guess=c, t2_guess=t2, niter=200, e_thresh=1e-14, r_thresh=1e-12,
+            print_conv=True)
+    en_df2 = fermitools.math.central_difference(
+            en_f_func, [0., 0., 0.], step=0.02, nder=2, npts=15)
 
     # Compare the two
     assert_almost_equal(numpy.diag(alpha), en_df2, decimal=9)
@@ -304,8 +320,8 @@ def test__lr_ocepa0_neutral():
     g_aso = r_aso - numpy.transpose(r_aso, (0, 1, 3, 2))
 
     # Orbitals
-    ac, bc = interface.hf.unrestricted_orbitals(BASIS, LABELS, COORDS,
-                                                CHARGE, SPIN)
+    ac, bc = interface.hf.unrestricted_orbitals(
+            BASIS, LABELS, COORDS, CHARGE, SPIN)
     c_unsrt = spla.block_diag(ac, bc)
     sortvec = fermitools.math.spinorb.ab2ov(dim=nbf, na=na, nb=nb)
     c_unsrt = spla.block_diag(ac, bc)
@@ -313,11 +329,10 @@ def test__lr_ocepa0_neutral():
 
     # Solve OCEPA0
     t2_guess = numpy.zeros((nocc, nocc, norb-nocc, norb-nocc))
-    en_elec, c, t2 = ocepa0.solve(norb=norb, nocc=nocc, h_aso=h_aso,
-                                  g_aso=g_aso, c_guess=c,
-                                  t2_guess=t2_guess, niter=200,
-                                  e_thresh=1e-14, r_thresh=1e-13,
-                                  print_conv=True)
+    en_elec, c, t2 = ocepa0.solve(
+            norb=norb, nocc=nocc, h_aso=h_aso, g_aso=g_aso, c_guess=c,
+            t2_guess=t2_guess, niter=200, e_thresh=1e-14, r_thresh=1e-13,
+            print_conv=True)
 
     # Build the diagonal orbital and amplitude Hessian
     o = slice(None, nocc)
@@ -331,34 +346,44 @@ def test__lr_ocepa0_neutral():
     k2 = ocepa0.doubles_cumulant(t2)
     m2 = ocepa0.doubles_density(m1_ref, m1_cor, k2)
 
-    a_orb = lr.orbital_hessian_diag(
+    v_orb_raveler = fermitools.math.raveler({0: (0, 1)})
+    v_amp_raveler = fermitools.math.asym.megaraveler({0: ((0, 1), (2, 3))})
+    m_orb_raveler = fermitools.math.raveler({0: (0, 1), 1: (2, 3)})
+    m_mix_raveler = fermitools.math.asym.megaraveler(
+            {0: ((0,), (1,)), 1: ((2, 3), (4, 5))})
+    m_amp_raveler = fermitools.math.asym.megaraveler(
+            {0: ((0, 1), (2, 3)), 1: ((4, 5), (6, 7))})
+
+    a_orb = m_orb_raveler(lr.orbital_hessian_diag(
             h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
             g[v, v, v, v], m1[o, o], m1[v, v], m2[o, o, o, o], m2[o, o, v, v],
-            m2[o, v, o, v], m2[v, v, v, v])
-    a_mix = lr.mixed_hessian_diag(f[o, v], g[o, o, o, v], g[o, v, v, v], t2)
-    a_amp = lr.amplitude_hessian(
-            f[o, o], f[v, v], g[o, o, o, o], g[o, v, o, v], g[v, v, v, v])
+            m2[o, v, o, v], m2[v, v, v, v]))
+    a_mix = m_mix_raveler(lr.mixed_hessian_diag(
+            f[o, v], g[o, o, o, v], g[o, v, v, v], t2))
+    a_amp = m_amp_raveler(lr.amplitude_hessian(
+            f[o, o], f[v, v], g[o, o, o, o], g[o, v, o, v], g[v, v, v, v]))
 
-    b_orb = lr.orbital_hessian_offd(
+    b_orb = m_orb_raveler(lr.orbital_hessian_offd(
             g[o, o, o, o], g[o, o, v, v], g[o, v, o, v], g[v, v, v, v],
-            m2[o, o, o, o], m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v])
-    b_mix = lr.mixed_hessian_offd(f[o, v], g[o, o, o, v], g[o, v, v, v], t2)
+            m2[o, o, o, o], m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v]))
+    b_mix = m_mix_raveler(lr.mixed_hessian_offd(
+            f[o, v], g[o, o, o, v], g[o, v, v, v], t2))
     b_amp = lr.numpy.zeros_like(a_amp)
 
     # Test the orbital and amplitude Hessians
     import os
     from numpy.testing import assert_almost_equal
 
-    data_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                             'data')
-    en_dxdx = numpy.load(os.path.join(data_path,
-                                      'lr_ocepa0/neutral/en_dxdx.npy'))
-    en_dtdx = numpy.load(os.path.join(data_path,
-                                      'lr_ocepa0/neutral/en_dtdx.npy'))
-    en_dxdt = numpy.load(os.path.join(data_path,
-                                      'lr_ocepa0/neutral/en_dxdt.npy'))
-    en_dtdt = numpy.load(os.path.join(data_path,
-                                      'lr_ocepa0/neutral/en_dtdt.npy'))
+    data_path = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)), 'data')
+    en_dxdx = numpy.load(
+            os.path.join(data_path, 'lr_ocepa0/neutral/en_dxdx.npy'))
+    en_dtdx = numpy.load(
+            os.path.join(data_path, 'lr_ocepa0/neutral/en_dtdx.npy'))
+    en_dxdt = numpy.load(
+            os.path.join(data_path, 'lr_ocepa0/neutral/en_dxdt.npy'))
+    en_dtdt = numpy.load(
+            os.path.join(data_path, 'lr_ocepa0/neutral/en_dtdt.npy'))
 
     assert_almost_equal(en_dxdx, 2*(a_orb + b_orb), decimal=9)
     assert_almost_equal(en_dxdt, 2*(a_mix + b_mix), decimal=9)
@@ -369,8 +394,10 @@ def test__lr_ocepa0_neutral():
     p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
     p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
     p = fermitools.math.transform(p_aso, {1: c, 2: c})
-    t_orb = lr.orbital_property_gradient(p[:, o, v], m1[o, o], m1[v, v])
-    t_amp = lr.amplitude_property_gradient(p[:, o, o], p[:, v, v], t2)
+    t_orb = v_orb_raveler(lr.orbital_property_gradient(
+            p[:, o, v], m1[o, o], m1[v, v]))
+    t_amp = v_amp_raveler(lr.amplitude_property_gradient(
+            p[:, o, o], p[:, v, v], t2))
 
     a = numpy.bmat([[a_orb, a_mix], [a_mix.T, a_amp]])
     b = numpy.bmat([[b_orb, b_mix], [b_mix.T, b_amp]])
@@ -379,15 +406,12 @@ def test__lr_ocepa0_neutral():
     alpha = lr.static_linear_response_function(t, r)
 
     # Evaluate dipole polarizability as energy derivative
-    en_f_func = ocepa0.perturbed_energy_function(norb=norb, nocc=nocc,
-                                                 h_aso=h_aso, p_aso=p_aso,
-                                                 g_aso=g_aso, c_guess=c,
-                                                 t2_guess=t2, niter=200,
-                                                 e_thresh=1e-14,
-                                                 r_thresh=1e-12,
-                                                 print_conv=True)
-    en_df2 = fermitools.math.central_difference(en_f_func, [0., 0., 0.],
-                                                step=0.01, nder=2, npts=9)
+    en_f_func = ocepa0.perturbed_energy_function(
+            norb=norb, nocc=nocc, h_aso=h_aso, p_aso=p_aso, g_aso=g_aso,
+            c_guess=c, t2_guess=t2, niter=200, e_thresh=1e-14, r_thresh=1e-12,
+            print_conv=True)
+    en_df2 = fermitools.math.central_difference(
+            en_f_func, [0., 0., 0.], step=0.02, nder=2, npts=15)
 
     # Compare the two
     assert_almost_equal(numpy.diag(alpha), en_df2, decimal=9)
@@ -427,8 +451,8 @@ def test__lr_odc12_cation():
     g_aso = r_aso - numpy.transpose(r_aso, (0, 1, 3, 2))
 
     # Orbitals
-    ac, bc = interface.hf.unrestricted_orbitals(BASIS, LABELS, COORDS,
-                                                CHARGE, SPIN)
+    ac, bc = interface.hf.unrestricted_orbitals(
+            BASIS, LABELS, COORDS, CHARGE, SPIN)
     c_unsrt = spla.block_diag(ac, bc)
     sortvec = fermitools.math.spinorb.ab2ov(dim=nbf, na=na, nb=nb)
     c_unsrt = spla.block_diag(ac, bc)
@@ -436,11 +460,10 @@ def test__lr_odc12_cation():
 
     # Solve OCEPA0
     t2_guess = numpy.zeros((nocc, nocc, norb-nocc, norb-nocc))
-    en_elec, c, t2 = odc12.solve(norb=norb, nocc=nocc, h_aso=h_aso,
-                                 g_aso=g_aso, c_guess=c,
-                                 t2_guess=t2_guess, niter=200,
-                                 e_thresh=1e-14, r_thresh=1e-13,
-                                 print_conv=True)
+    en_elec, c, t2 = odc12.solve(
+            norb=norb, nocc=nocc, h_aso=h_aso, g_aso=g_aso, c_guess=c,
+            t2_guess=t2_guess, niter=200, e_thresh=1e-14, r_thresh=1e-13,
+            print_conv=True)
 
     # Build the diagonal orbital and amplitude Hessian
     h = fermitools.math.transform(h_aso, {0: c, 1: c})
@@ -455,42 +478,52 @@ def test__lr_odc12_cation():
     o = slice(None, nocc)
     v = slice(nocc, None)
     ff = odc12.fancy_fock(f[o, o], f[v, v], m1[o, o], m1[v, v])
-    fg = lr.fancy_repulsion(ff['o,o'], ff['v,v'], g[o, o, o, o], g[o, v, o, v],
-                            g[v, v, v, v], m1[o, o], m1[v, v])
-    fi = lr.fancy_mixed_interaction(f[o, v], g[o, o, o, v], g[o, v, v, v],
-                                    m1[o, o], m1[v, v])
+    fg = lr.fancy_repulsion(
+            ff['o,o'], ff['v,v'], g[o, o, o, o], g[o, v, o, v], g[v, v, v, v],
+            m1[o, o], m1[v, v])
+    fi = lr.fancy_mixed_interaction(
+            f[o, v], g[o, o, o, v], g[o, v, v, v], m1[o, o], m1[v, v])
 
-    a_orb = lr.orbital_hessian_diag(
+    # Raveling operators
+    v_orb_raveler = fermitools.math.raveler({0: (0, 1)})
+    v_amp_raveler = fermitools.math.asym.megaraveler({0: ((0, 1), (2, 3))})
+    m_orb_raveler = fermitools.math.raveler({0: (0, 1), 1: (2, 3)})
+    m_mix_raveler = fermitools.math.asym.megaraveler(
+            {0: ((0,), (1,)), 1: ((2, 3), (4, 5))})
+    m_amp_raveler = fermitools.math.asym.megaraveler(
+            {0: ((0, 1), (2, 3)), 1: ((4, 5), (6, 7))})
+
+    a_orb = m_orb_raveler(lr.orbital_hessian_diag(
             h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
             g[v, v, v, v], m1[o, o], m1[v, v], m2[o, o, o, o], m2[o, o, v, v],
-            m2[o, v, o, v], m2[v, v, v, v])
-    a_mix = lr.mixed_hessian_diag(
-            g[o, o, o, v], g[o, v, v, v], fi['o,o'], fi['v,v'], t2)
-    a_amp = lr.amplitude_hessian_diag(
+            m2[o, v, o, v], m2[v, v, v, v]))
+    a_mix = m_mix_raveler(lr.mixed_hessian_diag(
+            g[o, o, o, v], g[o, v, v, v], fi['o,o'], fi['v,v'], t2))
+    a_amp = m_amp_raveler(lr.amplitude_hessian_diag(
             ff['o,o'], ff['v,v'], g[o, o, o, o], g[o, v, o, v], g[v, v, v, v],
-            fg['o,o,o,o'], fg['o,v,o,v'], fg['v,v,v,v'], t2)
-    b_orb = lr.orbital_hessian_offd(
+            fg['o,o,o,o'], fg['o,v,o,v'], fg['v,v,v,v'], t2))
+    b_orb = m_orb_raveler(lr.orbital_hessian_offd(
             g[o, o, o, o], g[o, o, v, v], g[o, v, o, v], g[v, v, v, v],
-            m2[o, o, o, o], m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v])
-    b_mix = lr.mixed_hessian_offd(
-            g[o, o, o, v], g[o, v, v, v], fi['o,o'], fi['v,v'], t2)
-    b_amp = lr.amplitude_hessian_offd(
-            fg['o,o,o,o'], fg['o,v,o,v'], fg['v,v,v,v'], t2)
+            m2[o, o, o, o], m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v]))
+    b_mix = m_mix_raveler(lr.mixed_hessian_offd(
+            g[o, o, o, v], g[o, v, v, v], fi['o,o'], fi['v,v'], t2))
+    b_amp = m_amp_raveler(lr.amplitude_hessian_offd(
+            fg['o,o,o,o'], fg['o,v,o,v'], fg['v,v,v,v'], t2))
 
     # Test the orbital and amplitude Hessians
     import os
     from numpy.testing import assert_almost_equal
 
-    data_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                             'data')
-    en_dxdx = numpy.real(numpy.load(os.path.join(data_path,
-                         'lr_odc12/cation/en_dxdx.npy')))
-    en_dxdt = numpy.real(numpy.load(os.path.join(data_path,
-                         'lr_odc12/cation/en_dxdt.npy')))
-    en_dtdx = numpy.real(numpy.load(os.path.join(data_path,
-                         'lr_odc12/cation/en_dtdx.npy')))
-    en_dtdt = numpy.real(numpy.load(os.path.join(data_path,
-                         'lr_odc12/cation/en_dtdt.npy')))
+    data_path = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)), 'data')
+    en_dxdx = numpy.real(
+            numpy.load(os.path.join(data_path, 'lr_odc12/cation/en_dxdx.npy')))
+    en_dxdt = numpy.real(
+            numpy.load(os.path.join(data_path, 'lr_odc12/cation/en_dxdt.npy')))
+    en_dtdx = numpy.real(
+            numpy.load(os.path.join(data_path, 'lr_odc12/cation/en_dtdx.npy')))
+    en_dtdt = numpy.real(
+            numpy.load(os.path.join(data_path, 'lr_odc12/cation/en_dtdt.npy')))
 
     assert_almost_equal(en_dxdx, 2*(a_orb + b_orb), decimal=9)
     assert_almost_equal(en_dxdt, 2*(a_mix + b_mix), decimal=9)
@@ -502,8 +535,10 @@ def test__lr_odc12_cation():
     p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
     p = fermitools.math.transform(p_aso, {1: c, 2: c})
     fp = lr.fancy_property(p[:, o, o], p[:, v, v], m1[o, o], m1[v, v])
-    t_orb = lr.orbital_property_gradient(p[:, o, v], m1[o, o], m1[v, v])
-    t_amp = lr.amplitude_property_gradient(fp['o,o'], -fp['v,v'], t2)
+    t_orb = v_orb_raveler(lr.orbital_property_gradient(
+            p[:, o, v], m1[o, o], m1[v, v]))
+    t_amp = v_amp_raveler(lr.amplitude_property_gradient(
+            fp['o,o'], -fp['v,v'], t2))
 
     a = numpy.bmat([[a_orb, a_mix], [a_mix.T, a_amp]])
     b = numpy.bmat([[b_orb, b_mix], [b_mix.T, b_amp]])
@@ -512,15 +547,12 @@ def test__lr_odc12_cation():
     alpha = lr.static_linear_response_function(t, r)
 
     # Evaluate dipole polarizability as energy derivative
-    en_f_func = odc12.perturbed_energy_function(norb=norb, nocc=nocc,
-                                                h_aso=h_aso, p_aso=p_aso,
-                                                g_aso=g_aso, c_guess=c,
-                                                t2_guess=t2, niter=200,
-                                                e_thresh=1e-14,
-                                                r_thresh=1e-12,
-                                                print_conv=True)
-    en_df2 = fermitools.math.central_difference(en_f_func, [0., 0., 0.],
-                                                step=0.01, nder=2, npts=9)
+    en_f_func = odc12.perturbed_energy_function(
+            norb=norb, nocc=nocc, h_aso=h_aso, p_aso=p_aso, g_aso=g_aso,
+            c_guess=c, t2_guess=t2, niter=200, e_thresh=1e-14, r_thresh=1e-12,
+            print_conv=True)
+    en_df2 = fermitools.math.central_difference(
+            en_f_func, [0., 0., 0.], step=0.02, nder=2, npts=15)
 
     # Compare the two
     assert_almost_equal(numpy.diag(alpha), en_df2, decimal=9)
@@ -560,8 +592,8 @@ def test__lr_odc12_neutral():
     g_aso = r_aso - numpy.transpose(r_aso, (0, 1, 3, 2))
 
     # Orbitals
-    ac, bc = interface.hf.unrestricted_orbitals(BASIS, LABELS, COORDS,
-                                                CHARGE, SPIN)
+    ac, bc = interface.hf.unrestricted_orbitals(
+            BASIS, LABELS, COORDS, CHARGE, SPIN)
     c_unsrt = spla.block_diag(ac, bc)
     sortvec = fermitools.math.spinorb.ab2ov(dim=nbf, na=na, nb=nb)
     c_unsrt = spla.block_diag(ac, bc)
@@ -569,11 +601,10 @@ def test__lr_odc12_neutral():
 
     # Solve OCEPA0
     t2_guess = numpy.zeros((nocc, nocc, norb-nocc, norb-nocc))
-    en_elec, c, t2 = odc12.solve(norb=norb, nocc=nocc, h_aso=h_aso,
-                                 g_aso=g_aso, c_guess=c,
-                                 t2_guess=t2_guess, niter=200,
-                                 e_thresh=1e-14, r_thresh=1e-13,
-                                 print_conv=True)
+    en_elec, c, t2 = odc12.solve(
+            norb=norb, nocc=nocc, h_aso=h_aso, g_aso=g_aso, c_guess=c,
+            t2_guess=t2_guess, niter=200, e_thresh=1e-14, r_thresh=1e-13,
+            print_conv=True)
 
     # Build the diagonal orbital and amplitude Hessian
     h = fermitools.math.transform(h_aso, {0: c, 1: c})
@@ -588,42 +619,52 @@ def test__lr_odc12_neutral():
     o = slice(None, nocc)
     v = slice(nocc, None)
     ff = odc12.fancy_fock(f[o, o], f[v, v], m1[o, o], m1[v, v])
-    fg = lr.fancy_repulsion(ff['o,o'], ff['v,v'], g[o, o, o, o], g[o, v, o, v],
-                            g[v, v, v, v], m1[o, o], m1[v, v])
-    fi = lr.fancy_mixed_interaction(f[o, v], g[o, o, o, v], g[o, v, v, v],
-                                    m1[o, o], m1[v, v])
+    fg = lr.fancy_repulsion(
+            ff['o,o'], ff['v,v'], g[o, o, o, o], g[o, v, o, v], g[v, v, v, v],
+            m1[o, o], m1[v, v])
+    fi = lr.fancy_mixed_interaction(
+            f[o, v], g[o, o, o, v], g[o, v, v, v], m1[o, o], m1[v, v])
 
-    a_orb = lr.orbital_hessian_diag(
+    # Raveling operators
+    v_orb_raveler = fermitools.math.raveler({0: (0, 1)})
+    v_amp_raveler = fermitools.math.asym.megaraveler({0: ((0, 1), (2, 3))})
+    m_orb_raveler = fermitools.math.raveler({0: (0, 1), 1: (2, 3)})
+    m_mix_raveler = fermitools.math.asym.megaraveler(
+            {0: ((0,), (1,)), 1: ((2, 3), (4, 5))})
+    m_amp_raveler = fermitools.math.asym.megaraveler(
+            {0: ((0, 1), (2, 3)), 1: ((4, 5), (6, 7))})
+
+    a_orb = m_orb_raveler(lr.orbital_hessian_diag(
             h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
             g[v, v, v, v], m1[o, o], m1[v, v], m2[o, o, o, o], m2[o, o, v, v],
-            m2[o, v, o, v], m2[v, v, v, v])
-    a_mix = lr.mixed_hessian_diag(
-            g[o, o, o, v], g[o, v, v, v], fi['o,o'], fi['v,v'], t2)
-    a_amp = lr.amplitude_hessian_diag(
+            m2[o, v, o, v], m2[v, v, v, v]))
+    a_mix = m_mix_raveler(lr.mixed_hessian_diag(
+            g[o, o, o, v], g[o, v, v, v], fi['o,o'], fi['v,v'], t2))
+    a_amp = m_amp_raveler(lr.amplitude_hessian_diag(
             ff['o,o'], ff['v,v'], g[o, o, o, o], g[o, v, o, v], g[v, v, v, v],
-            fg['o,o,o,o'], fg['o,v,o,v'], fg['v,v,v,v'], t2)
-    b_orb = lr.orbital_hessian_offd(
+            fg['o,o,o,o'], fg['o,v,o,v'], fg['v,v,v,v'], t2))
+    b_orb = m_orb_raveler(lr.orbital_hessian_offd(
             g[o, o, o, o], g[o, o, v, v], g[o, v, o, v], g[v, v, v, v],
-            m2[o, o, o, o], m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v])
-    b_mix = lr.mixed_hessian_offd(
-            g[o, o, o, v], g[o, v, v, v], fi['o,o'], fi['v,v'], t2)
-    b_amp = lr.amplitude_hessian_offd(
-            fg['o,o,o,o'], fg['o,v,o,v'], fg['v,v,v,v'], t2)
+            m2[o, o, o, o], m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v]))
+    b_mix = m_mix_raveler(lr.mixed_hessian_offd(
+            g[o, o, o, v], g[o, v, v, v], fi['o,o'], fi['v,v'], t2))
+    b_amp = m_amp_raveler(lr.amplitude_hessian_offd(
+            fg['o,o,o,o'], fg['o,v,o,v'], fg['v,v,v,v'], t2))
 
     # Test the orbital and amplitude Hessians
     import os
     from numpy.testing import assert_almost_equal
 
-    data_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                             'data')
-    en_dxdx = numpy.real(numpy.load(os.path.join(data_path,
-                         'lr_odc12/neutral/en_dxdx.npy')))
-    en_dxdt = numpy.real(numpy.load(os.path.join(data_path,
-                         'lr_odc12/neutral/en_dxdt.npy')))
-    en_dtdx = numpy.real(numpy.load(os.path.join(data_path,
-                         'lr_odc12/neutral/en_dtdx.npy')))
-    en_dtdt = numpy.real(numpy.load(os.path.join(data_path,
-                         'lr_odc12/neutral/en_dtdt.npy')))
+    data_path = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)), 'data')
+    en_dxdx = numpy.real(numpy.load(
+            os.path.join(data_path, 'lr_odc12/neutral/en_dxdx.npy')))
+    en_dxdt = numpy.real(numpy.load(
+            os.path.join(data_path, 'lr_odc12/neutral/en_dxdt.npy')))
+    en_dtdx = numpy.real(numpy.load(
+            os.path.join(data_path, 'lr_odc12/neutral/en_dtdx.npy')))
+    en_dtdt = numpy.real(numpy.load(
+            os.path.join(data_path, 'lr_odc12/neutral/en_dtdt.npy')))
 
     assert_almost_equal(en_dxdx, 2*(a_orb + b_orb), decimal=9)
     assert_almost_equal(en_dxdt, 2*(a_mix + b_mix), decimal=9)
@@ -635,8 +676,10 @@ def test__lr_odc12_neutral():
     p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
     p = fermitools.math.transform(p_aso, {1: c, 2: c})
     fp = lr.fancy_property(p[:, o, o], p[:, v, v], m1[o, o], m1[v, v])
-    t_orb = lr.orbital_property_gradient(p[:, o, v], m1[o, o], m1[v, v])
-    t_amp = lr.amplitude_property_gradient(fp['o,o'], -fp['v,v'], t2)
+    t_orb = v_orb_raveler(lr.orbital_property_gradient(
+            p[:, o, v], m1[o, o], m1[v, v]))
+    t_amp = v_amp_raveler(lr.amplitude_property_gradient(
+            fp['o,o'], -fp['v,v'], t2))
 
     a = numpy.bmat([[a_orb, a_mix], [a_mix.T, a_amp]])
     b = numpy.bmat([[b_orb, b_mix], [b_mix.T, b_amp]])
@@ -645,15 +688,12 @@ def test__lr_odc12_neutral():
     alpha = lr.static_linear_response_function(t, r)
 
     # Evaluate dipole polarizability as energy derivative
-    en_f_func = odc12.perturbed_energy_function(norb=norb, nocc=nocc,
-                                                h_aso=h_aso, p_aso=p_aso,
-                                                g_aso=g_aso, c_guess=c,
-                                                t2_guess=t2, niter=200,
-                                                e_thresh=1e-14,
-                                                r_thresh=1e-12,
-                                                print_conv=True)
-    en_df2 = fermitools.math.central_difference(en_f_func, [0., 0., 0.],
-                                                step=0.01, nder=2, npts=9)
+    en_f_func = odc12.perturbed_energy_function(
+            norb=norb, nocc=nocc, h_aso=h_aso, p_aso=p_aso, g_aso=g_aso,
+            c_guess=c, t2_guess=t2, niter=200, e_thresh=1e-14, r_thresh=1e-12,
+            print_conv=True)
+    en_df2 = fermitools.math.central_difference(
+            en_f_func, [0., 0., 0.], step=0.02, nder=2, npts=15)
 
     # Compare the two
-    assert_almost_equal(numpy.diag(alpha), en_df2, decimal=8)
+    assert_almost_equal(numpy.diag(alpha), en_df2, decimal=9)

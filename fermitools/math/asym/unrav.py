@@ -6,8 +6,8 @@ from .op import antisymmetrizer
 
 
 # Public
-def unravel_compound_index(a, packd):
-    """unravel antisymmetric axes with with compound indices
+def unravel(a, packd):
+    """unravel antisymmetric axes with compound indices
 
     :param a: array
     :type a: numpy.ndarray
@@ -16,11 +16,11 @@ def unravel_compound_index(a, packd):
 
     :rtype: numpy.ndarray
     """
-    unravf = compound_index_unraveler(packd)
+    unravf = unraveler(packd)
     return unravf(a)
 
 
-def compound_index_unraveler(packd):
+def unraveler(packd):
     """unravels antisymmetric axes with compound indices
 
     :param packd: unraveled axis destinations, keyed by the compound axes
@@ -28,19 +28,19 @@ def compound_index_unraveler(packd):
 
     :rtype: typing.Callable
     """
-    comp_axes = packd.keys()
+    rav_axes = packd.keys()
     unrav_axes = packd.values()
 
     def preorder(a):
-        source = comp_axes
+        source = rav_axes
         dest = tuple(range(len(source)))
         return numpy.moveaxis(a, source, dest)
 
     def unravel(a):
         pack_sizes = map(len, unrav_axes)
-        unravelers = reversed(tuple(map(_unraveler, pack_sizes)))
-        unraveler = functoolz.compose(*unravelers)
-        return unraveler(a)
+        unravfs = reversed(tuple(map(_unraveler, pack_sizes)))
+        unravf = functoolz.compose(*unravfs)
+        return unravf(a)
 
     def reorder(a):
         nunrav = sum(map(len, unrav_axes))
@@ -76,9 +76,9 @@ def _unraveler(ndim):
     :rtype: typing.Callable
     """
 
-    def unravel(a):
-        comp_dim = a.shape[0]
-        dim = _inverse_choose(comp_dim, ndim)
+    def _unravel(a):
+        rav_dim = a.shape[0]
+        dim = _inverse_choose(rav_dim, ndim)
         shape = (dim,) * ndim
         ix = itertools.combinations(range(dim), ndim)
         a_unrav_tril = numpy.zeros(shape + a.shape[1:])
@@ -86,4 +86,4 @@ def _unraveler(ndim):
         a_unrav = antisymmetrizer(range(ndim))(a_unrav_tril)
         return numpy.moveaxis(a_unrav, range(ndim), range(-ndim, 0))
 
-    return unravel
+    return _unravel

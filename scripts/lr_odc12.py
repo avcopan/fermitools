@@ -88,81 +88,67 @@ def fancy_mixed_interaction(fov, gooov, govvv, m1oo, m1vv):
 
 def amplitude_hessian_diag(ffoo, ffvv, goooo, govov, gvvvv, fgoooo, fgovov,
                            fgvvvv, t2):
-    a_cepa = cepa_amplitude_hessian(foo=+ffoo, fvv=-ffvv, goooo=goooo,
-                                    govov=govov, gvvvv=gvvvv)
-    a_dc = (+ asym('2/3|6/7')(
-                  einsum('afec,ijeb,klfd->ijabklcd', fgvvvv, t2, t2))
-            + asym('2/3|4/5')(
-                  einsum('kame,ijeb,mlcd->ijabklcd', fgovov, t2, t2))
-            + asym('0/1|6/7')(
-                  einsum('meic,mjab,kled->ijabklcd', fgovov, t2, t2))
-            + asym('0/1|4/5')(
-                  einsum('mkin,mjab,nlcd->ijabklcd', fgoooo, t2, t2))
-            )
-    a_dc_cmp = fermitools.math.asym.compound_index(a_dc,
-                                                   {0: (0, 1), 1: (2, 3),
-                                                    2: (4, 5), 3: (6, 7)})
-    return a_cepa + numpy.reshape(a_dc_cmp, a_cepa.shape)
+    return (
+        + cepa_amplitude_hessian(foo=+ffoo, fvv=-ffvv, goooo=goooo,
+                                 govov=govov, gvvvv=gvvvv)
+        + asym('2/3|6/7')(
+              einsum('afec,ijeb,klfd->ijabklcd', fgvvvv, t2, t2))
+        + asym('2/3|4/5')(
+              einsum('kame,ijeb,mlcd->ijabklcd', fgovov, t2, t2))
+        + asym('0/1|6/7')(
+              einsum('meic,mjab,kled->ijabklcd', fgovov, t2, t2))
+        + asym('0/1|4/5')(
+              einsum('mkin,mjab,nlcd->ijabklcd', fgoooo, t2, t2)))
 
 
 def amplitude_hessian_offd(fgoooo, fgovov,  fgvvvv, t2):
-    no, nv, _, _ = fgovov.shape
-    ndoubles = no * (no - 1) * nv * (nv - 1) // 4
-    b = (+ asym('2/3|6/7')(
-                einsum('acef,ijeb,klfd->ijabklcd', fgvvvv, t2, t2))
-         + asym('2/3|4/5')(
-                einsum('nake,ijeb,nlcd->ijabklcd', fgovov, t2, t2))
-         + asym('0/1|6/7')(
-                einsum('mcif,mjab,klfd->ijabklcd', fgovov, t2, t2))
-         + asym('0/1|4/5')(
-                einsum('mnik,mjab,nlcd->ijabklcd', fgoooo, t2, t2)))
-    b_cmp = fermitools.math.asym.compound_index(b, {0: (0, 1), 1: (2, 3),
-                                                    2: (4, 5), 3: (6, 7)})
-    return numpy.reshape(b_cmp, (ndoubles, ndoubles))
+    return (
+        + asym('2/3|6/7')(
+               einsum('acef,ijeb,klfd->ijabklcd', fgvvvv, t2, t2))
+        + asym('2/3|4/5')(
+               einsum('nake,ijeb,nlcd->ijabklcd', fgovov, t2, t2))
+        + asym('0/1|6/7')(
+               einsum('mcif,mjab,klfd->ijabklcd', fgovov, t2, t2))
+        + asym('0/1|4/5')(
+               einsum('mnik,mjab,nlcd->ijabklcd', fgoooo, t2, t2)))
 
 
 def mixed_hessian_diag(gooov, govvv, fioo, fivv, t2):
     no, _, nv, _ = t2.shape
-    nsingles = no * nv
-    ndoubles = no * (no - 1) * nv * (nv - 1) // 4
     io = numpy.eye(no)
     iv = numpy.eye(nv)
-    a = (+ asym('2/3')(
-                einsum('ik,lacd->iaklcd', io, govvv))
-         + asym('4/5')(
-                einsum('ac,klid->iaklcd', iv, gooov))
-         + asym('2/3')(
-                einsum('iakm,mlcd->iaklcd', fioo, t2))
-         + asym('4/5')(
-                einsum('iaec,kled->iaklcd', fivv, t2))
-         + asym('2/3|4/5')(
-                einsum('ik,mcae,mled->iaklcd', io, govvv, t2))
-         + asym('2/3|4/5')(
-                einsum('ac,imke,mled->iaklcd', iv, gooov, t2))
-         + 1./2 * asym('2/3')(
-                einsum('ik,mnla,mncd->iaklcd', io, gooov, t2))
-         + 1./2 * asym('4/5')(
-                einsum('ac,idef,klef->iaklcd', iv, govvv, t2)))
-    a_cmp = fermitools.math.asym.compound_index(a, {2: (2, 3), 3: (4, 5)})
-    return numpy.reshape(a_cmp, (nsingles, ndoubles))
+    return (
+        + asym('2/3')(
+               einsum('ik,lacd->iaklcd', io, govvv))
+        + asym('4/5')(
+               einsum('ac,klid->iaklcd', iv, gooov))
+        + asym('2/3')(
+               einsum('iakm,mlcd->iaklcd', fioo, t2))
+        + asym('4/5')(
+               einsum('iaec,kled->iaklcd', fivv, t2))
+        + asym('2/3|4/5')(
+               einsum('ik,mcae,mled->iaklcd', io, govvv, t2))
+        + asym('2/3|4/5')(
+               einsum('ac,imke,mled->iaklcd', iv, gooov, t2))
+        + 1./2 * asym('2/3')(
+               einsum('ik,mnla,mncd->iaklcd', io, gooov, t2))
+        + 1./2 * asym('4/5')(
+               einsum('ac,idef,klef->iaklcd', iv, govvv, t2)))
 
 
 def mixed_hessian_offd(gooov, govvv, fioo, fivv, t2):
     no, _, nv, _ = t2.shape
-    nsingles = no * nv
-    ndoubles = no * (no - 1) * nv * (nv - 1) // 4
-    b = (+ asym('2/3')(
-                einsum('iamk,mlcd->iaklcd', fioo, t2))
-         + asym('4/5')(
-                einsum('iace,kled->iaklcd', fivv, t2))
-         + asym('2/3|4/5')(
-                einsum('lead,kice->iaklcd', govvv, t2))
-         + asym('2/3|4/5')(
-                einsum('ilmd,kmca->iaklcd', gooov, t2))
-         - einsum('klma,micd->iaklcd', gooov, t2)
-         - einsum('iecd,klea->iaklcd', govvv, t2))
-    b_cmp = fermitools.math.asym.compound_index(b, {2: (2, 3), 3: (4, 5)})
-    return numpy.reshape(b_cmp, (nsingles, ndoubles))
+    return (
+        + asym('2/3')(
+               einsum('iamk,mlcd->iaklcd', fioo, t2))
+        + asym('4/5')(
+               einsum('iace,kled->iaklcd', fivv, t2))
+        + asym('2/3|4/5')(
+               einsum('lead,kice->iaklcd', govvv, t2))
+        + asym('2/3|4/5')(
+               einsum('ilmd,kmca->iaklcd', gooov, t2))
+        - einsum('klma,micd->iaklcd', gooov, t2)
+        - einsum('iecd,klea->iaklcd', govvv, t2))
 
 
 def main():
@@ -230,27 +216,36 @@ def main():
     fi = fancy_mixed_interaction(
             f[o, v], g[o, o, o, v], g[o, v, v, v], m1[o, o], m1[v, v])
 
-    a_orb = orbital_hessian_diag(
+    # Raveling operators
+    v_orb_raveler = fermitools.math.raveler({0: (0, 1)})
+    v_amp_raveler = fermitools.math.asym.megaraveler({0: ((0, 1), (2, 3))})
+    m_orb_raveler = fermitools.math.raveler({0: (0, 1), 1: (2, 3)})
+    m_mix_raveler = fermitools.math.asym.megaraveler(
+            {0: ((0,), (1,)), 1: ((2, 3), (4, 5))})
+    m_amp_raveler = fermitools.math.asym.megaraveler(
+            {0: ((0, 1), (2, 3)), 1: ((4, 5), (6, 7))})
+
+    a_orb = m_orb_raveler(orbital_hessian_diag(
             h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
             g[v, v, v, v], m1[o, o], m1[v, v], m2[o, o, o, o], m2[o, o, v, v],
-            m2[o, v, o, v], m2[v, v, v, v])
-    a_mix = mixed_hessian_diag(
-            g[o, o, o, v], g[o, v, v, v], fi['o,o'], fi['v,v'], t2)
-    a_amp = amplitude_hessian_diag(
+            m2[o, v, o, v], m2[v, v, v, v]))
+    a_mix = m_mix_raveler(mixed_hessian_diag(
+            g[o, o, o, v], g[o, v, v, v], fi['o,o'], fi['v,v'], t2))
+    a_amp = m_amp_raveler(amplitude_hessian_diag(
             ff['o,o'], ff['v,v'], g[o, o, o, o], g[o, v, o, v], g[v, v, v, v],
-            fg['o,o,o,o'], fg['o,v,o,v'], fg['v,v,v,v'], t2)
-    b_orb = orbital_hessian_offd(
+            fg['o,o,o,o'], fg['o,v,o,v'], fg['v,v,v,v'], t2))
+    b_orb = m_orb_raveler(orbital_hessian_offd(
             g[o, o, o, o], g[o, o, v, v], g[o, v, o, v], g[v, v, v, v],
-            m2[o, o, o, o], m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v])
-    b_mix = mixed_hessian_offd(
-            g[o, o, o, v], g[o, v, v, v], fi['o,o'], fi['v,v'], t2)
-    b_amp = amplitude_hessian_offd(
-            fg['o,o,o,o'], fg['o,v,o,v'], fg['v,v,v,v'], t2)
+            m2[o, o, o, o], m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v]))
+    b_mix = m_mix_raveler(mixed_hessian_offd(
+            g[o, o, o, v], g[o, v, v, v], fi['o,o'], fi['v,v'], t2))
+    b_amp = m_amp_raveler(amplitude_hessian_offd(
+            fg['o,o,o,o'], fg['o,v,o,v'], fg['v,v,v,v'], t2))
     # Evaluate the excitation energies
     a = numpy.bmat([[a_orb, a_mix], [a_mix.T, a_amp]])
     b = numpy.bmat([[b_orb, b_mix], [b_mix.T, b_amp]])
 
-    s_orb = orbital_metric(m1[o, o], m1[v, v])
+    s_orb = m_orb_raveler(orbital_metric(m1[o, o], m1[v, v]))
     s_amp = numpy.eye(*a_amp.shape)
     s = spla.block_diag(s_orb, s_amp)
 
@@ -264,8 +259,10 @@ def main():
     p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
     p = fermitools.math.transform(p_aso, {1: c, 2: c})
     fp = fancy_property(p[:, o, o], p[:, v, v], m1[o, o], m1[v, v])
-    t_orb = orbital_property_gradient(p[:, o, v], m1[o, o], m1[v, v])
-    t_amp = amplitude_property_gradient(fp['o,o'], -fp['v,v'], t2)
+    t_orb = v_orb_raveler(orbital_property_gradient(
+            p[:, o, v], m1[o, o], m1[v, v]))
+    t_amp = v_amp_raveler(amplitude_property_gradient(
+            fp['o,o'], -fp['v,v'], t2))
     t = numpy.bmat([[t_orb], [t_amp]])
     r = static_response_vector(a, b, t)
     alpha = static_linear_response_function(t, r)
