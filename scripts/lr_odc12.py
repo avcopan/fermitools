@@ -9,7 +9,6 @@ from fermitools.math.asym import antisymmetrizer_product as asym
 import interfaces.psi4 as interface
 from .odc12 import fock
 from .odc12 import singles_reference_density
-from .odc12 import singles_correlation_density
 from .odc12 import doubles_cumulant
 from .odc12 import doubles_density
 from .lr_ocepa0 import orbital_hessian_diag
@@ -28,23 +27,6 @@ from .lr_ocepa0 import combined_hessian_sigma
 from .lr_ocepa0 import combined_metric_sigma
 from .lr_ocepa0 import effective_response_hamiltonian_sigma
 from .lr_ocepa0 import solve_static_response_vector
-
-
-def fancy_property(poo, pvv, m1oo, m1vv):
-    '''
-    ff_ov and ff_vo are undefined, so return a dictionary with the diagonal
-    blocks.
-    '''
-    no, uo = scipy.linalg.eigh(m1oo)
-    nv, uv = scipy.linalg.eigh(m1vv)
-    ax1, ax2 = poo.ndim - 2, poo.ndim - 1
-    n1oo = fermitools.math.broadcast_sum({ax1: no, ax2: no}) - 1
-    n1vv = fermitools.math.broadcast_sum({ax1: nv, ax2: nv}) - 1
-    tfpoo = fermitools.math.transform(poo, {ax1: uo, ax2: uo}) / n1oo
-    tfpvv = fermitools.math.transform(pvv, {ax1: uv, ax2: uv}) / n1vv
-    fpoo = fermitools.math.transform(tfpoo, {ax1: uo.T, ax2: uo.T})
-    fpvv = fermitools.math.transform(tfpvv, {ax1: uv.T, ax2: uv.T})
-    return {'o,o': fpoo, 'v,v': fpvv}
 
 
 def fancy_repulsion(ffoo, ffvv, goooo, govov, gvvvv, m1oo, m1vv):
@@ -324,15 +306,16 @@ def main():
     h = fermitools.math.transform(h_aso, {0: c, 1: c})
     g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
     m1_ref = singles_reference_density(norb=norb, nocc=nocc)
-    m1_cor = singles_correlation_density(t2)
-    m1 = m1_ref + m1_cor
+    tm1oo, tm1vv = fermitools.occ.odc12.onebody_correlation_density(t2)
+    m1 = m1_ref + scipy.linalg.block_diag(tm1oo, tm1vv)
     k2 = doubles_cumulant(t2)
     m2 = doubles_density(m1, k2)
 
     f = fock(h, g, m1)
-    ff = odc12.fancy_fock(f[o, o], f[v, v], m1[o, o], m1[v, v])
+    ffoo = fermitools.occ.odc12.fancy_property(f[o, o], m1[o, o])
+    ffvv = fermitools.occ.odc12.fancy_property(f[v, v], m1[v, v])
     fg = fancy_repulsion(
-            ff['o,o'], ff['v,v'], g[o, o, o, o], g[o, v, o, v], g[v, v, v, v],
+            ffoo, ffvv, g[o, o, o, o], g[o, v, o, v], g[v, v, v, v],
             m1[o, o], m1[v, v])
     fi = fancy_mixed_interaction(
             f[o, v], g[o, o, o, v], g[o, v, v, v], m1[o, o], m1[v, v])
@@ -386,7 +369,7 @@ def main():
             g[o, o, o, v], g[o, v, v, v], fi['o,o'], fi['v,v'], t2))
 
     a_amp = m_amp_raveler(amplitude_hessian_diag(
-            ff['o,o'], ff['v,v'], g[o, o, o, o], g[o, v, o, v], g[v, v, v, v],
+            ffoo, ffvv, g[o, o, o, o], g[o, v, o, v], g[v, v, v, v],
             fg['o,o,o,o'], fg['o,v,o,v'], fg['v,v,v,v'], t2))
     b_amp = m_amp_raveler(amplitude_hessian_offd(
             fg['o,o,o,o'], fg['o,v,o,v'], fg['v,v,v,v'], t2))
@@ -406,11 +389,11 @@ def main():
     # Evaluate dipole polarizability using linear response theory
     p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
     p = fermitools.math.transform(p_aso, {1: c, 2: c})
-    fp = fancy_property(p[:, o, o], p[:, v, v], m1[o, o], m1[v, v])
+    fpoo = fermitools.occ.odc12.fancy_property(p[:, o, o], m1[o, o])
+    fpvv = fermitools.occ.odc12.fancy_property(p[:, v, v], m1[v, v])
     t_orb = v_orb_raveler(orbital_property_gradient(
             p[:, o, v], m1[o, o], m1[v, v]))
-    t_amp = v_amp_raveler(amplitude_property_gradient(
-            fp['o,o'], -fp['v,v'], t2))
+    t_amp = v_amp_raveler(amplitude_property_gradient(fpoo, -fpvv, t2))
     t = numpy.concatenate((t_orb, t_amp), axis=0)
     r = static_response_vector(a, b, t)
     alpha_old = static_linear_response_function(t, r)
@@ -435,7 +418,7 @@ def main():
     lsig_b_mix = mixed_hessian_left_offd_sigma(
             g[o, o, o, v], g[o, v, v, v], fi['o,o'], fi['v,v'], t2)
     sig_a_amp = amplitude_hessian_diag_sigma(
-            ff['o,o'], ff['v,v'], g[o, o, o, o], g[o, v, o, v], g[v, v, v, v],
+            ffoo, ffvv, g[o, o, o, o], g[o, v, o, v], g[v, v, v, v],
             fg['o,o,o,o'], fg['o,v,o,v'], fg['v,v,v,v'], t2)
     sig_b_amp = amplitude_hessian_offd_sigma(
             fg['o,o,o,o'], fg['o,v,o,v'], fg['v,v,v,v'], t2)

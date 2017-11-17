@@ -53,7 +53,7 @@ def test__lr_scf():
     import scripts.scf as scf
 
     import numpy
-    import scipy.linalg as spla
+    import scipy.linalg
 
     import fermitools
     import interfaces.psi4 as interface
@@ -84,9 +84,9 @@ def test__lr_scf():
     # Orbitals
     ac, bc = interface.hf.unrestricted_orbitals(BASIS, LABELS, COORDS,
                                                 CHARGE, SPIN)
-    c_unsrt = spla.block_diag(ac, bc)
+    c_unsrt = scipy.linalg.block_diag(ac, bc)
     sortvec = fermitools.math.spinorb.ab2ov(dim=nbf, na=na, nb=nb)
-    c_unsrt = spla.block_diag(ac, bc)
+    c_unsrt = scipy.linalg.block_diag(ac, bc)
     c = fermitools.math.spinorb.sort(c_unsrt, order=sortvec, axes=(1,))
 
     en_elec, c = scf.solve(
@@ -160,7 +160,7 @@ def test__lr_ocepa0_cation():
     import scripts.ocepa0 as ocepa0
 
     import numpy
-    import scipy.linalg as spla
+    import scipy.linalg
 
     import fermitools
     import interfaces.psi4 as interface
@@ -191,9 +191,9 @@ def test__lr_ocepa0_cation():
     # Orbitals
     ac, bc = interface.hf.unrestricted_orbitals(
             BASIS, LABELS, COORDS, CHARGE, SPIN)
-    c_unsrt = spla.block_diag(ac, bc)
+    c_unsrt = scipy.linalg.block_diag(ac, bc)
     sortvec = fermitools.math.spinorb.ab2ov(dim=nbf, na=na, nb=nb)
-    c_unsrt = spla.block_diag(ac, bc)
+    c_unsrt = scipy.linalg.block_diag(ac, bc)
     c = fermitools.math.spinorb.sort(c_unsrt, order=sortvec, axes=(1,))
 
     # Solve OCEPA0
@@ -210,7 +210,8 @@ def test__lr_ocepa0_cation():
     g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
     m1_ref = ocepa0.singles_reference_density(norb=norb, nocc=nocc)
     f = ocepa0.fock(h, g, m1_ref)
-    m1_cor = ocepa0.singles_correlation_density(t2)
+    tm1oo, tm1vv = fermitools.occ.ocepa0.onebody_correlation_density(t2)
+    m1_cor = scipy.linalg.block_diag(tm1oo, tm1vv)
     m1 = m1_ref + m1_cor
     k2 = ocepa0.doubles_cumulant(t2)
     m2 = ocepa0.doubles_density(m1_ref, m1_cor, k2)
@@ -291,7 +292,7 @@ def test__lr_ocepa0_neutral():
     import scripts.ocepa0 as ocepa0
 
     import numpy
-    import scipy.linalg as spla
+    import scipy.linalg
 
     import fermitools
     import interfaces.psi4 as interface
@@ -322,9 +323,9 @@ def test__lr_ocepa0_neutral():
     # Orbitals
     ac, bc = interface.hf.unrestricted_orbitals(
             BASIS, LABELS, COORDS, CHARGE, SPIN)
-    c_unsrt = spla.block_diag(ac, bc)
+    c_unsrt = scipy.linalg.block_diag(ac, bc)
     sortvec = fermitools.math.spinorb.ab2ov(dim=nbf, na=na, nb=nb)
-    c_unsrt = spla.block_diag(ac, bc)
+    c_unsrt = scipy.linalg.block_diag(ac, bc)
     c = fermitools.math.spinorb.sort(c_unsrt, order=sortvec, axes=(1,))
 
     # Solve OCEPA0
@@ -341,7 +342,8 @@ def test__lr_ocepa0_neutral():
     g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
     m1_ref = ocepa0.singles_reference_density(norb=norb, nocc=nocc)
     f = ocepa0.fock(h, g, m1_ref)
-    m1_cor = ocepa0.singles_correlation_density(t2)
+    tm1oo, tm1vv = fermitools.occ.ocepa0.onebody_correlation_density(t2)
+    m1_cor = scipy.linalg.block_diag(tm1oo, tm1vv)
     m1 = m1_ref + m1_cor
     k2 = ocepa0.doubles_cumulant(t2)
     m2 = ocepa0.doubles_density(m1_ref, m1_cor, k2)
@@ -422,7 +424,7 @@ def test__lr_odc12_cation():
     import scripts.odc12 as odc12
 
     import numpy
-    import scipy.linalg as spla
+    import scipy.linalg
 
     import fermitools
     import interfaces.psi4 as interface
@@ -453,9 +455,9 @@ def test__lr_odc12_cation():
     # Orbitals
     ac, bc = interface.hf.unrestricted_orbitals(
             BASIS, LABELS, COORDS, CHARGE, SPIN)
-    c_unsrt = spla.block_diag(ac, bc)
+    c_unsrt = scipy.linalg.block_diag(ac, bc)
     sortvec = fermitools.math.spinorb.ab2ov(dim=nbf, na=na, nb=nb)
-    c_unsrt = spla.block_diag(ac, bc)
+    c_unsrt = scipy.linalg.block_diag(ac, bc)
     c = fermitools.math.spinorb.sort(c_unsrt, order=sortvec, axes=(1,))
 
     # Solve OCEPA0
@@ -469,7 +471,8 @@ def test__lr_odc12_cation():
     h = fermitools.math.transform(h_aso, {0: c, 1: c})
     g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
     m1_ref = odc12.singles_reference_density(norb=norb, nocc=nocc)
-    m1_cor = odc12.singles_correlation_density(t2)
+    tm1oo, tm1vv = fermitools.occ.odc12.onebody_correlation_density(t2)
+    m1_cor = scipy.linalg.block_diag(tm1oo, tm1vv)
     m1 = m1_ref + m1_cor
     k2 = odc12.doubles_cumulant(t2)
     m2 = odc12.doubles_density(m1, k2)
@@ -477,9 +480,10 @@ def test__lr_odc12_cation():
     f = odc12.fock(h, g, m1)
     o = slice(None, nocc)
     v = slice(nocc, None)
-    ff = odc12.fancy_fock(f[o, o], f[v, v], m1[o, o], m1[v, v])
+    ffoo = fermitools.occ.odc12.fancy_property(f[o, o], m1[o, o])
+    ffvv = fermitools.occ.odc12.fancy_property(f[v, v], m1[v, v])
     fg = lr.fancy_repulsion(
-            ff['o,o'], ff['v,v'], g[o, o, o, o], g[o, v, o, v], g[v, v, v, v],
+            ffoo, ffvv, g[o, o, o, o], g[o, v, o, v], g[v, v, v, v],
             m1[o, o], m1[v, v])
     fi = lr.fancy_mixed_interaction(
             f[o, v], g[o, o, o, v], g[o, v, v, v], m1[o, o], m1[v, v])
@@ -500,7 +504,7 @@ def test__lr_odc12_cation():
     a_mix = m_mix_raveler(lr.mixed_hessian_diag(
             g[o, o, o, v], g[o, v, v, v], fi['o,o'], fi['v,v'], t2))
     a_amp = m_amp_raveler(lr.amplitude_hessian_diag(
-            ff['o,o'], ff['v,v'], g[o, o, o, o], g[o, v, o, v], g[v, v, v, v],
+            ffoo, ffvv, g[o, o, o, o], g[o, v, o, v], g[v, v, v, v],
             fg['o,o,o,o'], fg['o,v,o,v'], fg['v,v,v,v'], t2))
     b_orb = m_orb_raveler(lr.orbital_hessian_offd(
             g[o, o, o, o], g[o, o, v, v], g[o, v, o, v], g[v, v, v, v],
@@ -534,11 +538,11 @@ def test__lr_odc12_cation():
     p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
     p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
     p = fermitools.math.transform(p_aso, {1: c, 2: c})
-    fp = lr.fancy_property(p[:, o, o], p[:, v, v], m1[o, o], m1[v, v])
+    fpoo = fermitools.occ.odc12.fancy_property(p[:, o, o], m1[o, o])
+    fpvv = fermitools.occ.odc12.fancy_property(p[:, v, v], m1[v, v])
     t_orb = v_orb_raveler(lr.orbital_property_gradient(
             p[:, o, v], m1[o, o], m1[v, v]))
-    t_amp = v_amp_raveler(lr.amplitude_property_gradient(
-            fp['o,o'], -fp['v,v'], t2))
+    t_amp = v_amp_raveler(lr.amplitude_property_gradient(fpoo, -fpvv, t2))
 
     a = numpy.bmat([[a_orb, a_mix], [a_mix.T, a_amp]])
     b = numpy.bmat([[b_orb, b_mix], [b_mix.T, b_amp]])
@@ -563,7 +567,7 @@ def test__lr_odc12_neutral():
     import scripts.odc12 as odc12
 
     import numpy
-    import scipy.linalg as spla
+    import scipy.linalg
 
     import fermitools
     import interfaces.psi4 as interface
@@ -594,9 +598,9 @@ def test__lr_odc12_neutral():
     # Orbitals
     ac, bc = interface.hf.unrestricted_orbitals(
             BASIS, LABELS, COORDS, CHARGE, SPIN)
-    c_unsrt = spla.block_diag(ac, bc)
+    c_unsrt = scipy.linalg.block_diag(ac, bc)
     sortvec = fermitools.math.spinorb.ab2ov(dim=nbf, na=na, nb=nb)
-    c_unsrt = spla.block_diag(ac, bc)
+    c_unsrt = scipy.linalg.block_diag(ac, bc)
     c = fermitools.math.spinorb.sort(c_unsrt, order=sortvec, axes=(1,))
 
     # Solve OCEPA0
@@ -610,7 +614,8 @@ def test__lr_odc12_neutral():
     h = fermitools.math.transform(h_aso, {0: c, 1: c})
     g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
     m1_ref = odc12.singles_reference_density(norb=norb, nocc=nocc)
-    m1_cor = odc12.singles_correlation_density(t2)
+    tm1oo, tm1vv = fermitools.occ.odc12.onebody_correlation_density(t2)
+    m1_cor = scipy.linalg.block_diag(tm1oo, tm1vv)
     m1 = m1_ref + m1_cor
     k2 = odc12.doubles_cumulant(t2)
     m2 = odc12.doubles_density(m1, k2)
@@ -618,9 +623,10 @@ def test__lr_odc12_neutral():
     f = odc12.fock(h, g, m1)
     o = slice(None, nocc)
     v = slice(nocc, None)
-    ff = odc12.fancy_fock(f[o, o], f[v, v], m1[o, o], m1[v, v])
+    ffoo = fermitools.occ.odc12.fancy_property(f[o, o], m1[o, o])
+    ffvv = fermitools.occ.odc12.fancy_property(f[v, v], m1[v, v])
     fg = lr.fancy_repulsion(
-            ff['o,o'], ff['v,v'], g[o, o, o, o], g[o, v, o, v], g[v, v, v, v],
+            ffoo, ffvv, g[o, o, o, o], g[o, v, o, v], g[v, v, v, v],
             m1[o, o], m1[v, v])
     fi = lr.fancy_mixed_interaction(
             f[o, v], g[o, o, o, v], g[o, v, v, v], m1[o, o], m1[v, v])
@@ -641,7 +647,7 @@ def test__lr_odc12_neutral():
     a_mix = m_mix_raveler(lr.mixed_hessian_diag(
             g[o, o, o, v], g[o, v, v, v], fi['o,o'], fi['v,v'], t2))
     a_amp = m_amp_raveler(lr.amplitude_hessian_diag(
-            ff['o,o'], ff['v,v'], g[o, o, o, o], g[o, v, o, v], g[v, v, v, v],
+            ffoo, ffvv, g[o, o, o, o], g[o, v, o, v], g[v, v, v, v],
             fg['o,o,o,o'], fg['o,v,o,v'], fg['v,v,v,v'], t2))
     b_orb = m_orb_raveler(lr.orbital_hessian_offd(
             g[o, o, o, o], g[o, o, v, v], g[o, v, o, v], g[v, v, v, v],
@@ -675,11 +681,11 @@ def test__lr_odc12_neutral():
     p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
     p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
     p = fermitools.math.transform(p_aso, {1: c, 2: c})
-    fp = lr.fancy_property(p[:, o, o], p[:, v, v], m1[o, o], m1[v, v])
+    fpoo = fermitools.occ.odc12.fancy_property(p[:, o, o], m1[o, o])
+    fpvv = fermitools.occ.odc12.fancy_property(p[:, v, v], m1[v, v])
     t_orb = v_orb_raveler(lr.orbital_property_gradient(
             p[:, o, v], m1[o, o], m1[v, v]))
-    t_amp = v_amp_raveler(lr.amplitude_property_gradient(
-            fp['o,o'], -fp['v,v'], t2))
+    t_amp = v_amp_raveler(lr.amplitude_property_gradient(fpoo, -fpvv, t2))
 
     a = numpy.bmat([[a_orb, a_mix], [a_mix.T, a_amp]])
     b = numpy.bmat([[b_orb, b_mix], [b_mix.T, b_amp]])

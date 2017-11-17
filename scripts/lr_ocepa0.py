@@ -258,7 +258,8 @@ def main():
     g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
     m1_ref = ocepa0.singles_reference_density(norb=norb, nocc=nocc)
     f = ocepa0.fock(h, g, m1_ref)
-    m1_cor = ocepa0.singles_correlation_density(t2)
+    tm1oo, tm1vv = fermitools.occ.ocepa0.onebody_correlation_density(t2)
+    m1_cor = scipy.linalg.block_diag(tm1oo, tm1vv)
     m1 = m1_ref + m1_cor
     k2 = ocepa0.doubles_cumulant(t2)
     m2 = ocepa0.doubles_density(m1_ref, m1_cor, k2)

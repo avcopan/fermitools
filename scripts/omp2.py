@@ -2,7 +2,7 @@ import fermitools
 import interfaces.psi4 as interface
 
 import numpy
-import scipy.linalg as spla
+import scipy.linalg
 from fermitools.math import einsum
 from fermitools.math.asym import antisymmetrizer_product as asym
 
@@ -20,12 +20,6 @@ def doubles_numerator(goovv, foo, fvv, t2):
             + asym("2/3")(einsum('ac,ijcb->ijab', fvv, t2))
             - asym("0/1")(einsum('ki,kjab->ijab', foo, t2)))
     return num2
-
-
-def singles_correlation_density(t2):
-    m1oo = - 1./2 * einsum('jkab,ikab->ij', t2, t2)
-    m1vv = + 1./2 * einsum('ijac,ijbc->ab', t2, t2)
-    return spla.block_diag(m1oo, m1vv)
 
 
 def doubles_density(m1_ref, m1_cor, k2):
@@ -101,7 +95,8 @@ def energy_routine(basis, labels, coords, charge, spin):
                                             2: -e[v], 3: -e[v]})
         t2 = doubles_numerator(g[o, o, v, v], f[o, o], f[v, v], t2) / e2
 
-        m1_cor = singles_correlation_density(t2)
+        tm1oo, tm1vv = fermitools.occ.omp2.onebody_correlation_density(t2)
+        m1_cor = scipy.linalg.block_diag(tm1oo, tm1vv)
         k2 = doubles_cumulant(t2)
         m1 = m1_ref + m1_cor
         m2 = doubles_density(m1_ref, m1_cor, k2)
@@ -111,7 +106,7 @@ def energy_routine(basis, labels, coords, charge, spin):
         t1 = r1 / e1
         gen[v, o] = numpy.transpose(t1)
         gen[o, v] = -t1
-        u = spla.expm(gen)
+        u = scipy.linalg.expm(gen)
         c = numpy.dot(c, u)
 
         en = electronic_energy(h, g, m1, m2) + en_nuc

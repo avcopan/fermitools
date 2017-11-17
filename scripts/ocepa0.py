@@ -1,5 +1,5 @@
 import numpy
-import scipy.linalg as spla
+import scipy.linalg
 import functools
 
 import warnings
@@ -33,12 +33,6 @@ def singles_reference_density(norb, nocc):
     m1_ref = numpy.zeros((norb, norb))
     m1_ref[:nocc, :nocc] = numpy.eye(nocc)
     return m1_ref
-
-
-def singles_correlation_density(t2):
-    m1oo = - 1./2 * einsum('jkab,ikab->ij', t2, t2)
-    m1vv = + 1./2 * einsum('ijac,ijbc->ab', t2, t2)
-    return spla.block_diag(m1oo, m1vv)
 
 
 def doubles_cumulant(t2):
@@ -107,7 +101,8 @@ def solve(norb, nocc, h_aso, g_aso, c_guess, t2_guess, niter=50,
                                g[v, v, v, v], f[o, o], f[v, v], t2_last) / e2
         r2 = (t2 - t2_last) * e2
         t2_last = t2
-        m1_cor = singles_correlation_density(t2)
+        tm1oo, tm1vv = fermitools.occ.ocepa0.onebody_correlation_density(t2)
+        m1_cor = scipy.linalg.block_diag(tm1oo, tm1vv)
         m1 = m1_ref + m1_cor
         k2 = doubles_cumulant(t2)
         m2 = doubles_density(m1_ref, m1_cor, k2)
@@ -117,14 +112,15 @@ def solve(norb, nocc, h_aso, g_aso, c_guess, t2_guess, niter=50,
         t1 = r1 / e1
         gen[v, o] = numpy.transpose(t1)
         gen[o, v] = -t1
-        u = spla.expm(gen)
+        u = scipy.linalg.expm(gen)
         c = numpy.dot(c, u)
 
         en_elec = electronic_energy(h, g, m1, m2)
         en_change = en_elec - en_elec_last
         en_elec_last = en_elec
 
-        r_norm = spla.norm([spla.norm(r1), spla.norm(r2)])
+        r_norm = scipy.linalg.norm(
+                [scipy.linalg.norm(r1), scipy.linalg.norm(r2)])
 
         converged = (numpy.fabs(en_change) < e_thresh and r_norm < r_thresh)
 
@@ -159,13 +155,13 @@ def energy_functional(norb, nocc, h_aso, g_aso, c):
         t2 = fermitools.math.asym.unravel(t2_mat, {0: (0, 1), 1: (2, 3)})
         gen[v, o] = numpy.transpose(t1)
         gen[o, v] = -t1
-        u = spla.expm(gen)
+        u = scipy.linalg.expm(gen)
         ct = numpy.dot(c, u)
 
         h = fermitools.math.transform(h_aso, {0: ct, 1: ct})
         g = fermitools.math.transform(g_aso, {0: ct, 1: ct, 2: ct, 3: ct})
-
-        m1_cor = singles_correlation_density(t2)
+        tm1oo, tm1vv = fermitools.occ.ocepa0.onebody_correlation_density(t2)
+        m1_cor = scipy.linalg.block_diag(tm1oo, tm1vv)
         m1 = m1_ref + m1_cor
         k2 = doubles_cumulant(t2)
         m2 = doubles_density(m1_ref, m1_cor, k2)
@@ -298,9 +294,9 @@ def main():
     # Orbitals
     ac, bc = interface.hf.unrestricted_orbitals(BASIS, LABELS, COORDS,
                                                 CHARGE, SPIN)
-    c_unsrt = spla.block_diag(ac, bc)
+    c_unsrt = scipy.linalg.block_diag(ac, bc)
     sortvec = fermitools.math.spinorb.ab2ov(dim=nbf, na=na, nb=nb)
-    c_unsrt = spla.block_diag(ac, bc)
+    c_unsrt = scipy.linalg.block_diag(ac, bc)
     c = fermitools.math.spinorb.sort(c_unsrt, order=sortvec, axes=(1,))
 
     en_nuc = fermitools.chem.nuc.energy(labels=LABELS, coords=COORDS)
@@ -338,18 +334,19 @@ def main():
 
     print("Orbital gradient:")
     print(en_dx.round(8))
-    print(spla.norm(en_dx))
+    print(scipy.linalg.norm(en_dx))
 
     print("Amplitude gradient:")
     print(en_dt.round(8))
-    print(spla.norm(en_dt))
+    print(scipy.linalg.norm(en_dt))
 
     # Evaluate dipole moment as expectation value
     p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
     p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
     p = fermitools.math.transform(p_aso, {1: c, 2: c})
     m1_ref = singles_reference_density(norb=norb, nocc=nocc)
-    m1_cor = singles_correlation_density(t2)
+    tm1oo, tm1vv = fermitools.occ.ocepa0.onebody_correlation_density(t2)
+    m1_cor = scipy.linalg.block_diag(tm1oo, tm1vv)
     m1 = m1_ref + m1_cor
     mu = numpy.array([numpy.vdot(px, m1) for px in p])
 
