@@ -1,11 +1,7 @@
 import numpy
 
 
-def fock(h, g, m1):
-    return h + numpy.tensordot(g, m1, axes=((1, 3), (0, 1)))
-
-
-def onebody_determinant_density(norb, nocc):
-    m1 = numpy.zeros((norb, norb))
-    m1[:nocc, :nocc] = numpy.eye(nocc)
-    return m1
+def fock_block(hxy, goxoy, m1oo, gxvyv=None, m1vv=None):
+    fxy = hxy + numpy.tensordot(goxoy, m1oo, axes=((0, 2), (0, 1)))
+    return (fxy if m1vv is None else
+            fxy + numpy.tensordot(gxvyv, m1vv, axes=((1, 3), (0, 1))))

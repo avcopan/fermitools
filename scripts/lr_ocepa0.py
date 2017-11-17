@@ -256,13 +256,21 @@ def main():
     v = slice(no, None)
     h = fermitools.math.transform(h_aso, {0: c, 1: c})
     g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
-    m1_ref = ocepa0.singles_reference_density(norb=norb, nocc=nocc)
-    f = ocepa0.fock(h, g, m1_ref)
-    tm1oo, tm1vv = fermitools.occ.ocepa0.onebody_correlation_density(t2)
-    m1_cor = scipy.linalg.block_diag(tm1oo, tm1vv)
-    m1 = m1_ref + m1_cor
+    dm1oo = numpy.eye(no)
+    dm1vv = numpy.zeros((nv, nv))
+    cm1oo, cm1vv = fermitools.occ.ocepa0.onebody_correlation_density(t2)
+    dm1 = scipy.linalg.block_diag(dm1oo, dm1vv)
+    cm1 = scipy.linalg.block_diag(cm1oo, cm1vv)
+    m1 = dm1 + cm1
     k2 = ocepa0.doubles_cumulant(t2)
-    m2 = ocepa0.doubles_density(m1_ref, m1_cor, k2)
+    m2 = ocepa0.doubles_density(dm1, cm1, k2)
+
+    foo = fermitools.occ.fock_block(
+            hxy=h[o, o], goxoy=g[o, o, o, o], m1oo=dm1[o, o])
+    fov = fermitools.occ.fock_block(
+            hxy=h[o, v], goxoy=g[o, o, o, v], m1oo=dm1[o, o])
+    fvv = fermitools.occ.fock_block(
+            hxy=h[v, v], goxoy=g[o, v, o, v], m1oo=dm1[o, o])
 
     v_orb_raveler = fermitools.math.raveler({0: (0, 1)})
     v_amp_raveler = fermitools.math.asym.megaraveler({0: ((0, 1), (2, 3))})
@@ -302,15 +310,15 @@ def main():
             g[v, v, v, v], m1[o, o], m1[v, v], m2[o, o, o, o], m2[o, o, v, v],
             m2[o, v, o, v], m2[v, v, v, v]))
     a_mix = m_mix_raveler(mixed_hessian_diag(
-            f[o, v], g[o, o, o, v], g[o, v, v, v], t2))
+            fov, g[o, o, o, v], g[o, v, v, v], t2))
     a_amp = m_amp_raveler(amplitude_hessian(
-            f[o, o], f[v, v], g[o, o, o, o], g[o, v, o, v], g[v, v, v, v]))
+            foo, fvv, g[o, o, o, o], g[o, v, o, v], g[v, v, v, v]))
 
     b_orb = m_orb_raveler(orbital_hessian_offd(
             g[o, o, o, o], g[o, o, v, v], g[o, v, o, v], g[v, v, v, v],
             m2[o, o, o, o], m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v]))
     b_mix = m_mix_raveler(mixed_hessian_offd(
-            f[o, v], g[o, o, o, v], g[o, v, v, v], t2))
+            fov, g[o, o, o, v], g[o, v, v, v], t2))
     b_amp = numpy.zeros_like(a_amp)
 
     # Evaluate dipole polarizability using linear response theory
@@ -352,16 +360,16 @@ def main():
     sig_s_orb_inv = scipy.sparse.linalg.aslinearoperator(s_orb_inv)
 
     rsig_a_mix = mixed_hessian_right_diag_sigma(
-            f[o, v], g[o, o, o, v], g[o, v, v, v], t2)
+            fov, g[o, o, o, v], g[o, v, v, v], t2)
     rsig_b_mix = mixed_hessian_right_offd_sigma(
-            f[o, v], g[o, o, o, v], g[o, v, v, v], t2)
+            fov, g[o, o, o, v], g[o, v, v, v], t2)
     lsig_a_mix = mixed_hessian_left_diag_sigma(
-            f[o, v], g[o, o, o, v], g[o, v, v, v], t2)
+            fov, g[o, o, o, v], g[o, v, v, v], t2)
     lsig_b_mix = mixed_hessian_left_offd_sigma(
-            f[o, v], g[o, o, o, v], g[o, v, v, v], t2)
+            fov, g[o, o, o, v], g[o, v, v, v], t2)
 
     sig_a_amp = amplitude_hessian_sigma(
-            f[o, o], f[v, v], g[o, o, o, o], g[o, v, o, v], g[v, v, v, v])
+            foo, fvv, g[o, o, o, o], g[o, v, o, v], g[v, v, v, v])
 
     # Orbital terms
     sig_e_orb_sum = functoolz.compose(

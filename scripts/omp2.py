@@ -7,10 +7,6 @@ from fermitools.math import einsum
 from fermitools.math.asym import antisymmetrizer_product as asym
 
 
-def fock(o, h, g):
-    return h + numpy.trace(g[:, o, :, o], axis1=1, axis2=3)
-
-
 def doubles_numerator(goovv, foo, fvv, t2):
     foo = numpy.array(foo, copy=True)
     fvv = numpy.array(fvv, copy=True)
@@ -22,10 +18,10 @@ def doubles_numerator(goovv, foo, fvv, t2):
     return num2
 
 
-def doubles_density(m1_ref, m1_cor, k2):
+def doubles_density(dm1, cm1, k2):
     m2 = (k2
-          + asym("0/1|2/3")(einsum('pr,qs->pqrs', m1_ref, m1_cor))
-          + asym("2/3")(einsum('pr,qs->pqrs', m1_ref, m1_ref)))
+          + asym("0/1|2/3")(einsum('pr,qs->pqrs', dm1, cm1))
+          + asym("2/3")(einsum('pr,qs->pqrs', dm1, dm1)))
     return m2
 
 
@@ -57,6 +53,9 @@ def energy_routine(basis, labels, coords, charge, spin):
     na = fermitools.chem.elec.count_alpha(labels, charge, spin)
     nb = fermitools.chem.elec.count_beta(labels, charge, spin)
     n = na + nb
+    nocc = n
+    nbf = interface.integrals.nbf(basis, labels)
+    norb = 2 * nbf
     o = slice(None, n)
     v = slice(n, None)
 
@@ -79,8 +78,9 @@ def energy_routine(basis, labels, coords, charge, spin):
                                      axes=(1,))
 
     gen = numpy.zeros((2 * nbf, 2 * nbf))
-    m1_ref = numpy.zeros_like(gen)
-    m1_ref[o, o] = numpy.eye(n)
+    dm1oo = numpy.eye(nocc)
+    dm1vv = numpy.zeros((norb - nocc, norb - nocc))
+    dm1 = scipy.linalg.block_diag(dm1oo, dm1vv)
     t2 = numpy.zeros_like(g_aso[o, o, v, v])
 
     en_nuc = fermitools.chem.nuc.energy(labels=labels, coords=coords)
@@ -88,21 +88,25 @@ def energy_routine(basis, labels, coords, charge, spin):
     for i in range(100):
         h = fermitools.math.transform(h_aso, {0: c, 1: c})
         g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
-        f = fock(o, h, g)
+        foo = fermitools.occ.fock_block(
+                hxy=h[o, o], goxoy=g[o, o, o, o], m1oo=dm1[o, o])
+        fvv = fermitools.occ.fock_block(
+                hxy=h[v, v], goxoy=g[o, v, o, v], m1oo=dm1[o, o])
 
-        e = numpy.diagonal(f)
-        e2 = fermitools.math.broadcast_sum({0: +e[o], 1: +e[o],
-                                            2: -e[v], 3: -e[v]})
-        t2 = doubles_numerator(g[o, o, v, v], f[o, o], f[v, v], t2) / e2
+        eo = numpy.diagonal(foo)
+        ev = numpy.diagonal(fvv)
+        e2 = fermitools.math.broadcast_sum({0: +eo, 1: +eo,
+                                            2: -ev, 3: -ev})
+        t2 = doubles_numerator(g[o, o, v, v], foo, fvv, t2) / e2
 
-        tm1oo, tm1vv = fermitools.occ.omp2.onebody_correlation_density(t2)
-        m1_cor = scipy.linalg.block_diag(tm1oo, tm1vv)
+        cm1oo, cm1vv = fermitools.occ.omp2.onebody_correlation_density(t2)
+        cm1 = scipy.linalg.block_diag(cm1oo, cm1vv)
+        m1 = dm1 + cm1
         k2 = doubles_cumulant(t2)
-        m1 = m1_ref + m1_cor
-        m2 = doubles_density(m1_ref, m1_cor, k2)
+        m2 = doubles_density(dm1, cm1, k2)
 
         r1 = orbital_gradient(o, v, h, g, m1, m2)
-        e1 = fermitools.math.broadcast_sum({0: +e[o], 1: -e[v]})
+        e1 = fermitools.math.broadcast_sum({0: +eo, 1: -ev})
         t1 = r1 / e1
         gen[v, o] = numpy.transpose(t1)
         gen[o, v] = -t1

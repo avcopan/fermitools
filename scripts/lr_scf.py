@@ -216,7 +216,9 @@ def main():
     v = slice(nocc, None)
     h = fermitools.math.transform(h_aso, {0: c, 1: c})
     g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
-    m1 = scf.singles_density(norb=norb, nocc=nocc)
+    m1oo = numpy.eye(no)
+    m1vv = numpy.zeros((nv, nv))
+    m1 = scipy.linalg.block_diag(m1oo, m1vv)
     m2 = scf.doubles_density(m1)
 
     v_raveler = fermitools.math.raveler({0: (0, 1)})

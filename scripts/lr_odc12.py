@@ -7,8 +7,6 @@ from fermitools.math import einsum
 from fermitools.math.asym import antisymmetrizer_product as asym
 
 import interfaces.psi4 as interface
-from .odc12 import fock
-from .odc12 import singles_reference_density
 from .odc12 import doubles_cumulant
 from .odc12 import doubles_density
 from .lr_ocepa0 import orbital_hessian_diag
@@ -305,20 +303,31 @@ def main():
     ndoubles = no * (no - 1) * nv * (nv - 1) // 4
     h = fermitools.math.transform(h_aso, {0: c, 1: c})
     g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
-    m1_ref = singles_reference_density(norb=norb, nocc=nocc)
-    tm1oo, tm1vv = fermitools.occ.odc12.onebody_correlation_density(t2)
-    m1 = m1_ref + scipy.linalg.block_diag(tm1oo, tm1vv)
+    dm1oo = numpy.eye(no)
+    dm1vv = numpy.zeros((nv, nv))
+    cm1oo, cm1vv = fermitools.occ.odc12.onebody_correlation_density(t2)
+    dm1 = scipy.linalg.block_diag(dm1oo, dm1vv)
+    cm1 = scipy.linalg.block_diag(cm1oo, cm1vv)
+    m1 = dm1 + cm1
     k2 = doubles_cumulant(t2)
     m2 = doubles_density(m1, k2)
 
-    f = fock(h, g, m1)
-    ffoo = fermitools.occ.odc12.fancy_property(f[o, o], m1[o, o])
-    ffvv = fermitools.occ.odc12.fancy_property(f[v, v], m1[v, v])
+    foo = fermitools.occ.fock_block(
+            hxy=h[o, o], goxoy=g[o, o, o, o], m1oo=m1[o, o],
+            gxvyv=g[o, v, o, v], m1vv=m1[v, v])
+    fov = fermitools.occ.fock_block(
+            hxy=h[o, v], goxoy=g[o, o, o, v], m1oo=m1[o, o],
+            gxvyv=g[o, v, v, v], m1vv=m1[v, v])
+    fvv = fermitools.occ.fock_block(
+            hxy=h[v, v], goxoy=g[o, v, o, v], m1oo=m1[o, o],
+            gxvyv=g[v, v, v, v], m1vv=m1[v, v])
+    ffoo = fermitools.occ.odc12.fancy_property(foo, m1[o, o])
+    ffvv = fermitools.occ.odc12.fancy_property(fvv, m1[v, v])
     fg = fancy_repulsion(
             ffoo, ffvv, g[o, o, o, o], g[o, v, o, v], g[v, v, v, v],
             m1[o, o], m1[v, v])
     fi = fancy_mixed_interaction(
-            f[o, v], g[o, o, o, v], g[o, v, v, v], m1[o, o], m1[v, v])
+            fov, g[o, o, o, v], g[o, v, v, v], m1[o, o], m1[v, v])
 
     # Raveling operators
     v_orb_raveler = fermitools.math.raveler({0: (0, 1)})

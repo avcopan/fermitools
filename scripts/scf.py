@@ -1,5 +1,5 @@
 import numpy
-import scipy.linalg as spla
+import scipy.linalg
 
 import warnings
 
@@ -8,18 +8,6 @@ from fermitools.math import einsum
 from fermitools.math.asym import antisymmetrizer_product as asym
 
 import interfaces.psi4 as interface
-
-
-def fock(hoo, hvv, goooo, govov):
-    foo = hoo + numpy.trace(goooo, axis1=0, axis2=2)
-    fvv = hvv + numpy.trace(govov, axis1=0, axis2=2)
-    return spla.block_diag(foo, fvv)
-
-
-def singles_density(norb, nocc):
-    m1 = numpy.zeros((norb, norb))
-    m1[:nocc, :nocc] = numpy.eye(nocc)
-    return m1
 
 
 def doubles_density(m1):
@@ -49,7 +37,9 @@ def energy_functional(norb, nocc, h_aso, g_aso, c):
     no = nocc
     nv = norb - nocc
 
-    m1 = singles_density(norb=norb, nocc=nocc)
+    m1oo = numpy.eye(no)
+    m1vv = numpy.zeros((nv, nv))
+    m1 = scipy.linalg.block_diag(m1oo, m1vv)
     m2 = doubles_density(m1)
 
     def _energy(t1_flat):
@@ -57,7 +47,7 @@ def energy_functional(norb, nocc, h_aso, g_aso, c):
         gen = numpy.zeros((norb, norb))
         gen[v, o] = numpy.transpose(t1)
         gen[o, v] = -t1
-        u = spla.expm(gen)
+        u = scipy.linalg.expm(gen)
         ct = numpy.dot(c, u)
 
         h = fermitools.math.transform(h_aso, {0: ct, 1: ct})
@@ -103,30 +93,36 @@ def solve(norb, nocc, h_aso, g_aso, c_guess, niter=50, e_thresh=1e-10,
     c = c_guess
     gen = numpy.zeros((norb, norb))
 
-    m1 = singles_density(norb=norb, nocc=nocc)
+    m1oo = numpy.eye(nocc)
+    m1vv = numpy.zeros((norb - nocc, norb - nocc))
+    m1 = scipy.linalg.block_diag(m1oo, m1vv)
     m2 = doubles_density(m1)
 
     en_elec_last = 0.
     for iteration in range(niter):
         h = fermitools.math.transform(h_aso, {0: c, 1: c})
         g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
-        f = fock(h[o, o], h[v, v], g[o, o, o, o], g[o, v, o, v])
+        foo = fermitools.occ.fock_block(
+                hxy=h[o, o], goxoy=g[o, o, o, o], m1oo=m1[o, o])
+        fvv = fermitools.occ.fock_block(
+                hxy=h[v, v], goxoy=g[o, v, o, v], m1oo=m1[o, o])
 
-        e = numpy.diagonal(f)
+        eo = numpy.diagonal(foo)
+        ev = numpy.diagonal(fvv)
 
         r1 = orbital_gradient(o, v, h, g, m1, m2)
-        e1 = fermitools.math.broadcast_sum({0: +e[o], 1: -e[v]})
+        e1 = fermitools.math.broadcast_sum({0: +eo, 1: -ev})
         t1 = r1 / e1
         gen[v, o] = numpy.transpose(t1)
         gen[o, v] = -t1
-        u = spla.expm(gen)
+        u = scipy.linalg.expm(gen)
         c = numpy.dot(c, u)
 
         en_elec = electronic_energy(h, g, m1, m2)
         en_change = en_elec - en_elec_last
         en_elec_last = en_elec
 
-        r_norm = spla.norm(r1)
+        r_norm = scipy.linalg.norm(r1)
 
         converged = (numpy.fabs(en_change) < e_thresh and r_norm < r_thresh)
 
@@ -188,9 +184,9 @@ def main():
     # Orbitals
     ac, bc = interface.hf.unrestricted_orbitals(BASIS, LABELS, COORDS,
                                                 CHARGE, SPIN)
-    c_unsrt = spla.block_diag(ac, bc)
+    c_unsrt = scipy.linalg.block_diag(ac, bc)
     sortvec = fermitools.math.spinorb.ab2ov(dim=nbf, na=na, nb=nb)
-    c_unsrt = spla.block_diag(ac, bc)
+    c_unsrt = scipy.linalg.block_diag(ac, bc)
     c = fermitools.math.spinorb.sort(c_unsrt, order=sortvec, axes=(1,))
 
     en_nuc = fermitools.chem.nuc.energy(labels=LABELS, coords=COORDS)
@@ -203,7 +199,9 @@ def main():
 
     # Evaluate dipole moment as expectation value
     p = fermitools.math.transform(p_aso, {1: c, 2: c})
-    m1 = singles_density(norb=norb, nocc=nocc)
+    m1oo = numpy.eye(nocc)
+    m1vv = numpy.zeros((norb - nocc, norb - nocc))
+    m1 = scipy.linalg.block_diag(m1oo, m1vv)
     mu = numpy.array([numpy.vdot(px, m1) for px in p])
 
     # Evaluate dipole moment as energy derivative

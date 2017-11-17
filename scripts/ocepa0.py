@@ -11,10 +11,6 @@ from fermitools.math.asym import antisymmetrizer_product as asym
 import interfaces.psi4 as interface
 
 
-def fock(h, g, m1):
-    return h + numpy.tensordot(g, m1, axes=((1, 3), (0, 1)))
-
-
 def doubles_numerator(goooo, goovv, govov, gvvvv, foo, fvv, t2):
     foo = numpy.array(foo, copy=True)
     fvv = numpy.array(fvv, copy=True)
@@ -27,12 +23,6 @@ def doubles_numerator(goooo, goovv, govov, gvvvv, foo, fvv, t2):
             + 1. / 2 * einsum("klij,klab->ijab", goooo, t2)
             - asym("0/1|2/3")(einsum("kaic,jkbc->ijab", govov, t2)))
     return num2
-
-
-def singles_reference_density(norb, nocc):
-    m1_ref = numpy.zeros((norb, norb))
-    m1_ref[:nocc, :nocc] = numpy.eye(nocc)
-    return m1_ref
 
 
 def doubles_cumulant(t2):
@@ -55,10 +45,10 @@ def doubles_cumulant(t2):
     return k2
 
 
-def doubles_density(m1_ref, m1_cor, k2):
+def doubles_density(dm1, cm1, k2):
     m2 = (k2
-          + asym("0/1|2/3")(einsum('pr,qs->pqrs', m1_ref, m1_cor))
-          + asym("2/3")(einsum('pr,qs->pqrs', m1_ref, m1_ref)))
+          + asym("0/1|2/3")(einsum('pr,qs->pqrs', dm1, cm1))
+          + asym("2/3")(einsum('pr,qs->pqrs', dm1, dm1)))
     return m2
 
 
@@ -84,7 +74,9 @@ def solve(norb, nocc, h_aso, g_aso, c_guess, t2_guess, niter=50,
     v = slice(nocc, None)
 
     gen = numpy.zeros((norb, norb))
-    m1_ref = singles_reference_density(norb=norb, nocc=nocc)
+    dm1oo = numpy.eye(nocc)
+    dm1vv = numpy.zeros((norb - nocc, norb - nocc))
+    dm1 = scipy.linalg.block_diag(dm1oo, dm1vv)
 
     c = c_guess
     t2_last = t2_guess
@@ -92,23 +84,27 @@ def solve(norb, nocc, h_aso, g_aso, c_guess, t2_guess, niter=50,
     for iteration in range(niter):
         h = fermitools.math.transform(h_aso, {0: c, 1: c})
         g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
-        f = fock(h, g, m1_ref)
+        foo = fermitools.occ.fock_block(
+                hxy=h[o, o], goxoy=g[o, o, o, o], m1oo=dm1[o, o])
+        fvv = fermitools.occ.fock_block(
+                hxy=h[v, v], goxoy=g[o, v, o, v], m1oo=dm1[o, o])
 
-        e = numpy.diagonal(f)
-        e2 = fermitools.math.broadcast_sum({0: +e[o], 1: +e[o],
-                                            2: -e[v], 3: -e[v]})
+        eo = numpy.diagonal(foo)
+        ev = numpy.diagonal(fvv)
+        e2 = fermitools.math.broadcast_sum({0: +eo, 1: +eo,
+                                            2: -ev, 3: -ev})
         t2 = doubles_numerator(g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
-                               g[v, v, v, v], f[o, o], f[v, v], t2_last) / e2
+                               g[v, v, v, v], foo, fvv, t2_last) / e2
         r2 = (t2 - t2_last) * e2
         t2_last = t2
-        tm1oo, tm1vv = fermitools.occ.ocepa0.onebody_correlation_density(t2)
-        m1_cor = scipy.linalg.block_diag(tm1oo, tm1vv)
-        m1 = m1_ref + m1_cor
+        cm1oo, cm1vv = fermitools.occ.ocepa0.onebody_correlation_density(t2)
+        cm1 = scipy.linalg.block_diag(cm1oo, cm1vv)
+        m1 = dm1 + cm1
         k2 = doubles_cumulant(t2)
-        m2 = doubles_density(m1_ref, m1_cor, k2)
+        m2 = doubles_density(dm1, cm1, k2)
 
         r1 = orbital_gradient(o, v, h, g, m1, m2)
-        e1 = fermitools.math.broadcast_sum({0: +e[o], 1: -e[v]})
+        e1 = fermitools.math.broadcast_sum({0: +eo, 1: -ev})
         t1 = r1 / e1
         gen[v, o] = numpy.transpose(t1)
         gen[o, v] = -t1
@@ -147,7 +143,9 @@ def energy_functional(norb, nocc, h_aso, g_aso, c):
     nvv = nv * (nv - 1) // 2
 
     gen = numpy.zeros((norb, norb))
-    m1_ref = singles_reference_density(norb=norb, nocc=nocc)
+    dm1oo = numpy.eye(no)
+    dm1vv = numpy.zeros((nv, nv))
+    dm1 = scipy.linalg.block_diag(dm1oo, dm1vv)
 
     def _electronic_energy(t1_flat, t2_flat):
         t1 = numpy.reshape(t1_flat, (no, nv))
@@ -160,11 +158,11 @@ def energy_functional(norb, nocc, h_aso, g_aso, c):
 
         h = fermitools.math.transform(h_aso, {0: ct, 1: ct})
         g = fermitools.math.transform(g_aso, {0: ct, 1: ct, 2: ct, 3: ct})
-        tm1oo, tm1vv = fermitools.occ.ocepa0.onebody_correlation_density(t2)
-        m1_cor = scipy.linalg.block_diag(tm1oo, tm1vv)
-        m1 = m1_ref + m1_cor
+        cm1oo, cm1vv = fermitools.occ.ocepa0.onebody_correlation_density(t2)
+        cm1 = scipy.linalg.block_diag(cm1oo, cm1vv)
+        m1 = dm1 + cm1
         k2 = doubles_cumulant(t2)
-        m2 = doubles_density(m1_ref, m1_cor, k2)
+        m2 = doubles_density(dm1, cm1, k2)
 
         return electronic_energy(h, g, m1, m2)
 
@@ -344,10 +342,12 @@ def main():
     p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
     p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
     p = fermitools.math.transform(p_aso, {1: c, 2: c})
-    m1_ref = singles_reference_density(norb=norb, nocc=nocc)
-    tm1oo, tm1vv = fermitools.occ.ocepa0.onebody_correlation_density(t2)
-    m1_cor = scipy.linalg.block_diag(tm1oo, tm1vv)
-    m1 = m1_ref + m1_cor
+    dm1oo = numpy.eye(no)
+    dm1vv = numpy.zeros((nv, nv))
+    cm1oo, cm1vv = fermitools.occ.ocepa0.onebody_correlation_density(t2)
+    dm1 = scipy.linalg.block_diag(dm1oo, dm1vv)
+    cm1 = scipy.linalg.block_diag(cm1oo, cm1vv)
+    m1 = dm1 + cm1
     mu = numpy.array([numpy.vdot(px, m1) for px in p])
 
     # Evaluate dipole moment as energy derivative
