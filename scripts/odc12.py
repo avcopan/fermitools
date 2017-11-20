@@ -9,7 +9,6 @@ from fermitools.math import einsum
 from fermitools.math.asym import antisymmetrizer_product as asym
 
 import interfaces.psi4 as interface
-from .ocepa0 import doubles_numerator
 from .ocepa0 import doubles_cumulant
 from .ocepa0 import electronic_energy
 
@@ -31,7 +30,7 @@ def solve(norb, nocc, h_aso, g_aso, c_guess, t2_guess, niter=50,
     m1 = dm1
 
     c = c_guess
-    t2_last = t2_guess
+    t2 = t2_guess
     en_elec_last = 0.
     for iteration in range(niter):
         h = fermitools.math.transform(h_aso, {0: c, 1: c})
@@ -49,12 +48,10 @@ def solve(norb, nocc, h_aso, g_aso, c_guess, t2_guess, niter=50,
         efv = numpy.diagonal(ffvv)
         ef2 = fermitools.math.broadcast_sum({0: +efo, 1: +efo,
                                              2: +efv, 3: +efv})
-        t2 = (doubles_numerator(g[o, o, o, o], g[o, o, v, v],
-                                g[o, v, o, v], g[v, v, v, v],
-                                +ffoo, -ffvv, t2_last)
-              / ef2)
-        r2 = (t2 - t2_last) * ef2
-        t2_last = t2
+        r2 = fermitools.oo.odc12.twobody_amplitude_gradient(
+                g[o, o, o, o], g[o, o, v, v], g[o, v, o, v], g[v, v, v, v],
+                +ffoo, -ffvv, t2)
+        t2 = t2 + r2 / ef2
         cm1oo, cm1vv = fermitools.oo.odc12.onebody_correlation_density(t2)
         m1 = dm1 + scipy.linalg.block_diag(cm1oo, cm1vv)
         k2 = doubles_cumulant(t2)

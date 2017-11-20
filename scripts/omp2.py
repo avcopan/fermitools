@@ -7,17 +7,6 @@ from fermitools.math import einsum
 from fermitools.math.asym import antisymmetrizer_product as asym
 
 
-def doubles_numerator(goovv, foo, fvv, t2):
-    foo = numpy.array(foo, copy=True)
-    fvv = numpy.array(fvv, copy=True)
-    numpy.fill_diagonal(foo, 0.)
-    numpy.fill_diagonal(fvv, 0.)
-    num2 = (goovv
-            + asym("2/3")(einsum('ac,ijcb->ijab', fvv, t2))
-            - asym("0/1")(einsum('ki,kjab->ijab', foo, t2)))
-    return num2
-
-
 def doubles_density(dm1, cm1, k2):
     m2 = (k2
           + asym("0/1|2/3")(einsum('pr,qs->pqrs', dm1, cm1))
@@ -36,13 +25,6 @@ def doubles_cumulant(t2):
     k2[v, v, o, o] = numpy.transpose(t2)
 
     return k2
-
-
-def orbital_gradient(o, v, h, g, m1, m2):
-    fcap = (einsum('px,qx->pq', h, m1)
-            + 1. / 2 * einsum('pxyz,qxyz->pq', g, m2))
-    res1 = (numpy.transpose(fcap) - fcap)[o, v]
-    return res1
 
 
 def electronic_energy(h, g, m1, m2):
@@ -97,7 +79,9 @@ def energy_routine(basis, labels, coords, charge, spin):
         ev = numpy.diagonal(fvv)
         e2 = fermitools.math.broadcast_sum({0: +eo, 1: +eo,
                                             2: -ev, 3: -ev})
-        t2 = doubles_numerator(g[o, o, v, v], foo, fvv, t2) / e2
+        r2 = fermitools.oo.omp2.twobody_amplitude_gradient(
+                g[o, o, v, v], foo, fvv, t2)
+        t2 += r2 / e2
 
         cm1oo, cm1vv = fermitools.oo.omp2.onebody_correlation_density(t2)
         cm1 = scipy.linalg.block_diag(cm1oo, cm1vv)
@@ -105,7 +89,9 @@ def energy_routine(basis, labels, coords, charge, spin):
         k2 = doubles_cumulant(t2)
         m2 = doubles_density(dm1, cm1, k2)
 
-        r1 = orbital_gradient(o, v, h, g, m1, m2)
+        r1 = fermitools.oo.orbital_gradient(
+                h[o, v], g[o, o, o, v], g[o, v, v, v], m1[o, o], m1[v, v],
+                m2[o, o, o, o], m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v])
         e1 = fermitools.math.broadcast_sum({0: +eo, 1: -ev})
         t1 = r1 / e1
         gen[v, o] = numpy.transpose(t1)

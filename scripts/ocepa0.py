@@ -11,20 +11,6 @@ from fermitools.math.asym import antisymmetrizer_product as asym
 import interfaces.psi4 as interface
 
 
-def doubles_numerator(goooo, goovv, govov, gvvvv, foo, fvv, t2):
-    foo = numpy.array(foo, copy=True)
-    fvv = numpy.array(fvv, copy=True)
-    numpy.fill_diagonal(foo, 0.)
-    numpy.fill_diagonal(fvv, 0.)
-    num2 = (goovv
-            + asym("2/3")(einsum('ac,ijcb->ijab', fvv, t2))
-            - asym("0/1")(einsum('ki,kjab->ijab', foo, t2))
-            + 1. / 2 * einsum("abcd,ijcd->ijab", gvvvv, t2)
-            + 1. / 2 * einsum("klij,klab->ijab", goooo, t2)
-            - asym("0/1|2/3")(einsum("kaic,jkbc->ijab", govov, t2)))
-    return num2
-
-
 def doubles_cumulant(t2):
     no, _, nv, _ = t2.shape
     o = slice(None, no)
@@ -67,7 +53,7 @@ def solve(norb, nocc, h_aso, g_aso, c_guess, t2_guess, niter=50,
     dm1 = scipy.linalg.block_diag(dm1oo, dm1vv)
 
     c = c_guess
-    t2_last = t2_guess
+    t2 = t2_guess
     en_elec_last = 0.
     for iteration in range(niter):
         h = fermitools.math.transform(h_aso, {0: c, 1: c})
@@ -80,10 +66,10 @@ def solve(norb, nocc, h_aso, g_aso, c_guess, t2_guess, niter=50,
         ev = numpy.diagonal(fvv)
         e2 = fermitools.math.broadcast_sum({0: +eo, 1: +eo,
                                             2: -ev, 3: -ev})
-        t2 = doubles_numerator(g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
-                               g[v, v, v, v], foo, fvv, t2_last) / e2
-        r2 = (t2 - t2_last) * e2
-        t2_last = t2
+        r2 = fermitools.oo.ocepa0.twobody_amplitude_gradient(
+                g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
+                g[v, v, v, v], foo, fvv, t2)
+        t2 += r2 / e2
         cm1oo, cm1vv = fermitools.oo.ocepa0.onebody_correlation_density(t2)
         cm1 = scipy.linalg.block_diag(cm1oo, cm1vv)
         m1 = dm1 + cm1

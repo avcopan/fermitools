@@ -1,4 +1,5 @@
 from ..math import einsum
+from ..math.asym import antisymmetrizer_product as asm
 
 
 def onebody_correlation_density(t2):
@@ -13,3 +14,9 @@ def onebody_correlation_density(t2):
     m1oo = - 1./2 * einsum('jkab,ikab->ij', t2, t2)
     m1vv = + 1./2 * einsum('ijac,ijbc->ab', t2, t2)
     return m1oo, m1vv
+
+
+def twobody_amplitude_gradient(goovv, foo, fvv, t2):
+    return (goovv
+            + asm("2/3")(einsum('ac,ijcb->ijab', fvv, t2))
+            - asm("0/1")(einsum('ki,kjab->ijab', foo, t2)))

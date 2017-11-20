@@ -4,6 +4,7 @@ import scipy.linalg
 from ..math import broadcast_sum
 from ..math import transform
 from ..math import einsum
+from .ocepa0 import twobody_amplitude_gradient
 
 
 def fancy_property(pxx, m1xx):
@@ -46,4 +47,5 @@ def onebody_correlation_density(t2):
     return m1oo, m1vv
 
 
-__all__ = ['fancy_property', 'onebody_correlation_density']
+__all__ = ['fancy_property', 'onebody_correlation_density',
+           'twobody_amplitude_gradient']
