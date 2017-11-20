@@ -15,18 +15,6 @@ def doubles_density(m1):
     return m2
 
 
-def first_order_orbital_variation_matrix(h, g, m1, m2):
-    fc = (einsum('px,qx->pq', h, m1)
-          + 1. / 2 * einsum('pxyz,qxyz->pq', g, m2))
-    return fc
-
-
-def orbital_gradient(o, v, h, g, m1, m2):
-    fc = first_order_orbital_variation_matrix(h, g, m1, m2)
-    res1 = (numpy.transpose(fc) - fc)[o, v]
-    return res1
-
-
 def electronic_energy(h, g, m1, m2):
     return numpy.vdot(h, m1) + 1. / 4 * numpy.vdot(g, m2)
 
@@ -110,7 +98,9 @@ def solve(norb, nocc, h_aso, g_aso, c_guess, niter=50, e_thresh=1e-10,
         eo = numpy.diagonal(foo)
         ev = numpy.diagonal(fvv)
 
-        r1 = orbital_gradient(o, v, h, g, m1, m2)
+        r1 = fermitools.oo.orbital_gradient(
+                h[o, v], g[o, o, o, v], g[o, v, v, v], m1[o, o], m1[v, v],
+                m2[o, o, o, o], m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v])
         e1 = fermitools.math.broadcast_sum({0: +eo, 1: -ev})
         t1 = r1 / e1
         gen[v, o] = numpy.transpose(t1)
