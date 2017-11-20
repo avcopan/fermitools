@@ -84,9 +84,9 @@ def solve(norb, nocc, h_aso, g_aso, c_guess, t2_guess, niter=50,
     for iteration in range(niter):
         h = fermitools.math.transform(h_aso, {0: c, 1: c})
         g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
-        foo = fermitools.occ.fock_block(
+        foo = fermitools.oo.fock_block(
                 hxy=h[o, o], goxoy=g[o, o, o, o], m1oo=dm1[o, o])
-        fvv = fermitools.occ.fock_block(
+        fvv = fermitools.oo.fock_block(
                 hxy=h[v, v], goxoy=g[o, v, o, v], m1oo=dm1[o, o])
 
         eo = numpy.diagonal(foo)
@@ -97,7 +97,7 @@ def solve(norb, nocc, h_aso, g_aso, c_guess, t2_guess, niter=50,
                                g[v, v, v, v], foo, fvv, t2_last) / e2
         r2 = (t2 - t2_last) * e2
         t2_last = t2
-        cm1oo, cm1vv = fermitools.occ.ocepa0.onebody_correlation_density(t2)
+        cm1oo, cm1vv = fermitools.oo.ocepa0.onebody_correlation_density(t2)
         cm1 = scipy.linalg.block_diag(cm1oo, cm1vv)
         m1 = dm1 + cm1
         k2 = doubles_cumulant(t2)
@@ -158,7 +158,7 @@ def energy_functional(norb, nocc, h_aso, g_aso, c):
 
         h = fermitools.math.transform(h_aso, {0: ct, 1: ct})
         g = fermitools.math.transform(g_aso, {0: ct, 1: ct, 2: ct, 3: ct})
-        cm1oo, cm1vv = fermitools.occ.ocepa0.onebody_correlation_density(t2)
+        cm1oo, cm1vv = fermitools.oo.ocepa0.onebody_correlation_density(t2)
         cm1 = scipy.linalg.block_diag(cm1oo, cm1vv)
         m1 = dm1 + cm1
         k2 = doubles_cumulant(t2)
@@ -344,7 +344,7 @@ def main():
     p = fermitools.math.transform(p_aso, {1: c, 2: c})
     dm1oo = numpy.eye(no)
     dm1vv = numpy.zeros((nv, nv))
-    cm1oo, cm1vv = fermitools.occ.ocepa0.onebody_correlation_density(t2)
+    cm1oo, cm1vv = fermitools.oo.ocepa0.onebody_correlation_density(t2)
     dm1 = scipy.linalg.block_diag(dm1oo, dm1vv)
     cm1 = scipy.linalg.block_diag(cm1oo, cm1vv)
     m1 = dm1 + cm1

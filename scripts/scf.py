@@ -102,9 +102,9 @@ def solve(norb, nocc, h_aso, g_aso, c_guess, niter=50, e_thresh=1e-10,
     for iteration in range(niter):
         h = fermitools.math.transform(h_aso, {0: c, 1: c})
         g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
-        foo = fermitools.occ.fock_block(
+        foo = fermitools.oo.fock_block(
                 hxy=h[o, o], goxoy=g[o, o, o, o], m1oo=m1[o, o])
-        fvv = fermitools.occ.fock_block(
+        fvv = fermitools.oo.fock_block(
                 hxy=h[v, v], goxoy=g[o, v, o, v], m1oo=m1[o, o])
 
         eo = numpy.diagonal(foo)

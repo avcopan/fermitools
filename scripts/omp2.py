@@ -88,9 +88,9 @@ def energy_routine(basis, labels, coords, charge, spin):
     for i in range(100):
         h = fermitools.math.transform(h_aso, {0: c, 1: c})
         g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
-        foo = fermitools.occ.fock_block(
+        foo = fermitools.oo.fock_block(
                 hxy=h[o, o], goxoy=g[o, o, o, o], m1oo=dm1[o, o])
-        fvv = fermitools.occ.fock_block(
+        fvv = fermitools.oo.fock_block(
                 hxy=h[v, v], goxoy=g[o, v, o, v], m1oo=dm1[o, o])
 
         eo = numpy.diagonal(foo)
@@ -99,7 +99,7 @@ def energy_routine(basis, labels, coords, charge, spin):
                                             2: -ev, 3: -ev})
         t2 = doubles_numerator(g[o, o, v, v], foo, fvv, t2) / e2
 
-        cm1oo, cm1vv = fermitools.occ.omp2.onebody_correlation_density(t2)
+        cm1oo, cm1vv = fermitools.oo.omp2.onebody_correlation_density(t2)
         cm1 = scipy.linalg.block_diag(cm1oo, cm1vv)
         m1 = dm1 + cm1
         k2 = doubles_cumulant(t2)

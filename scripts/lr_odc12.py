@@ -305,24 +305,24 @@ def main():
     g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
     dm1oo = numpy.eye(no)
     dm1vv = numpy.zeros((nv, nv))
-    cm1oo, cm1vv = fermitools.occ.odc12.onebody_correlation_density(t2)
+    cm1oo, cm1vv = fermitools.oo.odc12.onebody_correlation_density(t2)
     dm1 = scipy.linalg.block_diag(dm1oo, dm1vv)
     cm1 = scipy.linalg.block_diag(cm1oo, cm1vv)
     m1 = dm1 + cm1
     k2 = doubles_cumulant(t2)
     m2 = doubles_density(m1, k2)
 
-    foo = fermitools.occ.fock_block(
+    foo = fermitools.oo.fock_block(
             hxy=h[o, o], goxoy=g[o, o, o, o], m1oo=m1[o, o],
             gxvyv=g[o, v, o, v], m1vv=m1[v, v])
-    fov = fermitools.occ.fock_block(
+    fov = fermitools.oo.fock_block(
             hxy=h[o, v], goxoy=g[o, o, o, v], m1oo=m1[o, o],
             gxvyv=g[o, v, v, v], m1vv=m1[v, v])
-    fvv = fermitools.occ.fock_block(
+    fvv = fermitools.oo.fock_block(
             hxy=h[v, v], goxoy=g[o, v, o, v], m1oo=m1[o, o],
             gxvyv=g[v, v, v, v], m1vv=m1[v, v])
-    ffoo = fermitools.occ.odc12.fancy_property(foo, m1[o, o])
-    ffvv = fermitools.occ.odc12.fancy_property(fvv, m1[v, v])
+    ffoo = fermitools.oo.odc12.fancy_property(foo, m1[o, o])
+    ffvv = fermitools.oo.odc12.fancy_property(fvv, m1[v, v])
     fg = fancy_repulsion(
             ffoo, ffvv, g[o, o, o, o], g[o, v, o, v], g[v, v, v, v],
             m1[o, o], m1[v, v])
@@ -398,8 +398,8 @@ def main():
     # Evaluate dipole polarizability using linear response theory
     p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
     p = fermitools.math.transform(p_aso, {1: c, 2: c})
-    fpoo = fermitools.occ.odc12.fancy_property(p[:, o, o], m1[o, o])
-    fpvv = fermitools.occ.odc12.fancy_property(p[:, v, v], m1[v, v])
+    fpoo = fermitools.oo.odc12.fancy_property(p[:, o, o], m1[o, o])
+    fpvv = fermitools.oo.odc12.fancy_property(p[:, v, v], m1[v, v])
     t_orb = v_orb_raveler(orbital_property_gradient(
             p[:, o, v], m1[o, o], m1[v, v]))
     t_amp = v_amp_raveler(amplitude_property_gradient(fpoo, -fpvv, t2))

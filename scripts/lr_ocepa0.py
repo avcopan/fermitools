@@ -258,18 +258,18 @@ def main():
     g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
     dm1oo = numpy.eye(no)
     dm1vv = numpy.zeros((nv, nv))
-    cm1oo, cm1vv = fermitools.occ.ocepa0.onebody_correlation_density(t2)
+    cm1oo, cm1vv = fermitools.oo.ocepa0.onebody_correlation_density(t2)
     dm1 = scipy.linalg.block_diag(dm1oo, dm1vv)
     cm1 = scipy.linalg.block_diag(cm1oo, cm1vv)
     m1 = dm1 + cm1
     k2 = ocepa0.doubles_cumulant(t2)
     m2 = ocepa0.doubles_density(dm1, cm1, k2)
 
-    foo = fermitools.occ.fock_block(
+    foo = fermitools.oo.fock_block(
             hxy=h[o, o], goxoy=g[o, o, o, o], m1oo=dm1[o, o])
-    fov = fermitools.occ.fock_block(
+    fov = fermitools.oo.fock_block(
             hxy=h[o, v], goxoy=g[o, o, o, v], m1oo=dm1[o, o])
-    fvv = fermitools.occ.fock_block(
+    fvv = fermitools.oo.fock_block(
             hxy=h[v, v], goxoy=g[o, v, o, v], m1oo=dm1[o, o])
 
     v_orb_raveler = fermitools.math.raveler({0: (0, 1)})
