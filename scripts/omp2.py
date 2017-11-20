@@ -27,10 +27,6 @@ def doubles_cumulant(t2):
     return k2
 
 
-def electronic_energy(h, g, m1, m2):
-    return numpy.vdot(h, m1) + 1. / 4 * numpy.vdot(g, m2)
-
-
 def energy_routine(basis, labels, coords, charge, spin):
     na = fermitools.chem.elec.count_alpha(labels, charge, spin)
     nb = fermitools.chem.elec.count_beta(labels, charge, spin)
@@ -99,12 +95,16 @@ def energy_routine(basis, labels, coords, charge, spin):
         u = scipy.linalg.expm(gen)
         c = numpy.dot(c, u)
 
-        en = electronic_energy(h, g, m1, m2) + en_nuc
+        en_elec = fermitools.oo.electronic_energy(
+                h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
+                g[v, v, v, v], m1[o, o], m1[v, v], m2[o, o, o, o],
+                m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v])
+        en = en_elec + en_nuc
         den = en - en0
         en0 = en
         print('@OMP2 {:<3d} {:20.15f} {:20.15f}'  .format(i, en, den))
 
-    return electronic_energy(h, g, m1, m2)
+    return en_elec
 
 
 def main():

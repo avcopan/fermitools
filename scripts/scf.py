@@ -15,10 +15,6 @@ def doubles_density(m1):
     return m2
 
 
-def electronic_energy(h, g, m1, m2):
-    return numpy.vdot(h, m1) + 1. / 4 * numpy.vdot(g, m2)
-
-
 def energy_functional(norb, nocc, h_aso, g_aso, c):
     o = slice(None, nocc)
     v = slice(nocc, None)
@@ -41,7 +37,11 @@ def energy_functional(norb, nocc, h_aso, g_aso, c):
         h = fermitools.math.transform(h_aso, {0: ct, 1: ct})
         g = fermitools.math.transform(g_aso, {0: ct, 1: ct, 2: ct, 3: ct})
 
-        return electronic_energy(h, g, m1, m2)
+        en_elec = fermitools.oo.electronic_energy(
+                h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
+                g[v, v, v, v], m1[o, o], m1[v, v], m2[o, o, o, o],
+                m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v])
+        return en_elec
 
     return _energy
 
@@ -108,7 +108,10 @@ def solve(norb, nocc, h_aso, g_aso, c_guess, niter=50, e_thresh=1e-10,
         u = scipy.linalg.expm(gen)
         c = numpy.dot(c, u)
 
-        en_elec = electronic_energy(h, g, m1, m2)
+        en_elec = fermitools.oo.electronic_energy(
+                h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
+                g[v, v, v, v], m1[o, o], m1[v, v], m2[o, o, o, o],
+                m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v])
         en_change = en_elec - en_elec_last
         en_elec_last = en_elec
 
@@ -134,7 +137,7 @@ def perturbed_energy_function(norb, nocc, h_aso, p_aso, g_aso, c_guess,
                               niter=50, e_thresh=1e-10, r_thresh=1e-9,
                               print_conv=False):
 
-    def electronic_energy(f=(0., 0., 0.)):
+    def _energy(f=(0., 0., 0.)):
         hp_aso = h_aso - numpy.tensordot(f, p_aso, axes=(0, 0))
         en_elec, c = solve(norb=norb, nocc=nocc, h_aso=hp_aso,
                            g_aso=g_aso, c_guess=c_guess, niter=niter,
@@ -142,7 +145,7 @@ def perturbed_energy_function(norb, nocc, h_aso, p_aso, g_aso, c_guess,
                            print_conv=print_conv)
         return en_elec
 
-    return electronic_energy
+    return _energy
 
 
 def main():

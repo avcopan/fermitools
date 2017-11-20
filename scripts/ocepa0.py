@@ -38,10 +38,6 @@ def doubles_density(dm1, cm1, k2):
     return m2
 
 
-def electronic_energy(h, g, m1, m2):
-    return numpy.vdot(h, m1) + 1. / 4 * numpy.vdot(g, m2)
-
-
 def solve(norb, nocc, h_aso, g_aso, c_guess, t2_guess, niter=50,
           e_thresh=1e-10, r_thresh=1e-9, print_conv=False):
     o = slice(None, nocc)
@@ -86,7 +82,10 @@ def solve(norb, nocc, h_aso, g_aso, c_guess, t2_guess, niter=50,
         u = scipy.linalg.expm(gen)
         c = numpy.dot(c, u)
 
-        en_elec = electronic_energy(h, g, m1, m2)
+        en_elec = fermitools.oo.electronic_energy(
+                h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
+                g[v, v, v, v], m1[o, o], m1[v, v], m2[o, o, o, o],
+                m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v])
         en_change = en_elec - en_elec_last
         en_elec_last = en_elec
 
@@ -139,7 +138,11 @@ def energy_functional(norb, nocc, h_aso, g_aso, c):
         k2 = doubles_cumulant(t2)
         m2 = doubles_density(dm1, cm1, k2)
 
-        return electronic_energy(h, g, m1, m2)
+        en_elec = fermitools.oo.electronic_energy(
+                h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
+                g[v, v, v, v], m1[o, o], m1[v, v], m2[o, o, o, o],
+                m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v])
+        return en_elec
 
     return _electronic_energy
 

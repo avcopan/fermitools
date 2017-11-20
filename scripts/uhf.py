@@ -66,12 +66,12 @@ def perturbed_energy_function(basis, labels, coords, charge, spin,
     h = interface.integrals.core_hamiltonian(basis, labels, coords)
     r = interface.integrals.repulsion(basis, labels, coords)
 
-    def electronic_energy(f=(0., 0., 0.)):
+    def _energy(f=(0., 0., 0.)):
         h_pert = h - numpy.tensordot(f, p, axes=(0, 0))
         en_elec, (ac, bc) = solve(na, nb, s, h_pert, r, e_thresh=e_thresh)
         return en_elec
 
-    return electronic_energy
+    return _energy
 
 
 def main():
