@@ -21,11 +21,6 @@ def energy_functional(norb, nocc, h_aso, g_aso, c):
     no = nocc
     nv = norb - nocc
 
-    m1oo = numpy.eye(no)
-    m1vv = numpy.zeros((nv, nv))
-    m1 = scipy.linalg.block_diag(m1oo, m1vv)
-    m2 = doubles_density(m1)
-
     def _energy(t1_flat):
         t1 = numpy.reshape(t1_flat, (no, nv))
         gen = numpy.zeros((norb, norb))
@@ -37,10 +32,7 @@ def energy_functional(norb, nocc, h_aso, g_aso, c):
         h = fermitools.math.transform(h_aso, {0: ct, 1: ct})
         g = fermitools.math.transform(g_aso, {0: ct, 1: ct, 2: ct, 3: ct})
 
-        en_elec = fermitools.oo.electronic_energy(
-                h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
-                g[v, v, v, v], m1[o, o], m1[v, v], m2[o, o, o, o],
-                m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v])
+        en_elec = fermitools.oo.hf.electronic_energy(h[o, o], g[o, o, o, o])
         return en_elec
 
     return _energy
@@ -81,26 +73,17 @@ def solve(norb, nocc, h_aso, g_aso, c_guess, niter=50, e_thresh=1e-10,
     c = c_guess
     gen = numpy.zeros((norb, norb))
 
-    m1oo = numpy.eye(nocc)
-    m1vv = numpy.zeros((norb - nocc, norb - nocc))
-    m1 = scipy.linalg.block_diag(m1oo, m1vv)
-    m2 = doubles_density(m1)
-
     en_elec_last = 0.
     for iteration in range(niter):
         h = fermitools.math.transform(h_aso, {0: c, 1: c})
         g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
-        foo = fermitools.oo.fock_block(
-                hxy=h[o, o], goxoy=g[o, o, o, o], m1oo=m1[o, o])
-        fvv = fermitools.oo.fock_block(
-                hxy=h[v, v], goxoy=g[o, v, o, v], m1oo=m1[o, o])
+        foo = fermitools.oo.hf.fock_oo(h[o, o], g[o, o, o, o])
+        fvv = fermitools.oo.hf.fock_vv(h[v, v], g[o, v, o, v])
 
         eo = numpy.diagonal(foo)
         ev = numpy.diagonal(fvv)
 
-        r1 = fermitools.oo.orbital_gradient(
-                h[o, v], g[o, o, o, v], g[o, v, v, v], m1[o, o], m1[v, v],
-                m2[o, o, o, o], m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v])
+        r1 = fermitools.oo.hf.orbital_gradient(h[o, v], g[o, o, o, v])
         e1 = fermitools.math.broadcast_sum({0: +eo, 1: -ev})
         t1 = r1 / e1
         gen[v, o] = numpy.transpose(t1)
@@ -108,10 +91,7 @@ def solve(norb, nocc, h_aso, g_aso, c_guess, niter=50, e_thresh=1e-10,
         u = scipy.linalg.expm(gen)
         c = numpy.dot(c, u)
 
-        en_elec = fermitools.oo.electronic_energy(
-                h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
-                g[v, v, v, v], m1[o, o], m1[v, v], m2[o, o, o, o],
-                m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v])
+        en_elec = fermitools.oo.hf.electronic_energy(h[o, o], g[o, o, o, o])
         en_change = en_elec - en_elec_last
         en_elec_last = en_elec
 

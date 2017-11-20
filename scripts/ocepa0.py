@@ -5,37 +5,8 @@ import functools
 import warnings
 
 import fermitools
-from fermitools.math import einsum
-from fermitools.math.asym import antisymmetrizer_product as asym
 
 import interfaces.psi4 as interface
-
-
-def doubles_cumulant(t2):
-    no, _, nv, _ = t2.shape
-    o = slice(None, no)
-    v = slice(no, None)
-
-    n = no + nv
-    k2 = numpy.zeros((n, n, n, n))
-    k2[o, o, v, v] = t2
-    k2[v, v, o, o] = numpy.transpose(t2)
-    k2[v, v, v, v] = 1./2 * einsum('klab,klcd->abcd', t2, t2)
-    k2[o, o, o, o] = 1./2 * einsum('ijcd,klcd->ijkl', t2, t2)
-    k_jabi = einsum('ikac,jkbc->jabi', t2, t2)
-    k2[o, v, v, o] = +numpy.transpose(k_jabi, (0, 1, 2, 3))
-    k2[o, v, o, v] = -numpy.transpose(k_jabi, (0, 1, 3, 2))
-    k2[v, o, v, o] = -numpy.transpose(k_jabi, (1, 0, 2, 3))
-    k2[v, o, o, v] = +numpy.transpose(k_jabi, (1, 0, 3, 2))
-
-    return k2
-
-
-def doubles_density(dm1, cm1, k2):
-    m2 = (k2
-          + asym("0/1|2/3")(einsum('pr,qs->pqrs', dm1, cm1))
-          + asym("2/3")(einsum('pr,qs->pqrs', dm1, dm1)))
-    return m2
 
 
 def solve(norb, nocc, h_aso, g_aso, c_guess, t2_guess, niter=50,
@@ -45,8 +16,6 @@ def solve(norb, nocc, h_aso, g_aso, c_guess, t2_guess, niter=50,
 
     gen = numpy.zeros((norb, norb))
     dm1oo = numpy.eye(nocc)
-    dm1vv = numpy.zeros((norb - nocc, norb - nocc))
-    dm1 = scipy.linalg.block_diag(dm1oo, dm1vv)
 
     c = c_guess
     t2 = t2_guess
@@ -54,10 +23,8 @@ def solve(norb, nocc, h_aso, g_aso, c_guess, t2_guess, niter=50,
     for iteration in range(niter):
         h = fermitools.math.transform(h_aso, {0: c, 1: c})
         g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
-        foo = fermitools.oo.fock_block(
-                hxy=h[o, o], goxoy=g[o, o, o, o], m1oo=dm1[o, o])
-        fvv = fermitools.oo.fock_block(
-                hxy=h[v, v], goxoy=g[o, v, o, v], m1oo=dm1[o, o])
+        foo = fermitools.oo.ocepa0.fock_oo(h[o, o], g[o, o, o, o])
+        fvv = fermitools.oo.ocepa0.fock_vv(h[v, v], g[o, v, o, v])
         eo = numpy.diagonal(foo)
         ev = numpy.diagonal(fvv)
         e2 = fermitools.math.broadcast_sum({0: +eo, 1: +eo,
@@ -67,14 +34,22 @@ def solve(norb, nocc, h_aso, g_aso, c_guess, t2_guess, niter=50,
                 g[v, v, v, v], foo, fvv, t2)
         t2 += r2 / e2
         cm1oo, cm1vv = fermitools.oo.ocepa0.onebody_correlation_density(t2)
-        cm1 = scipy.linalg.block_diag(cm1oo, cm1vv)
-        m1 = dm1 + cm1
-        k2 = doubles_cumulant(t2)
-        m2 = doubles_density(dm1, cm1, k2)
+        m1oo = dm1oo + cm1oo
+        m1vv = cm1vv
 
-        r1 = fermitools.oo.orbital_gradient(
-                h[o, v], g[o, o, o, v], g[o, v, v, v], m1[o, o], m1[v, v],
-                m2[o, o, o, o], m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v])
+        k2oooo = fermitools.oo.ocepa0.twobody_cumulant_oooo(t2)
+        k2oovv = fermitools.oo.ocepa0.twobody_cumulant_oovv(t2)
+        k2ovov = fermitools.oo.ocepa0.twobody_cumulant_ovov(t2)
+        k2vvvv = fermitools.oo.ocepa0.twobody_cumulant_vvvv(t2)
+
+        m2oooo = fermitools.oo.ocepa0.twobody_moment_oooo(dm1oo, cm1oo, k2oooo)
+        m2oovv = fermitools.oo.ocepa0.twobody_moment_oovv(k2oovv)
+        m2ovov = fermitools.oo.ocepa0.twobody_moment_ovov(dm1oo, cm1vv, k2ovov)
+        m2vvvv = fermitools.oo.ocepa0.twobody_moment_vvvv(k2vvvv)
+
+        r1 = fermitools.oo.ocepa0.orbital_gradient(
+                h[o, v], g[o, o, o, v], g[o, v, v, v], m1oo, m1vv,
+                m2oooo, m2oovv, m2ovov, m2vvvv)
         e1 = fermitools.math.broadcast_sum({0: +eo, 1: -ev})
         t1 = r1 / e1
         gen[v, o] = numpy.transpose(t1)
@@ -82,10 +57,10 @@ def solve(norb, nocc, h_aso, g_aso, c_guess, t2_guess, niter=50,
         u = scipy.linalg.expm(gen)
         c = numpy.dot(c, u)
 
-        en_elec = fermitools.oo.electronic_energy(
+        en_elec = fermitools.oo.ocepa0.electronic_energy(
                 h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
-                g[v, v, v, v], m1[o, o], m1[v, v], m2[o, o, o, o],
-                m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v])
+                g[v, v, v, v], m1oo, m1vv, m2oooo, m2oovv, m2ovov,
+                m2vvvv)
         en_change = en_elec - en_elec_last
         en_elec_last = en_elec
 
@@ -118,8 +93,6 @@ def energy_functional(norb, nocc, h_aso, g_aso, c):
 
     gen = numpy.zeros((norb, norb))
     dm1oo = numpy.eye(no)
-    dm1vv = numpy.zeros((nv, nv))
-    dm1 = scipy.linalg.block_diag(dm1oo, dm1vv)
 
     def _electronic_energy(t1_flat, t2_flat):
         t1 = numpy.reshape(t1_flat, (no, nv))
@@ -133,15 +106,22 @@ def energy_functional(norb, nocc, h_aso, g_aso, c):
         h = fermitools.math.transform(h_aso, {0: ct, 1: ct})
         g = fermitools.math.transform(g_aso, {0: ct, 1: ct, 2: ct, 3: ct})
         cm1oo, cm1vv = fermitools.oo.ocepa0.onebody_correlation_density(t2)
-        cm1 = scipy.linalg.block_diag(cm1oo, cm1vv)
-        m1 = dm1 + cm1
-        k2 = doubles_cumulant(t2)
-        m2 = doubles_density(dm1, cm1, k2)
+        m1oo = dm1oo + cm1oo
+        m1vv = cm1vv
+        k2oooo = fermitools.oo.ocepa0.twobody_cumulant_oooo(t2)
+        k2oovv = fermitools.oo.ocepa0.twobody_cumulant_oovv(t2)
+        k2ovov = fermitools.oo.ocepa0.twobody_cumulant_ovov(t2)
+        k2vvvv = fermitools.oo.ocepa0.twobody_cumulant_vvvv(t2)
 
-        en_elec = fermitools.oo.electronic_energy(
+        m2oooo = fermitools.oo.ocepa0.twobody_moment_oooo(dm1oo, cm1oo, k2oooo)
+        m2oovv = fermitools.oo.ocepa0.twobody_moment_oovv(k2oovv)
+        m2ovov = fermitools.oo.ocepa0.twobody_moment_ovov(dm1oo, cm1vv, k2ovov)
+        m2vvvv = fermitools.oo.ocepa0.twobody_moment_vvvv(k2vvvv)
+
+        en_elec = fermitools.oo.ocepa0.electronic_energy(
                 h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
-                g[v, v, v, v], m1[o, o], m1[v, v], m2[o, o, o, o],
-                m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v])
+                g[v, v, v, v], m1oo, m1vv, m2oooo, m2oovv, m2ovov,
+                m2vvvv)
         return en_elec
 
     return _electronic_energy

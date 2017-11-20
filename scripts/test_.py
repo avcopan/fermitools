@@ -102,19 +102,22 @@ def test__lr_scf():
     g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
     m1oo = numpy.eye(no)
     m1vv = numpy.zeros((nv, nv))
-    m1 = scipy.linalg.block_diag(m1oo, m1vv)
-    m2 = scf.doubles_density(m1)
+    m2oooo = (+ numpy.einsum('ik,jl->ijkl', m1oo, m1oo)
+              - numpy.einsum('il,jk->ijkl', m1oo, m1oo))
+    m2oovv = numpy.zeros((no, no, nv, nv))
+    m2ovov = numpy.zeros((no, nv, no, nv))
+    m2vvvv = numpy.zeros((nv, nv, nv, nv))
 
     v_raveler = fermitools.math.raveler({0: (0, 1)})
     m_raveler = fermitools.math.raveler({0: (0, 1), 1: (2, 3)})
 
     a = m_raveler(lr.orbital_hessian_diag(
             h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
-            g[v, v, v, v], m1[o, o], m1[v, v], m2[o, o, o, o], m2[o, o, v, v],
-            m2[o, v, o, v], m2[v, v, v, v]))
+            g[v, v, v, v], m1oo, m1vv, m2oooo, m2oovv,
+            m2ovov, m2vvvv))
     b = m_raveler(lr.orbital_hessian_offd(
             g[o, o, o, o], g[o, o, v, v], g[o, v, o, v], g[v, v, v, v],
-            m2[o, o, o, o], m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v]))
+            m2oooo, m2oovv, m2ovov, m2vvvv))
     w_rpa = lr.spectrum(a, b)
 
     # Compare to RPA energies posted on Crawdad
@@ -143,7 +146,7 @@ def test__lr_scf():
     p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
     p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
     p = fermitools.math.transform(p_aso, {1: c, 2: c})
-    t = v_raveler(lr.orbital_property_gradient(p[:, o, v], m1[o, o], m1[v, v]))
+    t = v_raveler(lr.orbital_property_gradient(p[:, o, v], m1oo, m1vv))
     r = lr.static_response_vector(a, b, t)
     alpha = lr.static_linear_response_function(t, r)
 
@@ -209,26 +212,28 @@ def test__lr_ocepa0_cation():
 
     # Build the diagonal orbital and amplitude Hessian
     no = nocc
-    nv = norb - nocc
     o = slice(None, nocc)
     v = slice(nocc, None)
     h = fermitools.math.transform(h_aso, {0: c, 1: c})
     g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
     dm1oo = numpy.eye(no)
-    dm1vv = numpy.zeros((nv, nv))
     cm1oo, cm1vv = fermitools.oo.ocepa0.onebody_correlation_density(t2)
-    dm1 = scipy.linalg.block_diag(dm1oo, dm1vv)
-    cm1 = scipy.linalg.block_diag(cm1oo, cm1vv)
-    m1 = dm1 + cm1
-    k2 = ocepa0.doubles_cumulant(t2)
-    m2 = ocepa0.doubles_density(dm1, cm1, k2)
+    m1oo = dm1oo + cm1oo
+    m1vv = cm1vv
 
-    foo = fermitools.oo.fock_block(
-            hxy=h[o, o], goxoy=g[o, o, o, o], m1oo=dm1[o, o])
-    fov = fermitools.oo.fock_block(
-            hxy=h[o, v], goxoy=g[o, o, o, v], m1oo=dm1[o, o])
-    fvv = fermitools.oo.fock_block(
-            hxy=h[v, v], goxoy=g[o, v, o, v], m1oo=dm1[o, o])
+    k2oooo = fermitools.oo.ocepa0.twobody_cumulant_oooo(t2)
+    k2oovv = fermitools.oo.ocepa0.twobody_cumulant_oovv(t2)
+    k2ovov = fermitools.oo.ocepa0.twobody_cumulant_ovov(t2)
+    k2vvvv = fermitools.oo.ocepa0.twobody_cumulant_vvvv(t2)
+
+    m2oooo = fermitools.oo.ocepa0.twobody_moment_oooo(dm1oo, cm1oo, k2oooo)
+    m2oovv = fermitools.oo.ocepa0.twobody_moment_oovv(k2oovv)
+    m2ovov = fermitools.oo.ocepa0.twobody_moment_ovov(dm1oo, cm1vv, k2ovov)
+    m2vvvv = fermitools.oo.ocepa0.twobody_moment_vvvv(k2vvvv)
+
+    foo = fermitools.oo.ocepa0.fock_oo(h[o, o], g[o, o, o, o])
+    fov = fermitools.oo.ocepa0.fock_oo(h[o, v], g[o, o, o, v])
+    fvv = fermitools.oo.ocepa0.fock_vv(h[v, v], g[o, v, o, v])
 
     v_orb_raveler = fermitools.math.raveler({0: (0, 1)})
     v_amp_raveler = fermitools.math.asym.megaraveler({0: ((0, 1), (2, 3))})
@@ -240,8 +245,8 @@ def test__lr_ocepa0_cation():
 
     a_orb = m_orb_raveler(lr.orbital_hessian_diag(
             h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
-            g[v, v, v, v], m1[o, o], m1[v, v], m2[o, o, o, o], m2[o, o, v, v],
-            m2[o, v, o, v], m2[v, v, v, v]))
+            g[v, v, v, v], m1oo, m1vv, m2oooo, m2oovv,
+            m2ovov, m2vvvv))
     a_mix = m_mix_raveler(lr.mixed_hessian_diag(
             fov, g[o, o, o, v], g[o, v, v, v], t2))
     a_amp = m_amp_raveler(lr.amplitude_hessian(
@@ -249,7 +254,7 @@ def test__lr_ocepa0_cation():
 
     b_orb = m_orb_raveler(lr.orbital_hessian_offd(
             g[o, o, o, o], g[o, o, v, v], g[o, v, o, v], g[v, v, v, v],
-            m2[o, o, o, o], m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v]))
+            m2oooo, m2oovv, m2ovov, m2vvvv))
     b_mix = m_mix_raveler(lr.mixed_hessian_offd(
             fov, g[o, o, o, v], g[o, v, v, v], t2))
     b_amp = lr.numpy.zeros_like(a_amp)
@@ -279,7 +284,7 @@ def test__lr_ocepa0_cation():
     p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
     p = fermitools.math.transform(p_aso, {1: c, 2: c})
     t_orb = v_orb_raveler(lr.orbital_property_gradient(
-            p[:, o, v], m1[o, o], m1[v, v]))
+            p[:, o, v], m1oo, m1vv))
     t_amp = v_amp_raveler(lr.amplitude_property_gradient(
             p[:, o, o], p[:, v, v], t2))
 
@@ -351,26 +356,28 @@ def test__lr_ocepa0_neutral():
 
     # Build the diagonal orbital and amplitude Hessian
     no = nocc
-    nv = norb - nocc
     o = slice(None, nocc)
     v = slice(nocc, None)
     h = fermitools.math.transform(h_aso, {0: c, 1: c})
     g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
     dm1oo = numpy.eye(no)
-    dm1vv = numpy.zeros((nv, nv))
     cm1oo, cm1vv = fermitools.oo.ocepa0.onebody_correlation_density(t2)
-    dm1 = scipy.linalg.block_diag(dm1oo, dm1vv)
-    cm1 = scipy.linalg.block_diag(cm1oo, cm1vv)
-    m1 = dm1 + cm1
-    k2 = ocepa0.doubles_cumulant(t2)
-    m2 = ocepa0.doubles_density(dm1, cm1, k2)
+    m1oo = dm1oo + cm1oo
+    m1vv = cm1vv
 
-    foo = fermitools.oo.fock_block(
-            hxy=h[o, o], goxoy=g[o, o, o, o], m1oo=dm1[o, o])
-    fov = fermitools.oo.fock_block(
-            hxy=h[o, v], goxoy=g[o, o, o, v], m1oo=dm1[o, o])
-    fvv = fermitools.oo.fock_block(
-            hxy=h[v, v], goxoy=g[o, v, o, v], m1oo=dm1[o, o])
+    k2oooo = fermitools.oo.ocepa0.twobody_cumulant_oooo(t2)
+    k2oovv = fermitools.oo.ocepa0.twobody_cumulant_oovv(t2)
+    k2ovov = fermitools.oo.ocepa0.twobody_cumulant_ovov(t2)
+    k2vvvv = fermitools.oo.ocepa0.twobody_cumulant_vvvv(t2)
+
+    m2oooo = fermitools.oo.ocepa0.twobody_moment_oooo(dm1oo, cm1oo, k2oooo)
+    m2oovv = fermitools.oo.ocepa0.twobody_moment_oovv(k2oovv)
+    m2ovov = fermitools.oo.ocepa0.twobody_moment_ovov(dm1oo, cm1vv, k2ovov)
+    m2vvvv = fermitools.oo.ocepa0.twobody_moment_vvvv(k2vvvv)
+
+    foo = fermitools.oo.ocepa0.fock_oo(h[o, o], g[o, o, o, o])
+    fov = fermitools.oo.ocepa0.fock_oo(h[o, v], g[o, o, o, v])
+    fvv = fermitools.oo.ocepa0.fock_vv(h[v, v], g[o, v, o, v])
 
     v_orb_raveler = fermitools.math.raveler({0: (0, 1)})
     v_amp_raveler = fermitools.math.asym.megaraveler({0: ((0, 1), (2, 3))})
@@ -382,8 +389,8 @@ def test__lr_ocepa0_neutral():
 
     a_orb = m_orb_raveler(lr.orbital_hessian_diag(
             h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
-            g[v, v, v, v], m1[o, o], m1[v, v], m2[o, o, o, o], m2[o, o, v, v],
-            m2[o, v, o, v], m2[v, v, v, v]))
+            g[v, v, v, v], m1oo, m1vv, m2oooo, m2oovv,
+            m2ovov, m2vvvv))
     a_mix = m_mix_raveler(lr.mixed_hessian_diag(
             fov, g[o, o, o, v], g[o, v, v, v], t2))
     a_amp = m_amp_raveler(lr.amplitude_hessian(
@@ -391,7 +398,7 @@ def test__lr_ocepa0_neutral():
 
     b_orb = m_orb_raveler(lr.orbital_hessian_offd(
             g[o, o, o, o], g[o, o, v, v], g[o, v, o, v], g[v, v, v, v],
-            m2[o, o, o, o], m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v]))
+            m2oooo, m2oovv, m2ovov, m2vvvv))
     b_mix = m_mix_raveler(lr.mixed_hessian_offd(
             fov, g[o, o, o, v], g[o, v, v, v], t2))
     b_amp = lr.numpy.zeros_like(a_amp)
@@ -421,7 +428,7 @@ def test__lr_ocepa0_neutral():
     p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
     p = fermitools.math.transform(p_aso, {1: c, 2: c})
     t_orb = v_orb_raveler(lr.orbital_property_gradient(
-            p[:, o, v], m1[o, o], m1[v, v]))
+            p[:, o, v], m1oo, m1vv))
     t_amp = v_amp_raveler(lr.amplitude_property_gradient(
             p[:, o, o], p[:, v, v], t2))
 
@@ -484,7 +491,7 @@ def test__lr_odc12_cation():
     c_unsrt = scipy.linalg.block_diag(ac, bc)
     c = fermitools.math.spinorb.sort(c_unsrt, order=sortvec, axes=(1,))
 
-    # Solve OCEPA0
+    # Solve ODC12
     t2_guess = numpy.zeros((nocc, nocc, norb-nocc, norb-nocc))
     en_elec, c, t2 = odc12.solve(
             norb=norb, nocc=nocc, h_aso=h_aso, g_aso=g_aso, c_guess=c,
@@ -493,36 +500,41 @@ def test__lr_odc12_cation():
 
     # Build the diagonal orbital and amplitude Hessian
     no = nocc
-    nv = norb - nocc
     h = fermitools.math.transform(h_aso, {0: c, 1: c})
     g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
     dm1oo = numpy.eye(no)
-    dm1vv = numpy.zeros((nv, nv))
-    cm1oo, cm1vv = fermitools.oo.odc12.onebody_correlation_density(t2)
-    dm1 = scipy.linalg.block_diag(dm1oo, dm1vv)
-    cm1 = scipy.linalg.block_diag(cm1oo, cm1vv)
-    m1 = dm1 + cm1
-    k2 = odc12.doubles_cumulant(t2)
-    m2 = odc12.doubles_density(m1, k2)
+    cm1oo, m1vv = fermitools.oo.odc12.onebody_correlation_density(t2)
+    m1oo = dm1oo + cm1oo
+    k2oooo = fermitools.oo.odc12.twobody_cumulant_oooo(t2)
+    k2oovv = fermitools.oo.odc12.twobody_cumulant_oovv(t2)
+    k2ovov = fermitools.oo.odc12.twobody_cumulant_ovov(t2)
+    k2vvvv = fermitools.oo.odc12.twobody_cumulant_vvvv(t2)
+    m2oooo = fermitools.oo.odc12.twobody_moment_oooo(m1oo, k2oooo)
+    m2oovv = fermitools.oo.odc12.twobody_moment_oovv(k2oovv)
+    m2ovov = fermitools.oo.odc12.twobody_moment_ovov(m1oo, m1vv, k2ovov)
+    m2vvvv = fermitools.oo.odc12.twobody_moment_vvvv(m1vv, k2vvvv)
 
     o = slice(None, nocc)
     v = slice(nocc, None)
-    foo = fermitools.oo.fock_block(
-            hxy=h[o, o], goxoy=g[o, o, o, o], m1oo=m1[o, o],
-            gxvyv=g[o, v, o, v], m1vv=m1[v, v])
-    fov = fermitools.oo.fock_block(
-            hxy=h[o, v], goxoy=g[o, o, o, v], m1oo=m1[o, o],
-            gxvyv=g[o, v, v, v], m1vv=m1[v, v])
-    fvv = fermitools.oo.fock_block(
-            hxy=h[v, v], goxoy=g[o, v, o, v], m1oo=m1[o, o],
-            gxvyv=g[v, v, v, v], m1vv=m1[v, v])
-    ffoo = fermitools.oo.odc12.fancy_property(foo, m1[o, o])
-    ffvv = fermitools.oo.odc12.fancy_property(fvv, m1[v, v])
+    foo = fermitools.oo.odc12.fock_oo(
+            h[o, o], g[o, o, o, o], g[o, v, o, v], m1oo, m1vv)
+    fov = fermitools.oo.odc12.fock_oo(
+            h[o, v], g[o, o, o, v], g[o, v, v, v], m1oo, m1vv)
+    fvv = fermitools.oo.odc12.fock_vv(
+            h[v, v], g[o, v, o, v], g[v, v, v, v], m1oo, m1vv)
+    foo = fermitools.oo.odc12.fock_oo(
+            h[o, o], g[o, o, o, o], g[o, v, o, v], m1oo, m1vv)
+    fov = fermitools.oo.odc12.fock_oo(
+            h[o, v], g[o, o, o, v], g[o, v, v, v], m1oo, m1vv)
+    fvv = fermitools.oo.odc12.fock_vv(
+            h[v, v], g[o, v, o, v], g[v, v, v, v], m1oo, m1vv)
+    ffoo = fermitools.oo.odc12.fancy_property(foo, m1oo)
+    ffvv = fermitools.oo.odc12.fancy_property(fvv, m1vv)
     fg = lr.fancy_repulsion(
             ffoo, ffvv, g[o, o, o, o], g[o, v, o, v], g[v, v, v, v],
-            m1[o, o], m1[v, v])
+            m1oo, m1vv)
     fi = lr.fancy_mixed_interaction(
-            fov, g[o, o, o, v], g[o, v, v, v], m1[o, o], m1[v, v])
+            fov, g[o, o, o, v], g[o, v, v, v], m1oo, m1vv)
 
     # Raveling operators
     v_orb_raveler = fermitools.math.raveler({0: (0, 1)})
@@ -535,8 +547,8 @@ def test__lr_odc12_cation():
 
     a_orb = m_orb_raveler(lr.orbital_hessian_diag(
             h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
-            g[v, v, v, v], m1[o, o], m1[v, v], m2[o, o, o, o], m2[o, o, v, v],
-            m2[o, v, o, v], m2[v, v, v, v]))
+            g[v, v, v, v], m1oo, m1vv, m2oooo, m2oovv,
+            m2ovov, m2vvvv))
     a_mix = m_mix_raveler(lr.mixed_hessian_diag(
             g[o, o, o, v], g[o, v, v, v], fi['o,o'], fi['v,v'], t2))
     a_amp = m_amp_raveler(lr.amplitude_hessian_diag(
@@ -544,7 +556,7 @@ def test__lr_odc12_cation():
             fg['o,o,o,o'], fg['o,v,o,v'], fg['v,v,v,v'], t2))
     b_orb = m_orb_raveler(lr.orbital_hessian_offd(
             g[o, o, o, o], g[o, o, v, v], g[o, v, o, v], g[v, v, v, v],
-            m2[o, o, o, o], m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v]))
+            m2oooo, m2oovv, m2ovov, m2vvvv))
     b_mix = m_mix_raveler(lr.mixed_hessian_offd(
             g[o, o, o, v], g[o, v, v, v], fi['o,o'], fi['v,v'], t2))
     b_amp = m_amp_raveler(lr.amplitude_hessian_offd(
@@ -574,10 +586,10 @@ def test__lr_odc12_cation():
     p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
     p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
     p = fermitools.math.transform(p_aso, {1: c, 2: c})
-    fpoo = fermitools.oo.odc12.fancy_property(p[:, o, o], m1[o, o])
-    fpvv = fermitools.oo.odc12.fancy_property(p[:, v, v], m1[v, v])
+    fpoo = fermitools.oo.odc12.fancy_property(p[:, o, o], m1oo)
+    fpvv = fermitools.oo.odc12.fancy_property(p[:, v, v], m1vv)
     t_orb = v_orb_raveler(lr.orbital_property_gradient(
-            p[:, o, v], m1[o, o], m1[v, v]))
+            p[:, o, v], m1oo, m1vv))
     t_amp = v_amp_raveler(lr.amplitude_property_gradient(fpoo, -fpvv, t2))
 
     a = numpy.bmat([[a_orb, a_mix], [a_mix.T, a_amp]])
@@ -648,36 +660,35 @@ def test__lr_odc12_neutral():
 
     # Build the diagonal orbital and amplitude Hessian
     no = nocc
-    nv = norb - nocc
     h = fermitools.math.transform(h_aso, {0: c, 1: c})
     g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
     dm1oo = numpy.eye(no)
-    dm1vv = numpy.zeros((nv, nv))
-    cm1oo, cm1vv = fermitools.oo.odc12.onebody_correlation_density(t2)
-    dm1 = scipy.linalg.block_diag(dm1oo, dm1vv)
-    cm1 = scipy.linalg.block_diag(cm1oo, cm1vv)
-    m1 = dm1 + cm1
-    k2 = odc12.doubles_cumulant(t2)
-    m2 = odc12.doubles_density(m1, k2)
+    cm1oo, m1vv = fermitools.oo.odc12.onebody_correlation_density(t2)
+    m1oo = dm1oo + cm1oo
+    k2oooo = fermitools.oo.odc12.twobody_cumulant_oooo(t2)
+    k2oovv = fermitools.oo.odc12.twobody_cumulant_oovv(t2)
+    k2ovov = fermitools.oo.odc12.twobody_cumulant_ovov(t2)
+    k2vvvv = fermitools.oo.odc12.twobody_cumulant_vvvv(t2)
+    m2oooo = fermitools.oo.odc12.twobody_moment_oooo(m1oo, k2oooo)
+    m2oovv = fermitools.oo.odc12.twobody_moment_oovv(k2oovv)
+    m2ovov = fermitools.oo.odc12.twobody_moment_ovov(m1oo, m1vv, k2ovov)
+    m2vvvv = fermitools.oo.odc12.twobody_moment_vvvv(m1vv, k2vvvv)
 
     o = slice(None, nocc)
     v = slice(nocc, None)
-    foo = fermitools.oo.fock_block(
-            hxy=h[o, o], goxoy=g[o, o, o, o], m1oo=m1[o, o],
-            gxvyv=g[o, v, o, v], m1vv=m1[v, v])
-    fov = fermitools.oo.fock_block(
-            hxy=h[o, v], goxoy=g[o, o, o, v], m1oo=m1[o, o],
-            gxvyv=g[o, v, v, v], m1vv=m1[v, v])
-    fvv = fermitools.oo.fock_block(
-            hxy=h[v, v], goxoy=g[o, v, o, v], m1oo=m1[o, o],
-            gxvyv=g[v, v, v, v], m1vv=m1[v, v])
-    ffoo = fermitools.oo.odc12.fancy_property(foo, m1[o, o])
-    ffvv = fermitools.oo.odc12.fancy_property(fvv, m1[v, v])
+    foo = fermitools.oo.odc12.fock_oo(
+            h[o, o], g[o, o, o, o], g[o, v, o, v], m1oo, m1vv)
+    fov = fermitools.oo.odc12.fock_oo(
+            h[o, v], g[o, o, o, v], g[o, v, v, v], m1oo, m1vv)
+    fvv = fermitools.oo.odc12.fock_vv(
+            h[v, v], g[o, v, o, v], g[v, v, v, v], m1oo, m1vv)
+    ffoo = fermitools.oo.odc12.fancy_property(foo, m1oo)
+    ffvv = fermitools.oo.odc12.fancy_property(fvv, m1vv)
     fg = lr.fancy_repulsion(
             ffoo, ffvv, g[o, o, o, o], g[o, v, o, v], g[v, v, v, v],
-            m1[o, o], m1[v, v])
+            m1oo, m1vv)
     fi = lr.fancy_mixed_interaction(
-            fov, g[o, o, o, v], g[o, v, v, v], m1[o, o], m1[v, v])
+            fov, g[o, o, o, v], g[o, v, v, v], m1oo, m1vv)
 
     # Raveling operators
     v_orb_raveler = fermitools.math.raveler({0: (0, 1)})
@@ -690,8 +701,8 @@ def test__lr_odc12_neutral():
 
     a_orb = m_orb_raveler(lr.orbital_hessian_diag(
             h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
-            g[v, v, v, v], m1[o, o], m1[v, v], m2[o, o, o, o], m2[o, o, v, v],
-            m2[o, v, o, v], m2[v, v, v, v]))
+            g[v, v, v, v], m1oo, m1vv, m2oooo, m2oovv,
+            m2ovov, m2vvvv))
     a_mix = m_mix_raveler(lr.mixed_hessian_diag(
             g[o, o, o, v], g[o, v, v, v], fi['o,o'], fi['v,v'], t2))
     a_amp = m_amp_raveler(lr.amplitude_hessian_diag(
@@ -699,7 +710,7 @@ def test__lr_odc12_neutral():
             fg['o,o,o,o'], fg['o,v,o,v'], fg['v,v,v,v'], t2))
     b_orb = m_orb_raveler(lr.orbital_hessian_offd(
             g[o, o, o, o], g[o, o, v, v], g[o, v, o, v], g[v, v, v, v],
-            m2[o, o, o, o], m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v]))
+            m2oooo, m2oovv, m2ovov, m2vvvv))
     b_mix = m_mix_raveler(lr.mixed_hessian_offd(
             g[o, o, o, v], g[o, v, v, v], fi['o,o'], fi['v,v'], t2))
     b_amp = m_amp_raveler(lr.amplitude_hessian_offd(
@@ -729,10 +740,10 @@ def test__lr_odc12_neutral():
     p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
     p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
     p = fermitools.math.transform(p_aso, {1: c, 2: c})
-    fpoo = fermitools.oo.odc12.fancy_property(p[:, o, o], m1[o, o])
-    fpvv = fermitools.oo.odc12.fancy_property(p[:, v, v], m1[v, v])
+    fpoo = fermitools.oo.odc12.fancy_property(p[:, o, o], m1oo)
+    fpvv = fermitools.oo.odc12.fancy_property(p[:, v, v], m1vv)
     t_orb = v_orb_raveler(lr.orbital_property_gradient(
-            p[:, o, v], m1[o, o], m1[v, v]))
+            p[:, o, v], m1oo, m1vv))
     t_amp = v_amp_raveler(lr.amplitude_property_gradient(fpoo, -fpvv, t2))
 
     a = numpy.bmat([[a_orb, a_mix], [a_mix.T, a_amp]])

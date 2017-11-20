@@ -3,28 +3,6 @@ import interfaces.psi4 as interface
 
 import numpy
 import scipy.linalg
-from fermitools.math import einsum
-from fermitools.math.asym import antisymmetrizer_product as asym
-
-
-def doubles_density(dm1, cm1, k2):
-    m2 = (k2
-          + asym("0/1|2/3")(einsum('pr,qs->pqrs', dm1, cm1))
-          + asym("2/3")(einsum('pr,qs->pqrs', dm1, dm1)))
-    return m2
-
-
-def doubles_cumulant(t2):
-    no, _, nv, _ = t2.shape
-    n = no + nv
-    o = slice(None, no)
-    v = slice(no, None)
-
-    k2 = numpy.zeros((n, n, n, n))
-    k2[o, o, v, v] = t2
-    k2[v, v, o, o] = numpy.transpose(t2)
-
-    return k2
 
 
 def energy_routine(basis, labels, coords, charge, spin):
@@ -33,7 +11,6 @@ def energy_routine(basis, labels, coords, charge, spin):
     n = na + nb
     nocc = n
     nbf = interface.integrals.nbf(basis, labels)
-    norb = 2 * nbf
     o = slice(None, n)
     v = slice(n, None)
 
@@ -57,8 +34,6 @@ def energy_routine(basis, labels, coords, charge, spin):
 
     gen = numpy.zeros((2 * nbf, 2 * nbf))
     dm1oo = numpy.eye(nocc)
-    dm1vv = numpy.zeros((norb - nocc, norb - nocc))
-    dm1 = scipy.linalg.block_diag(dm1oo, dm1vv)
     t2 = numpy.zeros_like(g_aso[o, o, v, v])
 
     en_nuc = fermitools.chem.nuc.energy(labels=labels, coords=coords)
@@ -66,10 +41,8 @@ def energy_routine(basis, labels, coords, charge, spin):
     for i in range(100):
         h = fermitools.math.transform(h_aso, {0: c, 1: c})
         g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
-        foo = fermitools.oo.fock_block(
-                hxy=h[o, o], goxoy=g[o, o, o, o], m1oo=dm1[o, o])
-        fvv = fermitools.oo.fock_block(
-                hxy=h[v, v], goxoy=g[o, v, o, v], m1oo=dm1[o, o])
+        foo = fermitools.oo.omp2.fock_oo(h[o, o], g[o, o, o, o])
+        fvv = fermitools.oo.omp2.fock_vv(h[v, v], g[o, v, o, v])
 
         eo = numpy.diagonal(foo)
         ev = numpy.diagonal(fvv)
@@ -80,14 +53,15 @@ def energy_routine(basis, labels, coords, charge, spin):
         t2 += r2 / e2
 
         cm1oo, cm1vv = fermitools.oo.omp2.onebody_correlation_density(t2)
-        cm1 = scipy.linalg.block_diag(cm1oo, cm1vv)
-        m1 = dm1 + cm1
-        k2 = doubles_cumulant(t2)
-        m2 = doubles_density(dm1, cm1, k2)
+        m1oo = dm1oo + cm1oo
+        m1vv = cm1vv
+        m2oooo = fermitools.oo.omp2.twobody_moment_oooo(dm1oo, cm1oo)
+        m2oovv = fermitools.oo.omp2.twobody_moment_oovv(t2)
+        m2ovov = fermitools.oo.omp2.twobody_moment_ovov(dm1oo, cm1vv)
 
-        r1 = fermitools.oo.orbital_gradient(
-                h[o, v], g[o, o, o, v], g[o, v, v, v], m1[o, o], m1[v, v],
-                m2[o, o, o, o], m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v])
+        r1 = fermitools.oo.omp2.orbital_gradient(
+                h[o, v], g[o, o, o, v], g[o, v, v, v], m1oo, m1vv, m2oooo,
+                m2oovv, m2ovov)
         e1 = fermitools.math.broadcast_sum({0: +eo, 1: -ev})
         t1 = r1 / e1
         gen[v, o] = numpy.transpose(t1)
@@ -95,10 +69,9 @@ def energy_routine(basis, labels, coords, charge, spin):
         u = scipy.linalg.expm(gen)
         c = numpy.dot(c, u)
 
-        en_elec = fermitools.oo.electronic_energy(
+        en_elec = fermitools.oo.omp2.electronic_energy(
                 h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
-                g[v, v, v, v], m1[o, o], m1[v, v], m2[o, o, o, o],
-                m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v])
+                m1oo, m1vv, m2oooo, m2oovv, m2ovov)
         en = en_elec + en_nuc
         den = en - en0
         en0 = en

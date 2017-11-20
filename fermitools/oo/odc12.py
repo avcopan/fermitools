@@ -4,7 +4,67 @@ import scipy.linalg
 from ..math import broadcast_sum
 from ..math import transform
 from ..math import einsum
-from .ocepa0 import twobody_amplitude_gradient
+from ..math.asym import antisymmetrizer_product as asm
+from .ocepa0 import (twobody_cumulant_oooo, twobody_cumulant_oovv,
+                     twobody_cumulant_ovov, twobody_cumulant_vvvv)
+from .ocepa0 import electronic_energy
+from .ocepa0 import orbital_gradient, twobody_amplitude_gradient
+
+
+def onebody_correlation_density(t2):
+    """ the one-body correlation density matrix
+
+    :param t2: two-body amplitudes
+    :type t2: numpy.ndarray
+
+    :returns: occupied and virtual blocks of correlation density
+    :rtype: (numpy.ndarray, numpy.ndarray)
+    """
+    doo = -1./2 * einsum('ikcd,jkcd->ij', t2, t2)
+    dvv = -1./2 * einsum('klac,klbc->ab', t2, t2)
+    ioo = numpy.eye(*doo.shape)
+    ivv = numpy.eye(*dvv.shape)
+    m1oo = -1./2 * ioo + numpy.real(scipy.linalg.sqrtm(doo + 1./4 * ioo))
+    m1vv = +1./2 * ivv - numpy.real(scipy.linalg.sqrtm(dvv + 1./4 * ivv))
+    return m1oo, m1vv
+
+
+def _twobody_moment_xxxx(m1xx, k2xxxx):
+    return k2xxxx + asm("2/3")(einsum('xz,yw->xyzw', m1xx, m1xx))
+
+
+def twobody_moment_oooo(m1oo, k2oooo):
+    return _twobody_moment_xxxx(m1oo, k2oooo)
+
+
+def twobody_moment_oovv(k2oovv):
+    return k2oovv
+
+
+def twobody_moment_ovov(m1oo, m1vv, k2ovov):
+    return k2ovov + einsum('ij,ab->iajb', m1oo, m1vv)
+
+
+def twobody_moment_vvvv(m1vv, k2vvvv):
+    return _twobody_moment_xxxx(m1vv, k2vvvv)
+
+
+def fock_oo(hoo, goooo, govov, m1oo, m1vv):
+    return (hoo
+            + numpy.tensordot(goooo, m1oo, axes=((0, 2), (0, 1)))
+            + numpy.tensordot(govov, m1vv, axes=((1, 3), (0, 1))))
+
+
+def fock_ov(hov, gooov, govvv, m1oo, m1vv):
+    return (hov
+            + numpy.tensordot(gooov, m1oo, axes=((0, 2), (0, 1)))
+            + numpy.tensordot(govvv, m1vv, axes=((1, 3), (0, 1))))
+
+
+def fock_vv(hvv, govov, gvvvv, m1oo, m1vv):
+    return (hvv
+            + numpy.tensordot(govov, m1oo, axes=((0, 2), (0, 1)))
+            + numpy.tensordot(gvvvv, m1vv, axes=((1, 3), (0, 1))))
 
 
 def fancy_property(pxx, m1xx):
@@ -29,23 +89,10 @@ def fancy_property(pxx, m1xx):
     return fpxx
 
 
-def onebody_correlation_density(t2):
-    """ the one-body correlation density matrix
-
-    :param t2: two-body amplitudes
-    :type t2: numpy.ndarray
-
-    :returns: occupied and virtual blocks of correlation density
-    :rtype: (numpy.ndarray, numpy.ndarray)
-    """
-    doo = -1./2 * einsum('ikcd,jkcd->ij', t2, t2)
-    dvv = -1./2 * einsum('klac,klbc->ab', t2, t2)
-    ioo = numpy.eye(*doo.shape)
-    ivv = numpy.eye(*dvv.shape)
-    m1oo = -1./2 * ioo + numpy.real(scipy.linalg.sqrtm(doo + 1./4 * ioo))
-    m1vv = +1./2 * ivv - numpy.real(scipy.linalg.sqrtm(dvv + 1./4 * ivv))
-    return m1oo, m1vv
-
-
-__all__ = ['fancy_property', 'onebody_correlation_density',
-           'twobody_amplitude_gradient']
+__all__ = [
+        'onebody_correlation_density', 'twobody_cumulant_oooo',
+        'twobody_cumulant_oovv', 'twobody_cumulant_ovov',
+        'twobody_cumulant_vvvv', 'twobody_moment_oooo', 'twobody_moment_oovv',
+        'twobody_moment_ovov', 'twobody_moment_vvvv', 'electronic_energy',
+        'fock_oo', 'fock_ov', 'fock_vv', 'fancy_property', 'orbital_gradient',
+        'twobody_amplitude_gradient']

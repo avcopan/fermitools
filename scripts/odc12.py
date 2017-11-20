@@ -5,16 +5,8 @@ import functools
 import warnings
 
 import fermitools
-from fermitools.math import einsum
-from fermitools.math.asym import antisymmetrizer_product as asym
 
 import interfaces.psi4 as interface
-from .ocepa0 import doubles_cumulant
-
-
-def doubles_density(m1, k2):
-    m2 = k2 + asym("2/3")(einsum('pr,qs->pqrs', m1, m1))
-    return m2
 
 
 def solve(norb, nocc, h_aso, g_aso, c_guess, t2_guess, niter=50,
@@ -23,10 +15,8 @@ def solve(norb, nocc, h_aso, g_aso, c_guess, t2_guess, niter=50,
     v = slice(nocc, None)
 
     gen = numpy.zeros((norb, norb))
-    dm1oo = numpy.eye(nocc)
-    dm1vv = numpy.zeros((norb - nocc, norb - nocc))
-    dm1 = scipy.linalg.block_diag(dm1oo, dm1vv)
-    m1 = dm1
+    m1oo = dm1oo = numpy.eye(nocc)
+    m1vv = numpy.zeros((norb - nocc, norb - nocc))
 
     c = c_guess
     t2 = t2_guess
@@ -34,14 +24,12 @@ def solve(norb, nocc, h_aso, g_aso, c_guess, t2_guess, niter=50,
     for iteration in range(niter):
         h = fermitools.math.transform(h_aso, {0: c, 1: c})
         g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
-        foo = fermitools.oo.fock_block(
-                hxy=h[o, o], goxoy=g[o, o, o, o], m1oo=m1[o, o],
-                gxvyv=g[o, v, o, v], m1vv=m1[v, v])
-        fvv = fermitools.oo.fock_block(
-                hxy=h[v, v], goxoy=g[o, v, o, v], m1oo=m1[o, o],
-                gxvyv=g[v, v, v, v], m1vv=m1[v, v])
-        ffoo = fermitools.oo.odc12.fancy_property(foo, m1[o, o])
-        ffvv = fermitools.oo.odc12.fancy_property(fvv, m1[v, v])
+        foo = fermitools.oo.odc12.fock_oo(
+                h[o, o], g[o, o, o, o], g[o, v, o, v], m1oo, m1vv)
+        fvv = fermitools.oo.odc12.fock_vv(
+                h[v, v], g[o, v, o, v], g[v, v, v, v], m1oo, m1vv)
+        ffoo = fermitools.oo.odc12.fancy_property(foo, m1oo)
+        ffvv = fermitools.oo.odc12.fancy_property(fvv, m1vv)
 
         efo = numpy.diagonal(ffoo)
         efv = numpy.diagonal(ffvv)
@@ -51,22 +39,26 @@ def solve(norb, nocc, h_aso, g_aso, c_guess, t2_guess, niter=50,
                 g[o, o, o, o], g[o, o, v, v], g[o, v, o, v], g[v, v, v, v],
                 +ffoo, -ffvv, t2)
         t2 = t2 + r2 / ef2
-        cm1oo, cm1vv = fermitools.oo.odc12.onebody_correlation_density(t2)
-        m1 = dm1 + scipy.linalg.block_diag(cm1oo, cm1vv)
-        k2 = doubles_cumulant(t2)
-        m2 = doubles_density(m1, k2)
+        cm1oo, m1vv = fermitools.oo.odc12.onebody_correlation_density(t2)
+        m1oo = dm1oo + cm1oo
+        k2oooo = fermitools.oo.odc12.twobody_cumulant_oooo(t2)
+        k2oovv = fermitools.oo.odc12.twobody_cumulant_oovv(t2)
+        k2ovov = fermitools.oo.odc12.twobody_cumulant_ovov(t2)
+        k2vvvv = fermitools.oo.odc12.twobody_cumulant_vvvv(t2)
+        m2oooo = fermitools.oo.odc12.twobody_moment_oooo(m1oo, k2oooo)
+        m2oovv = fermitools.oo.odc12.twobody_moment_oovv(k2oovv)
+        m2ovov = fermitools.oo.odc12.twobody_moment_ovov(m1oo, m1vv, k2ovov)
+        m2vvvv = fermitools.oo.odc12.twobody_moment_vvvv(m1vv, k2vvvv)
 
-        foo = fermitools.oo.fock_block(
-                hxy=h[o, o], goxoy=g[o, o, o, o], m1oo=m1[o, o],
-                gxvyv=g[o, v, o, v], m1vv=m1[v, v])
-        fvv = fermitools.oo.fock_block(
-                hxy=h[v, v], goxoy=g[o, v, o, v], m1oo=m1[o, o],
-                gxvyv=g[v, v, v, v], m1vv=m1[v, v])
+        foo = fermitools.oo.odc12.fock_oo(
+                h[o, o], g[o, o, o, o], g[o, v, o, v], m1oo, m1vv)
+        fvv = fermitools.oo.odc12.fock_vv(
+                h[v, v], g[o, v, o, v], g[v, v, v, v], m1oo, m1vv)
         eo = numpy.diagonal(foo)
         ev = numpy.diagonal(fvv)
-        r1 = fermitools.oo.orbital_gradient(
-                h[o, v], g[o, o, o, v], g[o, v, v, v], m1[o, o], m1[v, v],
-                m2[o, o, o, o], m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v])
+        r1 = fermitools.oo.odc12.orbital_gradient(
+                h[o, v], g[o, o, o, v], g[o, v, v, v], m1oo, m1vv,
+                m2oooo, m2oovv, m2ovov, m2vvvv)
         e1 = fermitools.math.broadcast_sum({0: +eo, 1: -ev})
         t1 = r1 / e1
         gen[v, o] = numpy.transpose(t1)
@@ -74,10 +66,9 @@ def solve(norb, nocc, h_aso, g_aso, c_guess, t2_guess, niter=50,
         u = scipy.linalg.expm(gen)
         c = numpy.dot(c, u)
 
-        en_elec = fermitools.oo.electronic_energy(
+        en_elec = fermitools.oo.odc12.electronic_energy(
                 h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
-                g[v, v, v, v], m1[o, o], m1[v, v], m2[o, o, o, o],
-                m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v])
+                g[v, v, v, v], m1oo, m1vv, m2oooo, m2oovv, m2ovov, m2vvvv)
         en_change = en_elec - en_elec_last
         en_elec_last = en_elec
 
@@ -110,8 +101,6 @@ def energy_functional(norb, nocc, h_aso, g_aso, c):
 
     gen = numpy.zeros((norb, norb))
     dm1oo = numpy.eye(no)
-    dm1vv = numpy.zeros((nv, nv))
-    dm1 = scipy.linalg.block_diag(dm1oo, dm1vv)
 
     def _electronic_energy(t1_flat, t2_flat):
         t1 = numpy.reshape(t1_flat, (no, nv))
@@ -125,15 +114,20 @@ def energy_functional(norb, nocc, h_aso, g_aso, c):
         h = fermitools.math.transform(h_aso, {0: ct, 1: ct})
         g = fermitools.math.transform(g_aso, {0: ct, 1: ct, 2: ct, 3: ct})
 
-        cm1oo, cm1vv = fermitools.oo.odc12.onebody_correlation_density(t2)
-        m1 = dm1 + scipy.linalg.block_diag(cm1oo, cm1vv)
-        k2 = doubles_cumulant(t2)
-        m2 = doubles_density(m1, k2)
+        cm1oo, m1vv = fermitools.oo.odc12.onebody_correlation_density(t2)
+        m1oo = dm1oo + cm1oo
+        k2oooo = fermitools.oo.odc12.twobody_cumulant_oooo(t2)
+        k2oovv = fermitools.oo.odc12.twobody_cumulant_oovv(t2)
+        k2ovov = fermitools.oo.odc12.twobody_cumulant_ovov(t2)
+        k2vvvv = fermitools.oo.odc12.twobody_cumulant_vvvv(t2)
+        m2oooo = fermitools.oo.odc12.twobody_moment_oooo(m1oo, k2oooo)
+        m2oovv = fermitools.oo.odc12.twobody_moment_oovv(k2oovv)
+        m2ovov = fermitools.oo.odc12.twobody_moment_ovov(m1oo, m1vv, k2ovov)
+        m2vvvv = fermitools.oo.odc12.twobody_moment_vvvv(m1vv, k2vvvv)
 
-        en_elec = fermitools.oo.electronic_energy(
+        en_elec = fermitools.oo.odc12.electronic_energy(
                 h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
-                g[v, v, v, v], m1[o, o], m1[v, v], m2[o, o, o, o],
-                m2[o, o, v, v], m2[o, v, o, v], m2[v, v, v, v])
+                g[v, v, v, v], m1oo, m1vv, m2oooo, m2oovv, m2ovov, m2vvvv)
         return en_elec
 
     return _electronic_energy
