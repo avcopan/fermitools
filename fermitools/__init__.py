@@ -1,3 +1,3 @@
-from . import math, chem, scf, corr, oo
+from . import math, func, chem, scf, corr, oo, lr
 
-__all__ = ['math', 'chem', 'scf', 'corr', 'oo']
+__all__ = ['math', 'func', 'chem', 'scf', 'corr', 'oo', 'lr']
