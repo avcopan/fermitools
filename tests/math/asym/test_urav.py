@@ -1,4 +1,4 @@
-from fermitools.math.asym import unrav
+from fermitools.math.asym import urav
 
 import os
 import numpy
@@ -10,5 +10,5 @@ R = numpy.load(os.path.join(data_path, 'raveled.npy'))
 
 
 def test__unravel():
-    u = unrav.unravel(R, {0: (0, 4), 1: (1, 5), 2: (2, 3, 6)})
+    u = urav.unravel(R, {0: (0, 4), 1: (1, 5), 2: (2, 3, 6)})
     assert_almost_equal(u, U, decimal=10)

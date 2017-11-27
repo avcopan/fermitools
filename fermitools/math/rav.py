@@ -1,67 +1,55 @@
 import numpy
 from toolz import functoolz
+from ._ravhelper import presorter
+from ._ravhelper import resorter
+from ._ravhelper import reverse_map
+from ._ravhelper import dict_values
+from ._ravhelper import dict_keys
 
 
-# Public
-def ravel(a, ravd):
-    """ravel axes
-
-    :param a: array
-    :type a: numpy.ndarray
-    :param ravd: axes to ravel, keyed by the position of the compound axis
-    :type ravd: dict
-
-    :rtype: numpy.ndarray
-    """
-    compf = raveler(ravd)
-    return compf(a)
+def ravel(a, d):
+    ravf = raveler(d)
+    return ravf(a)
 
 
-def raveler(ravd):
-    """ravels antisymmetric axes with ravel indices
+def raveler(d):
+    """ravels axes of an array
 
-    :param ravd: axes to ravel, keyed by the position of the compound axis
-    :type ravd: dict
+    :param d: {rax1: (uax11, uax12, ...), rax2: ...}
+    :type packd: dict
 
     :rtype: typing.Callable
     """
-    npacks = len(ravd)
-    packs = ravd.values()
-    orig_axes = sum(packs, ())
-    rav_axes = ravd.keys()
+    raxes = dict_keys(d)
+    uaxes = sum(dict_values(d), ())
+    iter_nuaxes = map(len, dict_values(d))
+    ravelers = reverse_map(_raveler, iter_nuaxes)
 
-    def _preorder(a):
-        source = orig_axes
-        dest = tuple(range(len(source)))
-        return numpy.moveaxis(a, source, dest)
-
-    def _ravel(a):
-        pack_sizes = map(len, packs)
-        ravs_ = reversed(tuple(map(_raveler, pack_sizes)))
-        rav_ = functoolz.compose(*ravs_)
-        return rav_(a)
-
-    def _reorder(a):
-        source = tuple(range(a.ndim - npacks, a.ndim))
-        dest = rav_axes
-        return numpy.moveaxis(a, source, dest)
-
-    return functoolz.compose(_reorder, _ravel, _preorder)
+    presortf = presorter(src=uaxes)
+    ravf = functoolz.compose(*ravelers)
+    resortf = resorter(dst=raxes)
+    return functoolz.compose(resortf, ravf, presortf)
 
 
 # Private
-def _raveler(ndim):
+__all__ = ['ravel', 'raveler']
+
+
+def _raveler(nuaxes):
     """ravels the first n dimensions of an array and moves them to the end
 
-    :param ndim: the number of dimensions to ravel
-    :type ndim: int
+    :param nuaxes: the number of axes to ravel
+    :type nuaxes: int
 
     :rtype: typing.Callable
     """
 
     def _ravel(a):
-        shape = (numpy.product(a.shape[:ndim]),) + a.shape[ndim:]
-        a_rav = numpy.reshape(a, shape)
-        return numpy.moveaxis(a_rav, 0, -1)
+        udims, odims = numpy.split(a.shape, (nuaxes,))
+        rdims = (numpy.product(udims),)
+        rshape = numpy.concatenate((rdims, odims))
+
+        b = numpy.reshape(a, rshape)
+        return numpy.moveaxis(b, 0, -1)
 
     return _ravel

@@ -23,6 +23,8 @@ def unravel(a, packd):
 def unraveler(packd):
     """unravels antisymmetric axes with compound indices
 
+    {rax1: (uax11, uax12, ...), rax2: ...}
+
     :param packd: unraveled axis destinations, keyed by the compound axes
     :type packd: dict
 
