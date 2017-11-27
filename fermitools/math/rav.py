@@ -7,7 +7,17 @@ from ._ravhelper import dict_values
 from ._ravhelper import dict_keys
 
 
+# Public
 def ravel(a, d):
+    """ravel axes of an array
+
+    :param a: array
+    :type a: numpy.ndarray
+    :param d: {rax1: (uax11, uax12, ...), rax2: ...}
+    :type d: dict
+
+    :rtype: typing.Callable
+    """
     ravf = raveler(d)
     return ravf(a)
 
@@ -16,7 +26,7 @@ def raveler(d):
     """ravels axes of an array
 
     :param d: {rax1: (uax11, uax12, ...), rax2: ...}
-    :type packd: dict
+    :type d: dict
 
     :rtype: typing.Callable
     """

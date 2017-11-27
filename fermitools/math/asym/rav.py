@@ -1,7 +1,14 @@
 import numpy
 import itertools
-import more_itertools
 from toolz import functoolz
+from .._ravhelper import presorter
+from .._ravhelper import resorter
+from .._ravhelper import reverse_map
+from .._ravhelper import dict_values
+from .._ravhelper import dict_keys
+
+# Extra imports
+import more_itertools
 from ..rav import raveler as nsym_raveler
 
 
@@ -32,69 +39,59 @@ def megaraveler(mravd):
     return functoolz.compose(nsym_ravf, asym_ravf)
 
 
-def ravel(a, packd):
-    """ravel antisymmetric axes with compound indices
+def ravel(a, d):
+    """ravel axes of an array
 
     :param a: array
     :type a: numpy.ndarray
-    :param packd: axes to compound, keyed by the position of the target axis
-    :type packd: dict
+    :param d: {rax1: (uax11, uax12, ...), rax2: ...}
+    :type d: dict
 
-    :rtype: numpy.ndarray
+    :rtype: typing.Callable
     """
-    ravf = raveler(packd)
+    ravf = raveler(d)
     return ravf(a)
 
 
-def raveler(packd):
-    """ravels antisymmetric axes with compound indices
+def raveler(d):
+    """ravels axes of an array
 
-    :param packd: axes to compound, keyed by the position of the target axis
-    :type packd: dict
+    :param d: {rax1: (uax11, uax12, ...), rax2: ...}
+    :type d: dict
 
     :rtype: typing.Callable
     """
-    npacks = len(packd)
-    packs = packd.values()
-    orig_axes = sum(packs, ())
-    comp_axes = packd.keys()
+    raxes = dict_keys(d)
+    uaxes = sum(dict_values(d), ())
+    iter_nuaxes = map(len, dict_values(d))
+    ravelers = reverse_map(_raveler, iter_nuaxes)
 
-    def _preorder(a):
-        source = orig_axes
-        dest = tuple(range(len(source)))
-        return numpy.moveaxis(a, source, dest)
-
-    def _ravel(a):
-        pack_sizes = map(len, packs)
-        ravfs = reversed(tuple(map(_raveler, pack_sizes)))
-        ravf = functoolz.compose(*ravfs)
-        return ravf(a)
-
-    def _reorder(a):
-        source = tuple(range(a.ndim - npacks, a.ndim))
-        dest = comp_axes
-        return numpy.moveaxis(a, source, dest)
-
-    return functoolz.compose(_reorder, _ravel, _preorder)
+    presortf = presorter(src=uaxes)
+    ravf = functoolz.compose(*ravelers)
+    resortf = resorter(dst=raxes)
+    return functoolz.compose(resortf, ravf, presortf)
 
 
 # Private
-def _raveler(ndim):
-    """compounds the first n dimensions of an array and moves them to the end
+__all__ = ['ravel', 'raveler']
 
-    the compound index has the form (ijk...) where i<j<k<..., so for
-    antisymmetric arrays this will retain all unique values
 
-    :param ndim: the number of dimensions to compound
-    :type ndim: int
+def _raveler(nuaxes):
+    """ravels the first n dimensions of an array and moves them to the end
+
+    :param nuaxes: the number of axes to ravel
+    :type nuaxes: int
 
     :rtype: typing.Callable
     """
 
     def _ravel(a):
-        assert len(set(a.shape[:ndim])) == 1
-        ix = itertools.combinations(range(a.shape[0]), ndim)
-        a_comp = a[list(zip(*ix))]
-        return numpy.moveaxis(a_comp, 0, -1)
+        udims, odims = numpy.split(a.shape, (nuaxes,))
+        udim = udims[0]
+        assert all(numpy.equal(udims, udim))
+
+        ix = itertools.combinations(range(udim), r=nuaxes)
+        b = a[tuple(zip(*ix))]
+        return numpy.moveaxis(b, 0, -1)
 
     return _ravel
