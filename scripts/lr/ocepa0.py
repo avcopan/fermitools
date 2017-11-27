@@ -38,6 +38,7 @@ c_unsrt = scipy.linalg.block_diag(ac, bc)
 sortvec = fermitools.math.spinorb.ab2ov(dim=nbf, na=na, nb=nb)
 c_unsrt = scipy.linalg.block_diag(ac, bc)
 c = fermitools.math.spinorb.sort(c_unsrt, order=sortvec, axes=(1,))
+co, cv = numpy.split(c, (nocc,), axis=1)
 
 # Solve OCEPA0
 t2_guess = numpy.zeros((nocc, nocc, norb-nocc, norb-nocc))
@@ -51,10 +52,15 @@ no = nocc
 nv = norb - nocc
 nsingles = no * nv
 ndoubles = no * (no - 1) * nv * (nv - 1) // 4
-o = slice(None, no)
-v = slice(no, None)
-h = fermitools.math.transform(h_aso, {0: c, 1: c})
-g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
+hoo = fermitools.math.transform(h_aso, {0: co, 1: co})
+hov = fermitools.math.transform(h_aso, {0: co, 1: cv})
+hvv = fermitools.math.transform(h_aso, {0: cv, 1: cv})
+goooo = fermitools.math.transform(g_aso, {0: co, 1: co, 2: co, 3: co})
+gooov = fermitools.math.transform(g_aso, {0: co, 1: co, 2: co, 3: cv})
+goovv = fermitools.math.transform(g_aso, {0: co, 1: co, 2: cv, 3: cv})
+govov = fermitools.math.transform(g_aso, {0: co, 1: cv, 2: co, 3: cv})
+govvv = fermitools.math.transform(g_aso, {0: co, 1: cv, 2: cv, 3: cv})
+gvvvv = fermitools.math.transform(g_aso, {0: cv, 1: cv, 2: cv, 3: cv})
 dm1oo = numpy.eye(no)
 cm1oo, cm1vv = fermitools.oo.ocepa0.onebody_correlation_density(t2)
 m1oo = dm1oo + cm1oo
@@ -69,25 +75,25 @@ m2oovv = fermitools.oo.ocepa0.twobody_moment_oovv(k2oovv)
 m2ovov = fermitools.oo.ocepa0.twobody_moment_ovov(dm1oo, cm1vv, k2ovov)
 m2vvvv = fermitools.oo.ocepa0.twobody_moment_vvvv(k2vvvv)
 
-foo = fermitools.oo.ocepa0.fock_oo(h[o, o], g[o, o, o, o])
-fov = fermitools.oo.ocepa0.fock_oo(h[o, v], g[o, o, o, v])
-fvv = fermitools.oo.ocepa0.fock_vv(h[v, v], g[o, v, o, v])
+foo = fermitools.oo.ocepa0.fock_oo(hoo, goooo)
+fov = fermitools.oo.ocepa0.fock_oo(hov, gooov)
+fvv = fermitools.oo.ocepa0.fock_vv(hvv, govov)
 
-v_orb_raveler = fermitools.math.raveler({0: (0, 1)})
-v_amp_raveler = fermitools.math.asym.megaraveler({0: ((0, 1), (2, 3))})
-m_orb_raveler = fermitools.math.raveler({0: (0, 1), 1: (2, 3)})
-m_mix_raveler = fermitools.math.asym.megaraveler(
+v1ravf = fermitools.math.raveler({0: (0, 1)})
+v2ravf = fermitools.math.asym.megaraveler({0: ((0, 1), (2, 3))})
+m11ravf = fermitools.math.raveler({0: (0, 1), 1: (2, 3)})
+m12ravf = fermitools.math.asym.megaraveler(
         {0: ((0,), (1,)), 1: ((2, 3), (4, 5))})
-m_amp_raveler = fermitools.math.asym.megaraveler(
+m22ravf = fermitools.math.asym.megaraveler(
         {0: ((0, 1), (2, 3)), 1: ((4, 5), (6, 7))})
 
 
-def v_orb_unraveler(r1):
+def v1uravf(r1):
     shape = (no, nv) if r1.ndim == 1 else (no, nv) + r1.shape[1:]
     return numpy.reshape(r1, shape)
 
 
-def v_amp_unraveler(r2):
+def v2uravf(r2):
     noo = no * (no - 1) // 2
     nvv = nv * (nv - 1) // 2
     shape = (noo, nvv) if r2.ndim == 1 else (noo, nvv) + r2.shape[1:]
@@ -98,55 +104,45 @@ def v_amp_unraveler(r2):
 # Evaluate dipole polarizability using linear response theory
 p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
 p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
-p = fermitools.math.transform(p_aso, {1: c, 2: c})
-t_d1 = v_orb_raveler(fermitools.lr.ocepa0.t_d1(p[:, o, v], m1oo, m1vv))
-t_d2 = v_amp_raveler(fermitools.lr.ocepa0.t_d2(p[:, o, o], p[:, v, v], t2))
+poo = fermitools.math.transform(p_aso, {1: co, 2: co})
+pov = fermitools.math.transform(p_aso, {1: co, 2: cv})
+pvv = fermitools.math.transform(p_aso, {1: cv, 2: cv})
+t_d1 = v1ravf(fermitools.lr.ocepa0.t_d1(pov, m1oo, m1vv))
+t_d2 = v2ravf(fermitools.lr.ocepa0.t_d2(poo, pvv, t2))
 
 t = numpy.concatenate((t_d1, t_d2), axis=0)
 
 a_d1d1_rf = fermitools.lr.ocepa0.a_d1d1_rf(
-        h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
-        g[v, v, v, v], m1oo, m1vv, m2oooo, m2oovv, m2ovov, m2vvvv)
+        hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv, m2oooo, m2oovv,
+        m2ovov, m2vvvv)
 b_d1d1_rf = fermitools.lr.ocepa0.b_d1d1_rf(
-        g[o, o, o, o], g[o, o, v, v], g[o, v, o, v], g[v, v, v, v],
-        m2oooo, m2oovv, m2ovov, m2vvvv)
+        goooo, goovv, govov, gvvvv, m2oooo, m2oovv, m2ovov, m2vvvv)
 s_d1d1_rf = fermitools.lr.ocepa0.s_d1d1_rf(m1oo, m1vv)
 
-a_d1d2_rf = fermitools.lr.ocepa0.a_d1d2_rf(
-        fov, g[o, o, o, v], g[o, v, v, v], t2)
-b_d1d2_rf = fermitools.lr.ocepa0.b_d1d2_rf(
-        fov, g[o, o, o, v], g[o, v, v, v], t2)
-a_d1d2_lf = fermitools.lr.ocepa0.a_d1d2_lf(
-        fov, g[o, o, o, v], g[o, v, v, v], t2)
-b_d1d2_lf = fermitools.lr.ocepa0.b_d1d2_lf(
-        fov, g[o, o, o, v], g[o, v, v, v], t2)
-a_d2d2_rf = fermitools.lr.ocepa0.a_d2d2_rf(
-        foo, fvv, g[o, o, o, o], g[o, v, o, v], g[v, v, v, v])
+a_d1d2_rf = fermitools.lr.ocepa0.a_d1d2_rf(fov, gooov, govvv, t2)
+b_d1d2_rf = fermitools.lr.ocepa0.b_d1d2_rf(fov, gooov, govvv, t2)
+a_d1d2_lf = fermitools.lr.ocepa0.a_d1d2_lf(fov, gooov, govvv, t2)
+b_d1d2_lf = fermitools.lr.ocepa0.b_d1d2_lf(fov, gooov, govvv, t2)
+a_d2d2_rf = fermitools.lr.ocepa0.a_d2d2_rf(foo, fvv, goooo, govov, gvvvv)
 
 # Orbital terms
-s_d1d1_rf = functoolz.compose(v_orb_raveler, s_d1d1_rf, v_orb_unraveler)
+s_d1d1_rf = functoolz.compose(v1ravf, s_d1d1_rf, v1uravf)
 e_sum_d1d1_rf = functoolz.compose(
-        v_orb_raveler, fermitools.func.add(a_d1d1_rf, b_d1d1_rf),
-        v_orb_unraveler)
+        v1ravf, fermitools.func.add(a_d1d1_rf, b_d1d1_rf), v1uravf)
 e_dif_d1d1_rf = functoolz.compose(
-        v_orb_raveler, fermitools.func.sub(a_d1d1_rf, b_d1d1_rf),
-        v_orb_unraveler)
+        v1ravf, fermitools.func.sub(a_d1d1_rf, b_d1d1_rf), v1uravf)
 # Mixted right terms
 e_sum_d1d2_rf = functoolz.compose(
-        v_orb_raveler, fermitools.func.add(a_d1d2_rf, b_d1d2_rf),
-        v_amp_unraveler)
+        v1ravf, fermitools.func.add(a_d1d2_rf, b_d1d2_rf), v2uravf)
 e_dif_d1d2_rf = functoolz.compose(
-        v_orb_raveler, fermitools.func.sub(a_d1d2_rf, b_d1d2_rf),
-        v_amp_unraveler)
+        v1ravf, fermitools.func.sub(a_d1d2_rf, b_d1d2_rf), v2uravf)
 # Mixed left terms
 e_sum_d1d2_lf = functoolz.compose(
-        v_amp_raveler, fermitools.func.add(a_d1d2_lf, b_d1d2_lf),
-        v_orb_unraveler)
+        v2ravf, fermitools.func.add(a_d1d2_lf, b_d1d2_lf), v1uravf)
 e_dif_d1d2_lf = functoolz.compose(
-        v_amp_raveler, fermitools.func.sub(a_d1d2_lf, b_d1d2_lf),
-        v_orb_unraveler)
+        v2ravf, fermitools.func.sub(a_d1d2_lf, b_d1d2_lf), v1uravf)
 # Amplitude terms
-e_d2d2_rf = functoolz.compose(v_amp_raveler, a_d2d2_rf, v_amp_unraveler)
+e_d2d2_rf = functoolz.compose(v2ravf, a_d2d2_rf, v2uravf)
 
 # Combined
 e_sum_rf = solvers.lr.ocepa0.e_rf(
