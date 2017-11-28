@@ -54,6 +54,9 @@ def unraveler(packd):
 
 
 # Private
+__all__ = ['unravel', 'unraveler']
+
+
 def _inverse_choose(n_choose_k, k):
 
     def lower_bound(n):
@@ -66,26 +69,16 @@ def _inverse_choose(n_choose_k, k):
     return n
 
 
-def _unraveler(ndim):
-    """unravels the first dimension of an array and moves those axes to the end
-
-    the compound index has the form (ijk...) where i<j<k<..., so for
-    antisymmetric arrays this will contain all unique values
-
-    :param shape: the shape of the unraveled dimensions
-    :type shape: tuple
-
-    :rtype: typing.Callable
-    """
+def _unraveler(nuaxes):
 
     def _unravel(a):
-        rav_dim = a.shape[0]
-        dim = _inverse_choose(rav_dim, ndim)
-        shape = (dim,) * ndim
-        ix = itertools.combinations(range(dim), ndim)
-        a_unrav_tril = numpy.zeros(shape + a.shape[1:])
-        a_unrav_tril[list(zip(*ix))] = a
-        a_unrav = antisymmetrizer(range(ndim))(a_unrav_tril)
-        return numpy.moveaxis(a_unrav, range(ndim), range(-ndim, 0))
+        (rdim,), odims = numpy.split(a.shape, (1,))
+        udim = _inverse_choose(rdim, nuaxes)
+        udims = (udim,) * nuaxes
+        b = numpy.zeros(numpy.concatenate((udims, odims)))
+        ix = tuple(zip(*itertools.combinations(range(udim), r=nuaxes)))
+        b[ix] = a
+        c = antisymmetrizer(range(nuaxes))(b)
+        return numpy.moveaxis(c, range(nuaxes), range(-nuaxes, 0))
 
     return _unravel

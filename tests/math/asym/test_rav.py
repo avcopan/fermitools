@@ -27,3 +27,12 @@ def test__ravel():
     assert b3.shape == (20, 3, 10)
     assert b4.shape == (10, 20, 3)
     assert b5.shape == (20, 10, 3)
+
+
+def test__megaravel():
+    U = numpy.random.rand(5, 4, 5, 4, 5, 6, 7, 6, 7, 1, 1)
+    ravf = rav.megaraveler({0: ((0, 2, 4), (6, 8), (10,)),
+                            1: ((1, 3), (5, 7)),
+                            2: ((9,),)})
+    r = ravf(U)
+    assert r.shape == (210, 90, 1)

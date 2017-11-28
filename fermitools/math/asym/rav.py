@@ -8,35 +8,30 @@ from .._ravhelper import dict_values
 from .._ravhelper import dict_keys
 
 # Extra imports
-import more_itertools
-from ..rav import raveler as nsym_raveler
+from ..rav import raveler as ordinary_raveler
+from ...iter import split
 
 
 # Public
-def megaraveler(mravd):
-    """ravel antisymmetric axes with compound indices, then ravel the result
+def megaraveler(d):
+    """does an antisymmetric ravel, followed by an ordinary ravel
 
-    :param mravd: tuples of tuples of axes to compound, keyed by target axis
-    :type mravd: dict
+    :param d: {rax1: ((uax111, uax112, ...), ...), rax2: ...}
+    :type d: dict
 
     :rtype: typing.Callable
     """
-    final_axes = mravd.keys()
-    mega_packs = mravd.values()
-    stops = tuple(more_itertools.accumulate(map(len, mega_packs)))
-    starts = (0,) + stops[:-1]
-    intrm_packs = tuple(
-            map(tuple, itertools.starmap(range, zip(starts, stops))))
+    # Antisymmetric ravel
+    raxes1, iter_uaxes1 = zip(*enumerate(sum(dict_values(d), ())))
+    ravf1 = raveler(dict(zip(raxes1, iter_uaxes1)))
 
-    packs = sum(mega_packs, ())
-    intrm_axes = sum(intrm_packs, ())
-    packd = dict(zip(intrm_axes, packs))
-    asym_ravf = raveler(packd)
+    # Ordinary ravel
+    raxes2 = dict_keys(d)
+    iter_nuaxes2 = map(len, dict_values(d))
+    iter_uaxes2 = split(i=raxes1, sizes=iter_nuaxes2)
+    ravf2 = ordinary_raveler(dict(zip(raxes2, iter_uaxes2)))
 
-    ravd = dict(zip(final_axes, intrm_packs))
-    nsym_ravf = nsym_raveler(ravd)
-
-    return functoolz.compose(nsym_ravf, asym_ravf)
+    return functoolz.compose(ravf2, ravf1)
 
 
 def ravel(a, d):
@@ -90,8 +85,8 @@ def _raveler(nuaxes):
         udim = udims[0]
         assert all(numpy.equal(udims, udim))
 
-        ix = itertools.combinations(range(udim), r=nuaxes)
-        b = a[tuple(zip(*ix))]
+        ix = tuple(zip(*itertools.combinations(range(udim), r=nuaxes)))
+        b = a[ix]
         return numpy.moveaxis(b, 0, -1)
 
     return _ravel
