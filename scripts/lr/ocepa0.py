@@ -18,6 +18,8 @@ LABELS = ('O', 'H', 'H')
 COORDS = ((0.000000000000,  0.000000000000, -0.143225816552),
           (0.000000000000,  1.638036840407,  1.136548822547),
           (0.000000000000, -1.638036840407,  1.136548822547))
+ALPHA_DIAG = numpy.load(os.path.join(data_path,
+                                     'cation/ocepa0/alpha_diag.npy'))
 EN_DF2 = numpy.load(os.path.join(data_path, 'cation/ocepa0/en_df2.npy'))
 
 
@@ -51,6 +53,10 @@ def _main():
             norb=norb, nocc=nocc, h_aso=h_aso, g_aso=g_aso, c_guess=c,
             t2_guess=t2_guess, niter=200, e_thresh=1e-14, r_thresh=1e-13,
             print_conv=True)
+    en_nuc = fermitools.chem.nuc.energy(labels=LABELS, coords=COORDS)
+    en_tot = en_elec + en_nuc
+    print("\nGround state energy:")
+    print('{:20.15f}'.format(en_tot))
     co, cv = numpy.split(c, (nocc,), axis=1)
 
     # Build the diagonal orbital and amplitude Hessian
@@ -161,7 +167,10 @@ def _main():
     alpha = numpy.tensordot(r, t, axes=(0, 0))
     print(alpha.round(8))
 
-    assert_almost_equal(EN_DF2, numpy.diag(alpha), decimal=9)
+    assert_almost_equal(EN_DF2, numpy.diag(alpha), decimal=8)
+    # numpy.save(os.path.join(data_path, 'cation/ocepa0/alpha_diag.npy'),
+    #            numpy.diag(alpha))
+    assert_almost_equal(ALPHA_DIAG, numpy.diag(alpha), decimal=11)
 
     # Excitation energies
     e_eff_ = scipy.sparse.linalg.LinearOperator((n, n), matvec=e_eff_rf)

@@ -93,6 +93,15 @@ def _main():
 
     assert_almost_equal(EN_DF, -mu, decimal=10)
 
+    # en_f = solvers.oo.odc12.field_energy_solver(
+    #         norb=norb, nocc=nocc, h_aso=h_aso, p_aso=p_aso, g_aso=g_aso,
+    #         c_guess=c, t2_guess=t2, niter=200, e_thresh=1e-13, r_thresh=1e-9,
+    #         print_conv=True)
+    # en_df2 = fermitools.math.central_difference(en_f, (0., 0., 0.), nder=2,
+    #                                             step=0.005, npts=29)
+    # print(en_df2)
+    # numpy.save('en_df2', en_df2)
+
 
 if __name__ == '__main__':
     _main()
