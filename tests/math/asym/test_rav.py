@@ -5,8 +5,10 @@ import numpy
 from numpy.testing import assert_almost_equal
 
 data_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data')
-U = numpy.load(os.path.join(data_path, 'unraveled.npy'))
-R = numpy.load(os.path.join(data_path, 'raveled.npy'))
+U = numpy.load(os.path.join(data_path, 'u.npy'))
+R = numpy.load(os.path.join(data_path, 'r.npy'))
+MU = numpy.load(os.path.join(data_path, 'mu.npy'))
+MR = numpy.load(os.path.join(data_path, 'mr.npy'))
 
 
 def test__ravel():
@@ -29,10 +31,11 @@ def test__ravel():
     assert b5.shape == (20, 10, 3)
 
 
-def test__megaravel():
-    U = numpy.random.rand(5, 4, 5, 4, 5, 6, 7, 6, 7, 1, 1)
+def test__megaraveler():
     ravf = rav.megaraveler({0: ((0, 2, 4), (6, 8), (10,)),
                             1: ((1, 3), (5, 7)),
                             2: ((9,),)})
-    r = ravf(U)
-    assert r.shape == (210, 90, 1)
+    mr = ravf(MU)
+    assert mr.shape == (12, 9, 1)
+
+    assert_almost_equal(mr, MR, decimal=10)

@@ -94,13 +94,8 @@ def _main():
     v1ravf = fermitools.math.raveler({0: (0, 1)})
     v2ravf = fermitools.math.asym.megaraveler({0: ((0, 1), (2, 3))})
     v1uravf = fermitools.math.unraveler({0: {0: no, 1: nv}})
-
-    def v2uravf(r2):
-        noo = no * (no - 1) // 2
-        nvv = nv * (nv - 1) // 2
-        shape = (noo, nvv) if r2.ndim == 1 else (noo, nvv) + r2.shape[1:]
-        unravf = fermitools.math.asym.unraveler({0: (0, 1), 1: (2, 3)})
-        return unravf(numpy.reshape(r2, shape))
+    v2uravf = fermitools.math.asym.megaunraveler({0: {(0, 1): no,
+                                                      (2, 3): nv}})
 
     # Evaluate dipole polarizability using linear response theory
     p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
@@ -168,8 +163,6 @@ def _main():
     print(alpha.round(8))
 
     assert_almost_equal(EN_DF2, numpy.diag(alpha), decimal=8)
-    # numpy.save(os.path.join(data_path, 'cation/ocepa0/alpha_diag.npy'),
-    #            numpy.diag(alpha))
     assert_almost_equal(ALPHA_DIAG, numpy.diag(alpha), decimal=11)
 
     # Excitation energies

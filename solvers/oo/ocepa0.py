@@ -110,7 +110,8 @@ def e_f(norb, nocc, h_aso, g_aso, c):
     def _electronic_energy(t1_flat, t2_flat):
         t1 = numpy.reshape(t1_flat, (no, nv))
         t2_mat = numpy.reshape(t2_flat, (noo, nvv))
-        t2 = fermitools.math.asym.unravel(t2_mat, {0: (0, 1), 1: (2, 3)})
+        t2 = fermitools.math.asym.unravel(t2_mat, {0: ((0, 1), no),
+                                                   1: ((2, 3), nv)})
         gen[v, o] = numpy.transpose(t1)
         gen[o, v] = -t1
         u = scipy.linalg.expm(gen)

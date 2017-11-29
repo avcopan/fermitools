@@ -1,79 +1,107 @@
 import numpy
+import scipy
 import itertools
-import scipy.special
 from toolz import functoolz
-from .op import antisymmetrizer
+from . import antisymmetrizer
+from ..urav import unraveler as ordinary_unraveler
+from .._ravhelper import presorter
+from .._ravhelper import resorter
+from .._ravhelper import reverse_starmap
+from .._ravhelper import dict_values
+from .._ravhelper import dict_keys
+from .._ravhelper import dict_items
+from ...iter import split
 
 
 # Public
-def unravel(a, packd):
+def megaunravel(a, d):
+    """does an ordinary unravel, followed by an antisymmetric unravel
+
+    :param d: {rax1: {(uax111, uax112, ...): dim11, ...}, rax2: ...}
+    :type d: dict
+
+    :rtype: typing.Callable
+    """
+    raxes1 = dict_keys(d)
+    iter_uaxes2, iter_udims2 = zip(*sum(map(dict_items, dict_values(d)), ()))
+    iter_nuaxes2 = map(len, iter_uaxes2)
+    iter_nuaxes1 = map(len, dict_values(d))
+    iter_udims1 = map(int, itertools.starmap(scipy.special.binom,
+                                             zip(iter_udims2, iter_nuaxes2)))
+    iter_uaxes1 = map(dict,
+                      split(i=enumerate(iter_udims1), sizes=iter_nuaxes1))
+
+    d2 = dict(enumerate(zip(iter_uaxes2, iter_udims2)))
+    uravf1 = ordinary_unraveler(dict(zip(raxes1, iter_uaxes1)))
+    uravf2 = unraveler(d2)
+    return functoolz.compose(uravf2, uravf1)
+
+
+def megaunraveler(d):
+    """does an ordinary unravel, followed by an antisymmetric unravel
+
+    :param d: {rax1: {(uax111, uax112, ...): dim11, ...}, rax2: ...}
+    :type d: dict
+
+    :rtype: typing.Callable
+    """
+    raxes1 = dict_keys(d)
+    iter_uaxes2, iter_udims2 = zip(*sum(map(dict_items, dict_values(d)), ()))
+    iter_nuaxes2 = map(len, iter_uaxes2)
+    iter_nuaxes1 = map(len, dict_values(d))
+    iter_udims1 = map(int, itertools.starmap(scipy.special.binom,
+                                             zip(iter_udims2, iter_nuaxes2)))
+    iter_uaxes1 = map(dict,
+                      split(i=enumerate(iter_udims1), sizes=iter_nuaxes1))
+
+    d2 = dict(enumerate(zip(iter_uaxes2, iter_udims2)))
+    uravf1 = ordinary_unraveler(dict(zip(raxes1, iter_uaxes1)))
+    uravf2 = unraveler(d2)
+    return functoolz.compose(uravf2, uravf1)
+
+
+def unravel(a, d):
     """unravel antisymmetric axes with compound indices
 
     :param a: array
     :type a: numpy.ndarray
-    :param packd: unraveled axis destinations, keyed by the compound axes
-    :type packd: dict
+    :param d: {rax1: (uax11, uax12, ...), rax2: ...}
+    :type d: dict
 
     :rtype: numpy.ndarray
     """
-    unravf = unraveler(packd)
-    return unravf(a)
+    uravf = unraveler(d)
+    return uravf(a)
 
 
-def unraveler(packd):
-    """unravels antisymmetric axes with compound indices
+def unraveler(d):
+    """unravels antisymmetric axes of an array
 
-    {rax1: (uax11, uax12, ...), rax2: ...}
-
-    :param packd: unraveled axis destinations, keyed by the compound axes
-    :type packd: dict
+    :param d: {rax1: ((uax11, uax12, ...), udim1), rax2: ...}
+    :type d: dict
 
     :rtype: typing.Callable
     """
-    rav_axes = packd.keys()
-    unrav_axes = packd.values()
+    raxes = dict_keys(d)
+    iter_uaxes, iter_udim = zip(*dict_values(d))
+    iter_nuaxes = map(len, iter_uaxes)
+    uaxes = sum(iter_uaxes, ())
+    unravelers = reverse_starmap(_unraveler, zip(iter_nuaxes, iter_udim))
 
-    def preorder(a):
-        source = rav_axes
-        dest = tuple(range(len(source)))
-        return numpy.moveaxis(a, source, dest)
-
-    def unravel(a):
-        pack_sizes = map(len, unrav_axes)
-        unravfs = reversed(tuple(map(_unraveler, pack_sizes)))
-        unravf = functoolz.compose(*unravfs)
-        return unravf(a)
-
-    def reorder(a):
-        nunrav = sum(map(len, unrav_axes))
-        source = tuple(range(-nunrav, 0))
-        dest = sum(unrav_axes, ())
-        return numpy.moveaxis(a, source, dest)
-
-    return functoolz.compose(reorder, unravel, preorder)
+    presortf = presorter(src=raxes)
+    uravf = functoolz.compose(*unravelers)
+    resortf = resorter(dst=uaxes)
+    return functoolz.compose(resortf, uravf, presortf)
 
 
 # Private
 __all__ = ['unravel', 'unraveler']
 
 
-def _inverse_choose(n_choose_k, k):
-
-    def lower_bound(n):
-        return scipy.special.binom(n, k) < n_choose_k
-
-    n = next(itertools.filterfalse(lower_bound, itertools.count()), 0.)
-
-    assert scipy.special.binom(n, k) == n_choose_k
-
-    return n
-
-
-def _unraveler(nuaxes):
+def _unraveler(nuaxes, udim):
 
     def _unravel(a):
         (rdim,), odims = numpy.split(a.shape, (1,))
-        udim = _inverse_choose(rdim, nuaxes)
         udims = (udim,) * nuaxes
         b = numpy.zeros(numpy.concatenate((udims, odims)))
         ix = tuple(zip(*itertools.combinations(range(udim), r=nuaxes)))

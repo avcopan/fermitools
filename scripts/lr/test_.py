@@ -1,3 +1,9 @@
+def test__hf():
+    import scripts.lr.hf
+
+    scripts.lr.hf._main()
+
+
 def test__ocepa0():
     import scripts.lr.ocepa0
 

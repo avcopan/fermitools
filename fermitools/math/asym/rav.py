@@ -1,14 +1,12 @@
 import numpy
 import itertools
 from toolz import functoolz
+from ..rav import raveler as ordinary_raveler
 from .._ravhelper import presorter
 from .._ravhelper import resorter
 from .._ravhelper import reverse_map
 from .._ravhelper import dict_values
 from .._ravhelper import dict_keys
-
-# Extra imports
-from ..rav import raveler as ordinary_raveler
 from ...iter import split
 
 
@@ -35,7 +33,7 @@ def megaraveler(d):
 
 
 def ravel(a, d):
-    """ravel axes of an array
+    """ravel antisymmetric axes of an array
 
     :param a: array
     :type a: numpy.ndarray
@@ -49,7 +47,7 @@ def ravel(a, d):
 
 
 def raveler(d):
-    """ravels axes of an array
+    """ravels antisymmetric axes of an array
 
     :param d: {rax1: (uax11, uax12, ...), rax2: ...}
     :type d: dict
