@@ -5,12 +5,13 @@ from ..math import einsum
 from ..math import transform
 from ..math import broadcast_sum
 from ..math.asym import antisymmetrizer_product as asm
+from .ocepa0 import s1_matrix
 from .ocepa0 import t_d1
 from .ocepa0 import t_d2
-from .ocepa0 import a_d1d1_rf
-from .ocepa0 import b_d1d1_rf
-from .ocepa0 import s_d1d1_rf
-from .ocepa0 import a_d2d2_rf as cepa_a_d2d2_rf
+from .ocepa0 import a_d1d1_
+from .ocepa0 import b_d1d1_
+from .ocepa0 import s_d1d1_
+from .ocepa0 import a_d2d2_ as cepa_a_d2d2_
 
 
 def fancy_mixed_interaction(fov, gooov, govvv, m1oo, m1vv):
@@ -58,7 +59,7 @@ def fancy_repulsion(ffoo, ffvv, goooo, govov, gvvvv, m1oo, m1vv):
     return fgoooo, fgovov, fgvvvv
 
 
-def a_d1d2_rf(gooov, govvv, fioo, fivv, t2):
+def a_d1d2_(gooov, govvv, fioo, fivv, t2):
 
     def _sigma(r2):
         return (
@@ -74,7 +75,7 @@ def a_d1d2_rf(gooov, govvv, fioo, fivv, t2):
     return _sigma
 
 
-def b_d1d2_rf(gooov, govvv, fioo, fivv, t2):
+def b_d1d2_(gooov, govvv, fioo, fivv, t2):
 
     def _sigma(r2):
         return (
@@ -88,7 +89,7 @@ def b_d1d2_rf(gooov, govvv, fioo, fivv, t2):
     return _sigma
 
 
-def a_d1d2_lf(gooov, govvv, fioo, fivv, t2):
+def a_d2d1_(gooov, govvv, fioo, fivv, t2):
 
     def _sigma(r1):
         return (
@@ -112,7 +113,7 @@ def a_d1d2_lf(gooov, govvv, fioo, fivv, t2):
     return _sigma
 
 
-def b_d1d2_lf(gooov, govvv, fioo, fivv, t2):
+def b_d2d1_(gooov, govvv, fioo, fivv, t2):
 
     def _sigma(r1):
         return (
@@ -130,13 +131,13 @@ def b_d1d2_lf(gooov, govvv, fioo, fivv, t2):
     return _sigma
 
 
-def a_d2d2_rf(ffoo, ffvv, goooo, govov, gvvvv, fgoooo, fgovov, fgvvvv, t2):
-    cepa_a_d2d2_ = cepa_a_d2d2_rf(
+def a_d2d2_(ffoo, ffvv, goooo, govov, gvvvv, fgoooo, fgovov, fgvvvv, t2):
+    cp_a_d2d2_ = cepa_a_d2d2_(
             foo=+ffoo, fvv=-ffvv, goooo=goooo, govov=govov, gvvvv=gvvvv)
 
     def _sigma(r2):
         return (
-            + cepa_a_d2d2_(r2)
+            + cp_a_d2d2_(r2)
             + 1./2 * asm('2/3')(
                 einsum('afec,ijeb,klfd,klcd...->ijab...', fgvvvv, t2, t2, r2))
             + 1./2 * asm('2/3')(
@@ -149,7 +150,7 @@ def a_d2d2_rf(ffoo, ffvv, goooo, govov, gvvvv, fgoooo, fgovov, fgvvvv, t2):
     return _sigma
 
 
-def b_d2d2_rf(fgoooo, fgovov, fgvvvv, t2):
+def b_d2d2_(fgoooo, fgovov, fgvvvv, t2):
 
     def _sigma(r2):
         return (
@@ -166,6 +167,6 @@ def b_d2d2_rf(fgoooo, fgovov, fgvvvv, t2):
 
 
 __all__ = [
-        'fancy_repulsion', 'fancy_mixed_interaction', 't_d1', 't_d2',
-        'a_d1d1_rf', 'b_d1d1_rf', 's_d1d1_rf', 'a_d1d2_rf', 'b_d1d2_rf',
-        'a_d1d2_lf', 'b_d1d2_lf', 'a_d2d2_rf', 'b_d2d2_rf']
+        'fancy_repulsion', 'fancy_mixed_interaction', 's1_matrix', 't_d1',
+        't_d2', 'a_d1d1_', 'b_d1d1_', 's_d1d1_', 'a_d1d2_', 'b_d1d2_',
+        'a_d2d1_', 'b_d2d1_', 'a_d2d2_', 'b_d2d2_']

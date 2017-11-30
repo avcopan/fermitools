@@ -31,11 +31,10 @@ def test__ravel():
     assert b5.shape == (20, 10, 3)
 
 
-def test__megaraveler():
-    ravf = rav.megaraveler({0: ((0, 2, 4), (6, 8), (10,)),
+def test__megaravel():
+    mr = rav.megaravel(MU, {0: ((0, 2, 4), (6, 8), (10,)),
                             1: ((1, 3), (5, 7)),
                             2: ((9,),)})
-    mr = ravf(MU)
     assert mr.shape == (12, 9, 1)
 
     assert_almost_equal(mr, MR, decimal=10)

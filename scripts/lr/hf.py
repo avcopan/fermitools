@@ -74,21 +74,21 @@ def _main():
     p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
     p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
     pov = fermitools.math.transform(p_aso, {1: co, 2: cv})
-    t = v1ravf(fermitools.lr.hf.t_d1(pov))
+    t = v1ravf(fermitools.lr.hf.t_(pov))
 
-    a_rf = fermitools.lr.hf.a_d1d1_rf(foo, fvv, govov)
-    b_rf = fermitools.lr.hf.b_d1d1_rf(goovv)
+    a_ = fermitools.lr.hf.a_(foo, fvv, govov)
+    b_ = fermitools.lr.hf.b_(goovv)
 
-    e_sum_rf = functoolz.compose(
-            v1ravf, fermitools.func.add(a_rf, b_rf), v1uravf)
-    e_dif_rf = functoolz.compose(
-            v1ravf, fermitools.func.sub(a_rf, b_rf), v1uravf)
+    e_sum_ = functoolz.compose(
+            v1ravf, fermitools.func.add(a_, b_), v1uravf)
+    e_dif_ = functoolz.compose(
+            v1ravf, fermitools.func.sub(a_, b_), v1uravf)
 
-    e_eff_rf = functoolz.compose(e_sum_rf, e_dif_rf)
+    e_eff_ = functoolz.compose(e_sum_, e_dif_)
 
     # Response function
     n = nsingles
-    e_sum_ = scipy.sparse.linalg.LinearOperator((n, n), matvec=e_sum_rf)
+    e_sum_ = scipy.sparse.linalg.LinearOperator((n, n), matvec=e_sum_)
     r_solver_ = functools.partial(scipy.sparse.linalg.cg, e_sum_)
     rs, _ = zip(*map(r_solver_, -2 * numpy.moveaxis(t, -1, 0)))
     r = numpy.moveaxis(tuple(rs), -1, 0)
@@ -99,7 +99,7 @@ def _main():
     assert_almost_equal(ALPHA_DIAG, numpy.diag(alpha), decimal=11)
 
     # Excitation energies
-    e_eff_ = scipy.sparse.linalg.LinearOperator((n, n), matvec=e_eff_rf)
+    e_eff_ = scipy.sparse.linalg.LinearOperator((n, n), matvec=e_eff_)
     w2, u = scipy.sparse.linalg.eigs(e_eff_, k=n-2, which='SR')
     w = numpy.sqrt(numpy.real(sorted(w2)))
     print(w)

@@ -17,18 +17,18 @@ A = numpy.load(os.path.join(data_path, 'neutral/hf/a.npy'))
 B = numpy.load(os.path.join(data_path, 'neutral/hf/b.npy'))
 
 
-def test__t_d1():
-    t = hf.t_d1(POV)
+def test__t_():
+    t = hf.t_(POV)
     assert_almost_equal(t, T, decimal=10)
 
 
-def test__a_d1d1_rf():
+def test__a_():
     i = numpy.reshape(numpy.eye(NO * NV), (NO, NV, NO, NV))
-    a_ = hf.a_d1d1_rf(FOO, FVV, GOVOV)
+    a_ = hf.a_(FOO, FVV, GOVOV)
     assert_almost_equal(a_(i), A, decimal=10)
 
 
-def test__b_d1d1_rf():
+def test__b_():
     i = numpy.reshape(numpy.eye(NO * NV), (NO, NV, NO, NV))
-    b_ = hf.b_d1d1_rf(GOOVV)
+    b_ = hf.b_(GOOVV)
     assert_almost_equal(b_(i), B, decimal=10)

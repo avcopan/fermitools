@@ -11,6 +11,20 @@ from ...iter import split
 
 
 # Public
+def megaravel(a, d):
+    """ravel antisymmetric axes, then ravel the result
+
+    :param a: array
+    :type a: numpy.ndarray
+    :param d: {rax1: ((uax111, uax112, ...), ...), rax2: ...}
+    :type d: dict
+
+    :rtype: typing.Callable
+    """
+    ravf = megaraveler(d)
+    return ravf(a)
+
+
 def megaraveler(d):
     """does an antisymmetric ravel, followed by an ordinary ravel
 

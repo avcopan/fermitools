@@ -1,11 +1,11 @@
 from ..math import einsum
 
 
-def t_d1(pov):
+def t_(pov):
     return -einsum('...ia->ia...', pov)
 
 
-def a_d1d1_rf(foo, fvv, govov):
+def a_(foo, fvv, govov):
 
     def _sigma(r1):
         return (
@@ -16,7 +16,7 @@ def a_d1d1_rf(foo, fvv, govov):
     return _sigma
 
 
-def b_d1d1_rf(goovv):
+def b_(goovv):
 
     def _sigma(r1):
         return einsum('ijab,jb...->ia...', goovv, r1)

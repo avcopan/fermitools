@@ -71,14 +71,14 @@ def _main():
     assert_almost_equal(en_tot, -74.66178436045595, decimal=10)
     assert_almost_equal(en_df, -mu, decimal=11)
 
-    en_f = solvers.oo.hf.field_energy_solver(
-            norb=norb, nocc=nocc, h_aso=h_aso, p_aso=p_aso, g_aso=g_aso,
-            c_guess=c, niter=200, e_thresh=1e-13, r_thresh=1e-9,
-            print_conv=True)
-    en_df2 = fermitools.math.central_difference(en_f, (0., 0., 0.), nder=2,
-                                                step=0.007, npts=23)
-    print(en_df2)
-    numpy.save('en_df2', en_df2)
+    # en_f = solvers.oo.hf.field_energy_solver(
+    #         norb=norb, nocc=nocc, h_aso=h_aso, p_aso=p_aso, g_aso=g_aso,
+    #         c_guess=c, niter=200, e_thresh=1e-13, r_thresh=1e-9,
+    #         print_conv=True)
+    # en_df2 = fermitools.math.central_difference(en_f, (0., 0., 0.), nder=2,
+    #                                             step=0.007, npts=23)
+    # print(en_df2)
+    # numpy.save('en_df2', en_df2)
 
 
 if __name__ == '__main__':

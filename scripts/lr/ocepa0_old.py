@@ -19,8 +19,8 @@ COORDS = ((0.000000000000,  0.000000000000, -0.143225816552),
           (0.000000000000,  1.638036840407,  1.136548822547),
           (0.000000000000, -1.638036840407,  1.136548822547))
 ALPHA_DIAG = numpy.load(os.path.join(data_path,
-                                     'cation/odc12/alpha_diag.npy'))
-EN_DF2 = numpy.load(os.path.join(data_path, 'cation/odc12/en_df2.npy'))
+                                     'cation/ocepa0/alpha_diag.npy'))
+EN_DF2 = numpy.load(os.path.join(data_path, 'cation/ocepa0/en_df2.npy'))
 
 
 def _main():
@@ -49,7 +49,7 @@ def _main():
 
     # Solve OCEPA0
     t2_guess = numpy.zeros((nocc, nocc, norb-nocc, norb-nocc))
-    en_elec, c, t2 = solvers.oo.odc12.solve(
+    en_elec, c, t2 = solvers.oo.ocepa0.solve(
             norb=norb, nocc=nocc, h_aso=h_aso, g_aso=g_aso, c_guess=c,
             t2_guess=t2_guess, niter=200, e_thresh=1e-14, r_thresh=1e-13,
             print_conv=True)
@@ -73,27 +73,23 @@ def _main():
     govov = fermitools.math.transform(g_aso, {0: co, 1: cv, 2: co, 3: cv})
     govvv = fermitools.math.transform(g_aso, {0: co, 1: cv, 2: cv, 3: cv})
     gvvvv = fermitools.math.transform(g_aso, {0: cv, 1: cv, 2: cv, 3: cv})
-    cm1oo, m1vv = fermitools.oo.odc12.onebody_correlation_density(t2)
-    m1oo = numpy.eye(nocc) + cm1oo
-    k2oooo = fermitools.oo.odc12.twobody_cumulant_oooo(t2)
-    k2oovv = fermitools.oo.odc12.twobody_cumulant_oovv(t2)
-    k2ovov = fermitools.oo.odc12.twobody_cumulant_ovov(t2)
-    k2vvvv = fermitools.oo.odc12.twobody_cumulant_vvvv(t2)
+    dm1oo = numpy.eye(no)
+    cm1oo, cm1vv = fermitools.oo.ocepa0.onebody_correlation_density(t2)
+    m1oo = dm1oo + cm1oo
+    m1vv = cm1vv
+    k2oooo = fermitools.oo.ocepa0.twobody_cumulant_oooo(t2)
+    k2oovv = fermitools.oo.ocepa0.twobody_cumulant_oovv(t2)
+    k2ovov = fermitools.oo.ocepa0.twobody_cumulant_ovov(t2)
+    k2vvvv = fermitools.oo.ocepa0.twobody_cumulant_vvvv(t2)
 
-    m2oooo = fermitools.oo.odc12.twobody_moment_oooo(m1oo, k2oooo)
-    m2oovv = fermitools.oo.odc12.twobody_moment_oovv(k2oovv)
-    m2ovov = fermitools.oo.odc12.twobody_moment_ovov(m1oo, m1vv, k2ovov)
-    m2vvvv = fermitools.oo.odc12.twobody_moment_vvvv(m1vv, k2vvvv)
+    m2oooo = fermitools.oo.ocepa0.twobody_moment_oooo(dm1oo, cm1oo, k2oooo)
+    m2oovv = fermitools.oo.ocepa0.twobody_moment_oovv(k2oovv)
+    m2ovov = fermitools.oo.ocepa0.twobody_moment_ovov(dm1oo, cm1vv, k2ovov)
+    m2vvvv = fermitools.oo.ocepa0.twobody_moment_vvvv(k2vvvv)
 
-    foo = fermitools.oo.odc12.fock_oo(hoo, goooo, govov, m1oo, m1vv)
-    fov = fermitools.oo.odc12.fock_oo(hov, gooov, govvv, m1oo, m1vv)
-    fvv = fermitools.oo.odc12.fock_vv(hvv, govov, gvvvv, m1oo, m1vv)
-    ffoo = fermitools.oo.odc12.fancy_property(foo, m1oo)
-    ffvv = fermitools.oo.odc12.fancy_property(fvv, m1vv)
-    fioo, fivv = fermitools.lr.odc12.fancy_mixed_interaction(
-            fov, gooov, govvv, m1oo, m1vv)
-    fgoooo, fgovov, fgvvvv = fermitools.lr.odc12.fancy_repulsion(
-            ffoo, ffvv, goooo, govov, gvvvv, m1oo, m1vv)
+    foo = fermitools.oo.ocepa0.fock_oo(hoo, goooo)
+    fov = fermitools.oo.ocepa0.fock_oo(hov, gooov)
+    fvv = fermitools.oo.ocepa0.fock_vv(hvv, govov)
 
     v1ravf = fermitools.math.raveler({0: (0, 1)})
     v2ravf = fermitools.math.asym.megaraveler({0: ((0, 1), (2, 3))})
@@ -107,27 +103,23 @@ def _main():
     poo = fermitools.math.transform(p_aso, {1: co, 2: co})
     pov = fermitools.math.transform(p_aso, {1: co, 2: cv})
     pvv = fermitools.math.transform(p_aso, {1: cv, 2: cv})
-    fpoo = fermitools.oo.odc12.fancy_property(poo, m1oo)
-    fpvv = fermitools.oo.odc12.fancy_property(pvv, m1vv)
-    t_d1 = v1ravf(fermitools.lr.odc12.t_d1(pov, m1oo, m1vv))
-    t_d2 = v2ravf(fermitools.lr.odc12.t_d2(fpoo, -fpvv, t2))
+    t_d1 = v1ravf(fermitools.lr.ocepa0.t_d1(pov, m1oo, m1vv))
+    t_d2 = v2ravf(fermitools.lr.ocepa0.t_d2(poo, pvv, t2))
 
     t = numpy.concatenate((t_d1, t_d2), axis=0)
 
-    a_d1d1_ = fermitools.lr.odc12.a_d1d1_(
+    a_d1d1_ = fermitools.lr.ocepa0.a_d1d1_(
             hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv, m2oooo, m2oovv,
             m2ovov, m2vvvv)
-    b_d1d1_ = fermitools.lr.odc12.b_d1d1_(
+    b_d1d1_ = fermitools.lr.ocepa0.b_d1d1_(
             goooo, goovv, govov, gvvvv, m2oooo, m2oovv, m2ovov, m2vvvv)
-    s_d1d1_ = fermitools.lr.odc12.s_d1d1_(m1oo, m1vv)
+    s_d1d1_ = fermitools.lr.ocepa0.s_d1d1_(m1oo, m1vv)
 
-    a_d1d2_ = fermitools.lr.odc12.a_d1d2_(gooov, govvv, fioo, fivv, t2)
-    b_d1d2_ = fermitools.lr.odc12.b_d1d2_(gooov, govvv, fioo, fivv, t2)
-    a_d2d1_ = fermitools.lr.odc12.a_d2d1_(gooov, govvv, fioo, fivv, t2)
-    b_d2d1_ = fermitools.lr.odc12.b_d2d1_(gooov, govvv, fioo, fivv, t2)
-    a_d2d2_ = fermitools.lr.odc12.a_d2d2_(
-            ffoo, ffvv, goooo, govov, gvvvv, fgoooo, fgovov, fgvvvv, t2)
-    b_d2d2_ = fermitools.lr.odc12.b_d2d2_(fgoooo, fgovov, fgvvvv, t2)
+    a_d1d2_ = fermitools.lr.ocepa0.a_d1d2_(fov, gooov, govvv, t2)
+    b_d1d2_ = fermitools.lr.ocepa0.b_d1d2_(fov, gooov, govvv, t2)
+    a_d2d1_ = fermitools.lr.ocepa0.a_d2d1_(fov, gooov, govvv, t2)
+    b_d2d1_ = fermitools.lr.ocepa0.b_d2d1_(fov, gooov, govvv, t2)
+    a_d2d2_ = fermitools.lr.ocepa0.a_d2d2_(foo, fvv, goooo, govov, gvvvv)
 
     # Orbital terms
     s_d1d1_ = functoolz.compose(v1ravf, s_d1d1_, v1uravf)
@@ -146,25 +138,20 @@ def _main():
     e_dif_d2d1_ = functoolz.compose(
             v2ravf, fermitools.func.sub(a_d2d1_, b_d2d1_), v1uravf)
     # Amplitude terms
-    e_sum_d2d2_ = functoolz.compose(
-            v2ravf, fermitools.func.add(a_d2d2_, b_d2d2_), v2uravf)
-    e_dif_d2d2_ = functoolz.compose(
-            v2ravf, fermitools.func.sub(a_d2d2_, b_d2d2_), v2uravf)
+    e_d2d2_ = functoolz.compose(v2ravf, a_d2d2_, v2uravf)
 
     # Combined
-    e_sum_ = solvers.lr.odc12.e_(
-            nsingles, e_sum_d1d1_, e_sum_d1d2_, e_sum_d2d1_,
-            e_sum_d2d2_)
-    e_dif_ = solvers.lr.odc12.e_(
-            nsingles, e_dif_d1d1_, e_dif_d1d2_, e_dif_d2d1_,
-            e_dif_d2d2_)
+    e_sum_ = solvers.lr.ocepa0.e_(
+            nsingles, e_sum_d1d1_, e_sum_d1d2_, e_sum_d2d1_, e_d2d2_)
+    e_dif_ = solvers.lr.ocepa0.e_(
+            nsingles, e_dif_d1d1_, e_dif_d1d2_, e_dif_d2d1_, e_d2d2_)
 
     s_d1d1 = s_d1d1_(numpy.eye(nsingles))
     x_d1d1 = scipy.linalg.inv(s_d1d1)
     x_d1d1_ = scipy.sparse.linalg.aslinearoperator(x_d1d1)
-    x_ = solvers.lr.odc12.x_(nsingles, x_d1d1_)
+    x_ = solvers.lr.ocepa0.x_(nsingles, x_d1d1_)
 
-    e_eff_ = solvers.lr.odc12.e_eff_(e_sum_, e_dif_, x_)
+    e_eff_ = solvers.lr.ocepa0.e_eff_(e_sum_, e_dif_, x_)
 
     # Response function
     n = nsingles + ndoubles
@@ -176,8 +163,6 @@ def _main():
     print(alpha.round(8))
 
     assert_almost_equal(EN_DF2, numpy.diag(alpha), decimal=8)
-    # numpy.save(os.path.join(data_path, 'cation/odc12/alpha_diag.npy'),
-    #            numpy.diag(alpha))
     assert_almost_equal(ALPHA_DIAG, numpy.diag(alpha), decimal=11)
 
     # Excitation energies

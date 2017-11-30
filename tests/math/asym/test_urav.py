@@ -16,11 +16,10 @@ def test__unravel():
     assert_almost_equal(u, U, decimal=10)
 
 
-def test__megaunraveler():
-    uravf = urav.megaunraveler({0: {(0, 2, 4): 4, (6, 8): 3, (10,): 1},
-                                1: {(1, 3): 3, (5, 7): 3},
-                                2: {(9,): 1}})
-    mu = uravf(MR)
+def test__megaunravel():
+    mu = urav.megaunravel(MR, {0: {(0, 2, 4): 4, (6, 8): 3, (10,): 1},
+                               1: {(1, 3): 3, (5, 7): 3},
+                               2: {(9,): 1}})
     assert mu.shape == (4, 3, 4, 3, 4, 3, 3, 3, 3, 1, 1)
 
     assert_almost_equal(mu, MU, decimal=10)
