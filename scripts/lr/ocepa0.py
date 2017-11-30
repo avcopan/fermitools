@@ -57,12 +57,59 @@ def _main():
     print("\nGround state energy:")
     print('{:20.15f}'.format(en_tot))
 
+    # Define LR inputs
+    co, cv = numpy.split(c, (nocc,), axis=1)
+    hoo = fermitools.math.transform(h_aso, {0: co, 1: co})
+    hov = fermitools.math.transform(h_aso, {0: co, 1: cv})
+    hvv = fermitools.math.transform(h_aso, {0: cv, 1: cv})
+    goooo = fermitools.math.transform(g_aso, {0: co, 1: co, 2: co, 3: co})
+    gooov = fermitools.math.transform(g_aso, {0: co, 1: co, 2: co, 3: cv})
+    goovv = fermitools.math.transform(g_aso, {0: co, 1: co, 2: cv, 3: cv})
+    govov = fermitools.math.transform(g_aso, {0: co, 1: cv, 2: co, 3: cv})
+    govvv = fermitools.math.transform(g_aso, {0: co, 1: cv, 2: cv, 3: cv})
+    gvvvv = fermitools.math.transform(g_aso, {0: cv, 1: cv, 2: cv, 3: cv})
+    dm1oo = numpy.eye(nocc)
+    cm1oo, cm1vv = fermitools.oo.ocepa0.onebody_correlation_density(t2)
+    m1oo = dm1oo + cm1oo
+    m1vv = cm1vv
+    k2oooo = fermitools.oo.ocepa0.twobody_cumulant_oooo(t2)
+    k2oovv = fermitools.oo.ocepa0.twobody_cumulant_oovv(t2)
+    k2ovov = fermitools.oo.ocepa0.twobody_cumulant_ovov(t2)
+    k2vvvv = fermitools.oo.ocepa0.twobody_cumulant_vvvv(t2)
+
+    m2oooo = fermitools.oo.ocepa0.twobody_moment_oooo(dm1oo, cm1oo, k2oooo)
+    m2oovv = fermitools.oo.ocepa0.twobody_moment_oovv(k2oovv)
+    m2ovov = fermitools.oo.ocepa0.twobody_moment_ovov(dm1oo, cm1vv, k2ovov)
+    m2vvvv = fermitools.oo.ocepa0.twobody_moment_vvvv(k2vvvv)
+
+    foo = fermitools.oo.ocepa0.fock_oo(hoo, goooo)
+    fov = fermitools.oo.ocepa0.fock_oo(hov, gooov)
+    fvv = fermitools.oo.ocepa0.fock_vv(hvv, govov)
+
+    a_d1d1_ = fermitools.lr.ocepa0.a_d1d1_(
+           hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv, m2oooo, m2oovv,
+           m2ovov, m2vvvv)
+    b_d1d1_ = fermitools.lr.ocepa0.b_d1d1_(
+           goooo, goovv, govov, gvvvv, m2oooo, m2oovv, m2ovov, m2vvvv)
+    a_d1d2_ = fermitools.lr.ocepa0.a_d1d2_(fov, gooov, govvv, t2)
+    b_d1d2_ = fermitools.lr.ocepa0.b_d1d2_(fov, gooov, govvv, t2)
+    a_d2d1_ = fermitools.lr.ocepa0.a_d2d1_(fov, gooov, govvv, t2)
+    b_d2d1_ = fermitools.lr.ocepa0.b_d2d1_(fov, gooov, govvv, t2)
+    a_d2d2_ = fermitools.lr.ocepa0.a_d2d2_(foo, fvv, goooo, govov, gvvvv)
+
     # Solve response properties
     p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
     p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
+    poo = fermitools.math.transform(p_aso, {1: co, 2: co})
+    pov = fermitools.math.transform(p_aso, {1: co, 2: cv})
+    pvv = fermitools.math.transform(p_aso, {1: cv, 2: cv})
+    t_d1 = fermitools.lr.ocepa0.t_d1(pov, m1oo, m1vv)
+    t_d2 = fermitools.lr.ocepa0.t_d2(poo, pvv, t2)
+
     alpha = solvers.lr.ocepa0.solve_static_response(
-            norb=norb, nocc=nocc, h_aso=h_aso, p_aso=p_aso, g_aso=g_aso, c=c,
-            t2=t2)
+            norb=norb, nocc=nocc, a_d1d1_=a_d1d1_, b_d1d1_=b_d1d1_,
+            a_d1d2_=a_d1d2_, b_d1d2_=b_d1d2_, a_d2d1_=a_d2d1_, b_d2d1_=b_d2d1_,
+            a_d2d2_=a_d2d2_, t_d1=t_d1, t_d2=t_d2)
     print(alpha.round(8))
 
     assert_almost_equal(EN_DF2, numpy.diag(alpha), decimal=8)
@@ -70,12 +117,18 @@ def _main():
 
     # Solve excitation energies
     nroots = 200
+    no, nv = nocc, norb-nocc
+    sinv1 = scipy.linalg.inv(fermitools.lr.ocepa0.s1_matrix(m1oo, m1vv))
+    sinv_d1d1 = fermitools.math.unravel(
+            sinv1, {0: {0: no, 1: nv}, 1: {2: no, 3: nv}})
+    x1_ = fermitools.lr.ocepa0.d1_transformer(sinv_d1d1)
     w, u = solvers.lr.ocepa0.solve_spectrum(
-            norb=norb, nocc=nocc, h_aso=h_aso, g_aso=g_aso, c=c, t2=t2,
-            nroots=nroots)
+            nroots=nroots, norb=norb, nocc=nocc, a_d1d1_=a_d1d1_,
+            b_d1d1_=b_d1d1_, a_d1d2_=a_d1d2_, b_d1d2_=b_d1d2_, a_d2d1_=a_d2d1_,
+            b_d2d1_=b_d2d1_, a_d2d2_=a_d2d2_, x1_=x1_)
     print(w)
     print(u.shape)
-    assert_almost_equal(W[:nroots], w, decimal=11)
+    assert_almost_equal(W[1:nroots], w[1:], decimal=11)
 
 
 if __name__ == '__main__':

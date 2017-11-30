@@ -6,6 +6,7 @@ from ..math import transform
 from ..math import broadcast_sum
 from ..math.asym import antisymmetrizer_product as asm
 from .ocepa0 import s1_matrix
+from .ocepa0 import d1_transformer
 from .ocepa0 import t_d1
 from .ocepa0 import t_d2
 from .ocepa0 import a_d1d1_
@@ -167,6 +168,6 @@ def b_d2d2_(fgoooo, fgovov, fgvvvv, t2):
 
 
 __all__ = [
-        'fancy_repulsion', 'fancy_mixed_interaction', 's1_matrix', 't_d1',
-        't_d2', 'a_d1d1_', 'b_d1d1_', 's_d1d1_', 'a_d1d2_', 'b_d1d2_',
-        'a_d2d1_', 'b_d2d1_', 'a_d2d2_', 'b_d2d2_']
+        'fancy_repulsion', 'fancy_mixed_interaction', 's1_matrix',
+        'd1_transformer', 't_d1', 't_d2', 'a_d1d1_', 'b_d1d1_', 's_d1d1_',
+        'a_d1d2_', 'b_d1d2_', 'a_d2d1_', 'b_d2d1_', 'a_d2d2_', 'b_d2d2_']

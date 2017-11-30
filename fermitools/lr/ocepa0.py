@@ -13,6 +13,14 @@ def s1_matrix(m1oo, m1vv):
     return numpy.reshape(s_d1d1, (no*nv, no*nv))
 
 
+def d1_transformer(m1):
+
+    def _sigma(r1):
+        return numpy.tensordot(m1, r1, axes=2)
+
+    return _sigma
+
+
 def t_d1(pov, m1oo, m1vv):
     return (
         + einsum('...ie,ea->ia...', pov, m1vv)
@@ -28,7 +36,7 @@ def t_d2(poo, pvv, t2):
 
 
 def a_d1d1_(hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv, m2oooo,
-            m2oovv, m2ovov, m2vvvv, sinv1=None):
+            m2oovv, m2ovov, m2vvvv):
     fcoo = (numpy.dot(hoo, m1oo)
             + 1./2 * einsum('imno,jmno->ij', goooo, m2oooo)
             + 1./2 * einsum('imef,jmef->ij', goovv, m2oovv)
@@ -41,7 +49,7 @@ def a_d1d1_(hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv, m2oooo,
     fsvv = (fcvv + numpy.transpose(fcvv)) / 2.
 
     def _sigma(r1):
-        a_r1 = (
+        return (
             + einsum('ij,ab,jb...->ia...', hoo, m1vv, r1)
             + einsum('ij,ab,jb...->ia...', m1oo, hvv, r1)
             - einsum('ab,ib...->ia...', fsvv, r1)
@@ -52,16 +60,14 @@ def a_d1d1_(hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv, m2oooo,
             + einsum('iejf,aebf,jb...->ia...', m2ovov, gvvvv, r1)
             + einsum('ibme,jame,jb...->ia...', govov, m2ovov, r1)
             + einsum('ibme,jame,jb...->ia...', m2ovov, govov, r1))
-        return a_r1 if sinv1 is None else numpy.tensordot(sinv1, a_r1, axes=2)
 
     return _sigma
 
 
-def b_d1d1_(goooo, goovv, govov, gvvvv, m2oooo, m2oovv, m2ovov, m2vvvv,
-            sinv1=None):
+def b_d1d1_(goooo, goovv, govov, gvvvv, m2oooo, m2oovv, m2ovov, m2vvvv):
 
     def _sigma(r1):
-        b_r1 = (
+        return (
             + einsum('imbe,jema,jb...->ia...', goovv, m2ovov, r1)
             + einsum('imbe,jema,jb...->ia...', m2oovv, govov, r1)
             + einsum('iemb,jmae,jb...->ia...', govov, m2oovv, r1)
@@ -70,7 +76,6 @@ def b_d1d1_(goooo, goovv, govov, gvvvv, m2oooo, m2oovv, m2ovov, m2vvvv,
             + 1./2 * einsum('ijmn,mnab,jb...->ia...', m2oooo, goovv, r1)
             + 1./2 * einsum('ijef,efab,jb...->ia...', goovv, m2vvvv, r1)
             + 1./2 * einsum('ijef,efab,jb...->ia...', m2oovv, gvvvv, r1))
-        return b_r1 if sinv1 is None else numpy.tensordot(sinv1, b_r1, axes=2)
 
     return _sigma
 
@@ -109,11 +114,11 @@ def mixed_interaction(fov, gooov, govvv):
     return ioo, ivv
 
 
-def a_d1d2_(fov, gooov, govvv, t2, sinv1=None):
+def a_d1d2_(fov, gooov, govvv, t2):
     ioo, ivv = mixed_interaction(fov, gooov, govvv)
 
     def _sigma(r2):
-        a_r2 = (
+        return (
             + 1./2 * einsum('lacd,ilcd...->ia...', govvv, r2)
             + 1./2 * einsum('klid,klad...->ia...', gooov, r2)
             + 1./2 * einsum('iakm,mlcd,klcd...->ia...', ioo, t2, r2)
@@ -122,23 +127,21 @@ def a_d1d2_(fov, gooov, govvv, t2, sinv1=None):
             + einsum('imke,mled,klad...->ia...', gooov, t2, r2)
             + 1./4 * einsum('mnla,mncd,ilcd...->ia...', gooov, t2, r2)
             + 1./4 * einsum('idef,klef,klad...->ia...', govvv, t2, r2))
-        return a_r2 if sinv1 is None else numpy.tensordot(sinv1, a_r2, axes=2)
 
     return _sigma
 
 
-def b_d1d2_(fov, gooov, govvv, t2, sinv1=None):
+def b_d1d2_(fov, gooov, govvv, t2):
     ioo, ivv = mixed_interaction(fov, gooov, govvv)
 
     def _sigma(r2):
-        b_r2 = (
+        return (
             + 1./2 * einsum('iamk,mlcd,klcd...->ia...', ioo, t2, r2)
             - 1./2 * einsum('iace,kled,klcd...->ia...', ivv, t2, r2)
             + einsum('lead,kice,klcd...->ia...', govvv, t2, r2)
             + einsum('ilmd,kmca,klcd...->ia...', gooov, t2, r2)
             - 1./4 * einsum('klma,micd,klcd...->ia...', gooov, t2, r2)
             - 1./4 * einsum('iecd,klea,klcd...->ia...', govvv, t2, r2))
-        return b_r2 if sinv1 is None else numpy.tensordot(sinv1, b_r2, axes=2)
 
     return _sigma
 
