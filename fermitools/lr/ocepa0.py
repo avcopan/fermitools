@@ -3,31 +3,31 @@ from ..math import einsum
 from ..math.asym import antisymmetrizer_product as asm
 
 
-def s1_matrix(m1oo, m1vv):
+def s11_matrix(m1oo, m1vv):
     no, _ = m1oo.shape
     nv, _ = m1vv.shape
     io = numpy.eye(no)
     iv = numpy.eye(nv)
-    s_d1d1 = (+ einsum('ij,ab->iajb', m1oo, iv)
-              - einsum('ab,ij->iajb', m1vv, io))
-    return numpy.reshape(s_d1d1, (no*nv, no*nv))
+    s11 = (+ einsum('ij,ab->iajb', m1oo, iv)
+           - einsum('ab,ij->iajb', m1vv, io))
+    return numpy.reshape(s11, (no*nv, no*nv))
 
 
-def d1_transformer(m1):
+def onebody_transformer(trans_arr):
 
-    def _sigma(r1):
-        return numpy.tensordot(m1, r1, axes=2)
+    def _onebody_transform(r1):
+        return numpy.tensordot(trans_arr, r1, axes=2)
 
-    return _sigma
+    return _onebody_transform
 
 
-def t_d1(pov, m1oo, m1vv):
+def onebody_property_gradient(pov, m1oo, m1vv):
     return (
         + einsum('...ie,ea->ia...', pov, m1vv)
         - einsum('im,...ma->ia...', m1oo, pov))
 
 
-def t_d2(poo, pvv, t2):
+def twobody_property_gradient(poo, pvv, t2):
     return (
         + asm('2/3')(
               einsum('...ac,ijcb->ijab...', pvv, t2))
@@ -35,8 +35,8 @@ def t_d2(poo, pvv, t2):
               einsum('...ik,kjab->ijab...', poo, t2)))
 
 
-def a_d1d1_(hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv, m2oooo,
-            m2oovv, m2ovov, m2vvvv):
+def a11_sigma(hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv, m2oooo,
+              m2oovv, m2ovov, m2vvvv):
     fcoo = (numpy.dot(hoo, m1oo)
             + 1./2 * einsum('imno,jmno->ij', goooo, m2oooo)
             + 1./2 * einsum('imef,jmef->ij', goovv, m2oovv)
@@ -48,7 +48,7 @@ def a_d1d1_(hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv, m2oooo,
     fsoo = (fcoo + numpy.transpose(fcoo)) / 2.
     fsvv = (fcvv + numpy.transpose(fcvv)) / 2.
 
-    def _sigma(r1):
+    def _a11(r1):
         return (
             + einsum('ij,ab,jb...->ia...', hoo, m1vv, r1)
             + einsum('ij,ab,jb...->ia...', m1oo, hvv, r1)
@@ -61,12 +61,12 @@ def a_d1d1_(hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv, m2oooo,
             + einsum('ibme,jame,jb...->ia...', govov, m2ovov, r1)
             + einsum('ibme,jame,jb...->ia...', m2ovov, govov, r1))
 
-    return _sigma
+    return _a11
 
 
-def b_d1d1_(goooo, goovv, govov, gvvvv, m2oooo, m2oovv, m2ovov, m2vvvv):
+def b11_sigma(goooo, goovv, govov, gvvvv, m2oooo, m2oovv, m2ovov, m2vvvv):
 
-    def _sigma(r1):
+    def _b11(r1):
         return (
             + einsum('imbe,jema,jb...->ia...', goovv, m2ovov, r1)
             + einsum('imbe,jema,jb...->ia...', m2oovv, govov, r1)
@@ -77,17 +77,17 @@ def b_d1d1_(goooo, goovv, govov, gvvvv, m2oooo, m2oovv, m2ovov, m2vvvv):
             + 1./2 * einsum('ijef,efab,jb...->ia...', goovv, m2vvvv, r1)
             + 1./2 * einsum('ijef,efab,jb...->ia...', m2oovv, gvvvv, r1))
 
-    return _sigma
+    return _b11
 
 
-def s_d1d1_(m1oo, m1vv):
+def s11_sigma(m1oo, m1vv):
 
-    def _sigma(r1):
+    def _s11(r1):
         return (
             + einsum('ij,ja...->ia...', m1oo, r1)
             - einsum('ab,ib...->ia...', m1vv, r1))
 
-    return _sigma
+    return _s11
 
 
 def a_d2d2_(foo, fvv, goooo, govov, gvvvv):

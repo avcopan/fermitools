@@ -90,10 +90,10 @@ def _main():
     fgoooo, fgovov, fgvvvv = fermitools.lr.odc12.fancy_repulsion(
             ffoo, ffvv, goooo, govov, gvvvv, m1oo, m1vv)
 
-    a_d1d1_ = fermitools.lr.odc12.a_d1d1_(
+    a11_ = fermitools.lr.odc12.a11_sigma(
             hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv, m2oooo, m2oovv,
             m2ovov, m2vvvv)
-    b_d1d1_ = fermitools.lr.odc12.b_d1d1_(
+    b11_ = fermitools.lr.odc12.b11_sigma(
             goooo, goovv, govov, gvvvv, m2oooo, m2oovv, m2ovov, m2vvvv)
     a_d1d2_ = fermitools.lr.odc12.a_d1d2_(gooov, govvv, fioo, fivv, t2)
     b_d1d2_ = fermitools.lr.odc12.b_d1d2_(gooov, govvv, fioo, fivv, t2)
@@ -111,13 +111,13 @@ def _main():
     pvv = fermitools.math.transform(p_aso, {1: cv, 2: cv})
     fpoo = fermitools.oo.odc12.fancy_property(poo, m1oo)
     fpvv = fermitools.oo.odc12.fancy_property(pvv, m1vv)
-    t_d1 = fermitools.lr.odc12.t_d1(pov, m1oo, m1vv)
-    t_d2 = fermitools.lr.odc12.t_d2(fpoo, -fpvv, t2)
+    pg1 = fermitools.lr.odc12.onebody_property_gradient(pov, m1oo, m1vv)
+    pg2 = fermitools.lr.odc12.twobody_property_gradient(fpoo, -fpvv, t2)
 
     alpha = solvers.lr.odc12.solve_static_response(
-            norb=norb, nocc=nocc, a_d1d1_=a_d1d1_, b_d1d1_=b_d1d1_,
-            a_d1d2_=a_d1d2_, b_d1d2_=b_d1d2_, a_d2d1_=a_d2d1_, b_d2d1_=b_d2d1_,
-            a_d2d2_=a_d2d2_, b_d2d2_=b_d2d2_, t_d1=t_d1, t_d2=t_d2)
+            norb=norb, nocc=nocc, a11_=a11_, b11_=b11_, a_d1d2_=a_d1d2_,
+            b_d1d2_=b_d1d2_, a_d2d1_=a_d2d1_, b_d2d1_=b_d2d1_, a_d2d2_=a_d2d2_,
+            b_d2d2_=b_d2d2_, pg1=pg1, pg2=pg2)
     print(alpha.round(8))
 
     assert_almost_equal(EN_DF2, numpy.diag(alpha), decimal=8)
@@ -126,14 +126,14 @@ def _main():
     # Solve excitation energies
     nroots = 200
     no, nv = nocc, norb-nocc
-    sinv1 = scipy.linalg.inv(fermitools.lr.odc12.s1_matrix(m1oo, m1vv))
+    sinv1 = scipy.linalg.inv(fermitools.lr.odc12.s11_matrix(m1oo, m1vv))
     sinv_d1d1 = fermitools.math.unravel(
             sinv1, {0: {0: no, 1: nv}, 1: {2: no, 3: nv}})
-    x1_ = fermitools.lr.odc12.d1_transformer(sinv_d1d1)
+    x1_ = fermitools.lr.odc12.onebody_transformer(sinv_d1d1)
     w, u = solvers.lr.odc12.solve_spectrum(
-            nroots=nroots, norb=norb, nocc=nocc, a_d1d1_=a_d1d1_,
-            b_d1d1_=b_d1d1_, a_d1d2_=a_d1d2_, b_d1d2_=b_d1d2_, a_d2d1_=a_d2d1_,
-            b_d2d1_=b_d2d1_, a_d2d2_=a_d2d2_, b_d2d2_=b_d2d2_, x1_=x1_)
+            nroots=nroots, norb=norb, nocc=nocc, a11_=a11_, b11_=b11_,
+            a_d1d2_=a_d1d2_, b_d1d2_=b_d1d2_, a_d2d1_=a_d2d1_, b_d2d1_=b_d2d1_,
+            a_d2d2_=a_d2d2_, b_d2d2_=b_d2d2_, x1_=x1_)
     print(w)
     print(u.shape)
     assert_almost_equal(W[1:nroots], w[1:], decimal=11)

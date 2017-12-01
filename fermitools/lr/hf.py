@@ -1,24 +1,24 @@
 from ..math import einsum
 
 
-def t_(pov):
+def pg(pov):
     return -einsum('...ia->ia...', pov)
 
 
-def a_(foo, fvv, govov):
+def a_sigma(foo, fvv, govov):
 
-    def _sigma(r1):
+    def _a(r1):
         return (
             + einsum('ab,ib...->ia...', fvv, r1)
             - einsum('ij,ja...->ia...', foo, r1)
             - einsum('ibja,jb...->ia...', govov, r1))
 
-    return _sigma
+    return _a
 
 
-def b_(goovv):
+def b_sigma(goovv):
 
-    def _sigma(r1):
+    def _b(r1):
         return einsum('ijab,jb...->ia...', goovv, r1)
 
-    return _sigma
+    return _b

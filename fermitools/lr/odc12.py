@@ -5,13 +5,13 @@ from ..math import einsum
 from ..math import transform
 from ..math import broadcast_sum
 from ..math.asym import antisymmetrizer_product as asm
-from .ocepa0 import s1_matrix
-from .ocepa0 import d1_transformer
-from .ocepa0 import t_d1
-from .ocepa0 import t_d2
-from .ocepa0 import a_d1d1_
-from .ocepa0 import b_d1d1_
-from .ocepa0 import s_d1d1_
+from .ocepa0 import s11_matrix
+from .ocepa0 import onebody_transformer
+from .ocepa0 import onebody_property_gradient
+from .ocepa0 import twobody_property_gradient
+from .ocepa0 import a11_sigma
+from .ocepa0 import b11_sigma
+from .ocepa0 import s11_sigma
 from .ocepa0 import a_d2d2_ as cepa_a_d2d2_
 
 
@@ -168,6 +168,7 @@ def b_d2d2_(fgoooo, fgovov, fgvvvv, t2):
 
 
 __all__ = [
-        'fancy_repulsion', 'fancy_mixed_interaction', 's1_matrix',
-        'd1_transformer', 't_d1', 't_d2', 'a_d1d1_', 'b_d1d1_', 's_d1d1_',
+        'fancy_repulsion', 'fancy_mixed_interaction', 's11_matrix',
+        'onebody_transformer', 'onebody_property_gradient',
+        'twobody_property_gradient', 'a11_sigma', 'b11_sigma', 's11_sigma',
         'a_d1d2_', 'b_d1d2_', 'a_d2d1_', 'b_d2d1_', 'a_d2d2_', 'b_d2d2_']

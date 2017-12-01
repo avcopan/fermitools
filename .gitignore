@@ -4,3 +4,5 @@ timer.dat
 *.py[cod]
 *.swp
 *.clean
+*.profile
+*.png

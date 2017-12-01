@@ -74,10 +74,10 @@ def _main():
     p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
     p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
     pov = fermitools.math.transform(p_aso, {1: co, 2: cv})
-    t = v1ravf(fermitools.lr.hf.t_(pov))
+    pg = v1ravf(fermitools.lr.hf.pg(pov))
 
-    a_ = fermitools.lr.hf.a_(foo, fvv, govov)
-    b_ = fermitools.lr.hf.b_(goovv)
+    a_ = fermitools.lr.hf.a_sigma(foo, fvv, govov)
+    b_ = fermitools.lr.hf.b_sigma(goovv)
 
     e_sum_ = functoolz.compose(
             v1ravf, fermitools.func.add(a_, b_), v1uravf)
@@ -90,9 +90,9 @@ def _main():
     n = nsingles
     e_sum_ = scipy.sparse.linalg.LinearOperator((n, n), matvec=e_sum_)
     r_solver_ = functools.partial(scipy.sparse.linalg.cg, e_sum_)
-    rs, _ = zip(*map(r_solver_, -2 * numpy.moveaxis(t, -1, 0)))
+    rs, _ = zip(*map(r_solver_, -2 * numpy.moveaxis(pg, -1, 0)))
     r = numpy.moveaxis(tuple(rs), -1, 0)
-    alpha = numpy.tensordot(r, t, axes=(0, 0))
+    alpha = numpy.tensordot(r, pg, axes=(0, 0))
     print(alpha.round(8))
 
     assert_almost_equal(EN_DF2, numpy.diag(alpha), decimal=8)
