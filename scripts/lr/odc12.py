@@ -138,26 +138,6 @@ def _main():
     print(u.shape)
     assert_almost_equal(W[1:nroots], w[1:], decimal=11)
 
-    i2 = numpy.load(
-            '/home/avcopan/Documents/github/fermitools/tests/lr/data/cation/'
-            'i2.npy')
-    print(a22_(i2).shape)
-    print(b22_(i2).shape)
-    numpy.save('a22', a22_(i2))
-    numpy.save('b22', b22_(i2))
-    numpy.save('ffoo', ffoo)
-    numpy.save('ffvv', ffvv)
-    numpy.save('goooo', goooo)
-    numpy.save('goovv', goovv)
-    numpy.save('govov', govov)
-    numpy.save('gvvvv', gvvvv)
-    numpy.save('t2', t2)
-    numpy.save('ffoo', ffoo)
-    numpy.save('ffvv', ffvv)
-    numpy.save('fgoooo', fgoooo)
-    numpy.save('fgovov', fgovov)
-    numpy.save('fgvvvv', fgvvvv)
-
 
 if __name__ == '__main__':
     _main()
