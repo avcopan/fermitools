@@ -6,30 +6,31 @@ from toolz import functoolz
 import fermitools
 
 
-def a_(a11_, a_d1d2_, a_d2d1_, a_d2d2_):
+def a_sigma(a11_, a12_, a21_, a22_):
 
-    def _sigma(r):
+    def _a(r):
         r1, r2 = r
-        return (a11_(r1) + a_d1d2_(r2), a_d2d1_(r1) + a_d2d2_(r2))
+        return (a11_(r1) + a12_(r2), a21_(r1) + a22_(r2))
 
-    return _sigma
+    return _a
 
 
-def solve_spectrum(nroots, nocc, norb, a11_, b11_, a_d1d2_, b_d1d2_, a_d2d1_,
-                   b_d2d1_, a_d2d2_, b_d2d2_, x1_):
-    a_x1d1_ = functoolz.compose(x1_, a11_)
-    b_x1d1_ = functoolz.compose(x1_, b11_)
-    a_x1d2_ = functoolz.compose(x1_, a_d1d2_)
-    b_x1d2_ = functoolz.compose(x1_, b_d1d2_)
+def solve_spectrum(nroots, nocc, norb, a11_, b11_, a12_, b12_, a21_,
+                   b21_, a22_, b22_, x11_):
+    xa11_ = functoolz.compose(x11_, a11_)
+    xb11_ = functoolz.compose(x11_, b11_)
+    xa12_ = functoolz.compose(x11_, a12_)
+    xb12_ = functoolz.compose(x11_, b12_)
 
-    ea_ = a_(fermitools.func.add(a_x1d1_, b_x1d1_),
-             fermitools.func.add(a_x1d2_, b_x1d2_),
-             fermitools.func.add(a_d2d1_, b_d2d1_),
-             fermitools.func.add(a_d2d2_, b_d2d2_))
-    es_ = a_(fermitools.func.sub(a_x1d1_, b_x1d1_),
-             fermitools.func.sub(a_x1d2_, b_x1d2_),
-             fermitools.func.sub(a_d2d1_, b_d2d1_),
-             fermitools.func.sub(a_d2d2_, b_d2d2_))
+    ea_ = a_sigma(fermitools.func.add(xa11_, xb11_),
+                  fermitools.func.add(xa12_, xb12_),
+                  fermitools.func.add(a21_, b21_),
+                  fermitools.func.add(a22_, b22_))
+
+    es_ = a_sigma(fermitools.func.sub(xa11_, xb11_),
+                  fermitools.func.sub(xa12_, xb12_),
+                  fermitools.func.sub(a21_, b21_),
+                  fermitools.func.sub(a22_, b22_))
 
     no, nv = nocc, norb-nocc
     ns = no * nv
@@ -47,12 +48,13 @@ def solve_spectrum(nroots, nocc, norb, a11_, b11_, a_d1d2_, b_d1d2_, a_d2d1_,
     return w[sortv], u[:, sortv]
 
 
-def solve_static_response(nocc, norb, a11_, b11_, a_d1d2_, b_d1d2_, a_d2d1_,
-                          b_d2d1_, a_d2d2_, b_d2d2_, pg1, pg2):
-    ea_ = a_(fermitools.func.add(a11_, b11_),
-             fermitools.func.add(a_d1d2_, b_d1d2_),
-             fermitools.func.add(a_d2d1_, b_d2d1_),
-             fermitools.func.add(a_d2d2_, b_d2d2_))
+def solve_static_response(nocc, norb, a11_, b11_, a12_, b12_, a21_,
+                          b21_, a22_, b22_, pg1, pg2):
+
+    ea_ = a_sigma(fermitools.func.add(a11_, b11_),
+                  fermitools.func.add(a12_, b12_),
+                  fermitools.func.add(a21_, b21_),
+                  fermitools.func.add(a22_, b22_))
 
     no, nv = nocc, norb-nocc
     ns = no * nv

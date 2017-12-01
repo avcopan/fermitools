@@ -16,6 +16,8 @@ GOOOO = numpy.load(os.path.join(data_path, 'cation/ocepa0/goooo.npy'))
 GOOVV = numpy.load(os.path.join(data_path, 'cation/ocepa0/goovv.npy'))
 GOVOV = numpy.load(os.path.join(data_path, 'cation/ocepa0/govov.npy'))
 GVVVV = numpy.load(os.path.join(data_path, 'cation/ocepa0/gvvvv.npy'))
+FOO = numpy.load(os.path.join(data_path, 'cation/ocepa0/foo.npy'))
+FVV = numpy.load(os.path.join(data_path, 'cation/ocepa0/fvv.npy'))
 T2 = numpy.load(os.path.join(data_path, 'cation/ocepa0/t2.npy'))
 M1OO = numpy.load(os.path.join(data_path, 'cation/ocepa0/m1oo.npy'))
 M1VV = numpy.load(os.path.join(data_path, 'cation/ocepa0/m1vv.npy'))
@@ -24,12 +26,13 @@ M2OOVV = numpy.load(os.path.join(data_path, 'cation/ocepa0/m2oovv.npy'))
 M2OVOV = numpy.load(os.path.join(data_path, 'cation/ocepa0/m2ovov.npy'))
 M2VVVV = numpy.load(os.path.join(data_path, 'cation/ocepa0/m2vvvv.npy'))
 
-A11 = numpy.load(os.path.join(data_path, 'cation/ocepa0/a11.npy'))
-B11 = numpy.load(os.path.join(data_path, 'cation/ocepa0/b11.npy'))
-S11 = numpy.load(os.path.join(data_path, 'cation/ocepa0/s11.npy'))
 S11_MAT = numpy.load(os.path.join(data_path, 'cation/ocepa0/s11_mat.npy'))
 PG1 = numpy.load(os.path.join(data_path, 'cation/ocepa0/pg1.npy'))
 PG2 = numpy.load(os.path.join(data_path, 'cation/ocepa0/pg2.npy'))
+A11 = numpy.load(os.path.join(data_path, 'cation/ocepa0/a11.npy'))
+B11 = numpy.load(os.path.join(data_path, 'cation/ocepa0/b11.npy'))
+S11 = numpy.load(os.path.join(data_path, 'cation/ocepa0/s11.npy'))
+A22 = numpy.load(os.path.join(data_path, 'cation/ocepa0/a22.npy'))
 
 
 def test__s11_matrix():
@@ -63,3 +66,8 @@ def test__b11_sigma():
     b11_ = ocepa0.b11_sigma(
             GOOOO, GOOVV, GOVOV, GVVVV, M2OOOO, M2OOVV, M2OVOV, M2VVVV)
     assert_almost_equal(b11_(I1), B11, decimal=12)
+
+
+def test__a22_sigma():
+    a22_ = ocepa0.a22_sigma(FOO, FVV, GOOOO, GOVOV, GVVVV)
+    assert_almost_equal(a22_(I2), A22, decimal=12)

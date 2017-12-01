@@ -96,13 +96,13 @@ def _main():
             m2ovov, m2vvvv)
     b11_ = fermitools.lr.odc12.b11_sigma(
             goooo, goovv, govov, gvvvv, m2oooo, m2oovv, m2ovov, m2vvvv)
-    a_d1d2_ = fermitools.lr.odc12.a_d1d2_(gooov, govvv, fioo, fivv, t2)
-    b_d1d2_ = fermitools.lr.odc12.b_d1d2_(gooov, govvv, fioo, fivv, t2)
-    a_d2d1_ = fermitools.lr.odc12.a_d2d1_(gooov, govvv, fioo, fivv, t2)
-    b_d2d1_ = fermitools.lr.odc12.b_d2d1_(gooov, govvv, fioo, fivv, t2)
-    a_d2d2_ = fermitools.lr.odc12.a_d2d2_(
+    a12_ = fermitools.lr.odc12.a_d1d2_(gooov, govvv, fioo, fivv, t2)
+    b12_ = fermitools.lr.odc12.b_d1d2_(gooov, govvv, fioo, fivv, t2)
+    a21_ = fermitools.lr.odc12.a_d2d1_(gooov, govvv, fioo, fivv, t2)
+    b21_ = fermitools.lr.odc12.b_d2d1_(gooov, govvv, fioo, fivv, t2)
+    a22_ = fermitools.lr.odc12.a22_sigma(
             ffoo, ffvv, goooo, govov, gvvvv, fgoooo, fgovov, fgvvvv, t2)
-    b_d2d2_ = fermitools.lr.odc12.b_d2d2_(fgoooo, fgovov, fgvvvv, t2)
+    b22_ = fermitools.lr.odc12.b22_sigma(fgoooo, fgovov, fgvvvv, t2)
 
     # Solve response properties
     p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
@@ -120,9 +120,8 @@ def _main():
     t0 = t
 
     alpha = solvers.lr.odc12.solve_static_response(
-            norb=norb, nocc=nocc, a11_=a11_, b11_=b11_, a_d1d2_=a_d1d2_,
-            b_d1d2_=b_d1d2_, a_d2d1_=a_d2d1_, b_d2d1_=b_d2d1_, a_d2d2_=a_d2d2_,
-            b_d2d2_=b_d2d2_, pg1=pg1, pg2=pg2)
+            norb=norb, nocc=nocc, a11_=a11_, b11_=b11_, a12_=a12_, b12_=b12_,
+            a21_=a21_, b21_=b21_, a22_=a22_, b22_=b22_, pg1=pg1, pg2=pg2)
     print(alpha.round(8))
 
     t = time.time()
@@ -130,16 +129,17 @@ def _main():
     t0 = t
 
     # Solve excitation energies
-    nroots = 200
+    nroots = 1
     no, nv = nocc, norb-nocc
-    sinv1 = scipy.linalg.inv(fermitools.lr.odc12.s11_matrix(m1oo, m1vv))
-    sinv_d1d1 = fermitools.math.unravel(
-            sinv1, {0: {0: no, 1: nv}, 1: {2: no, 3: nv}})
-    x1_ = fermitools.lr.odc12.d1_transformer(sinv_d1d1)
+    s11_mat = fermitools.lr.ocepa0.s11_matrix(m1oo, m1vv)
+    x11_mat = scipy.linalg.inv(s11_mat)
+    x11_arr = fermitools.math.unravel(
+            x11_mat, {0: {0: no, 1: nv}, 1: {2: no, 3: nv}})
+    x11_ = fermitools.lr.ocepa0.onebody_transformer(x11_arr)
     w, u = solvers.lr.odc12.solve_spectrum(
             nroots=nroots, norb=norb, nocc=nocc, a11_=a11_, b11_=b11_,
-            a_d1d2_=a_d1d2_, b_d1d2_=b_d1d2_, a_d2d1_=a_d2d1_, b_d2d1_=b_d2d1_,
-            a_d2d2_=a_d2d2_, b_d2d2_=b_d2d2_, x1_=x1_)
+            a12_=a12_, b12_=b12_, a21_=a21_, b21_=b21_, a22_=a22_, b22_=b22_,
+            x11_=x11_)
     print(w)
     print(u.shape)
 

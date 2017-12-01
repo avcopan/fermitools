@@ -90,9 +90,9 @@ def s11_sigma(m1oo, m1vv):
     return _s11
 
 
-def a_d2d2_(foo, fvv, goooo, govov, gvvvv):
+def a22_sigma(foo, fvv, goooo, govov, gvvvv):
 
-    def _sigma(r2):
+    def _a22(r2):
         return (
             + asm('2/3')(einsum('ac,ijcb...->ijab...', fvv, r2))
             - asm('0/1')(einsum('ik,kjab...->ijab...', foo, r2))
@@ -100,7 +100,7 @@ def a_d2d2_(foo, fvv, goooo, govov, gvvvv):
             + 1./2 * einsum('ijkl,klab...->ijab...', goooo, r2)
             - asm('0/1|2/3')(einsum('jcla,ilcb...->ijab...', govov, r2)))
 
-    return _sigma
+    return _a22
 
 
 def mixed_interaction(fov, gooov, govvv):
