@@ -90,19 +90,6 @@ def s11_sigma(m1oo, m1vv):
     return _s11
 
 
-def a22_sigma(foo, fvv, goooo, govov, gvvvv):
-
-    def _a22(r2):
-        return (
-            + asm('2/3')(einsum('ac,ijcb...->ijab...', fvv, r2))
-            - asm('0/1')(einsum('ik,kjab...->ijab...', foo, r2))
-            + 1./2 * einsum('abcd,ijcd...->ijab...', gvvvv, r2)
-            + 1./2 * einsum('ijkl,klab...->ijab...', goooo, r2)
-            - asm('0/1|2/3')(einsum('jcla,ilcb...->ijab...', govov, r2)))
-
-    return _a22
-
-
 def mixed_interaction(fov, gooov, govvv):
     no, nv = fov.shape
     io = numpy.eye(no)
@@ -114,10 +101,10 @@ def mixed_interaction(fov, gooov, govvv):
     return ioo, ivv
 
 
-def a_d1d2_(fov, gooov, govvv, t2):
+def a12_sigma(fov, gooov, govvv, t2):
     ioo, ivv = mixed_interaction(fov, gooov, govvv)
 
-    def _sigma(r2):
+    def _a12(r2):
         return (
             + 1./2 * einsum('lacd,ilcd...->ia...', govvv, r2)
             + 1./2 * einsum('klid,klad...->ia...', gooov, r2)
@@ -128,13 +115,13 @@ def a_d1d2_(fov, gooov, govvv, t2):
             + 1./4 * einsum('mnla,mncd,ilcd...->ia...', gooov, t2, r2)
             + 1./4 * einsum('idef,klef,klad...->ia...', govvv, t2, r2))
 
-    return _sigma
+    return _a12
 
 
-def b_d1d2_(fov, gooov, govvv, t2):
+def b12_sigma(fov, gooov, govvv, t2):
     ioo, ivv = mixed_interaction(fov, gooov, govvv)
 
-    def _sigma(r2):
+    def _b12(r2):
         return (
             + 1./2 * einsum('iamk,mlcd,klcd...->ia...', ioo, t2, r2)
             - 1./2 * einsum('iace,kled,klcd...->ia...', ivv, t2, r2)
@@ -143,13 +130,13 @@ def b_d1d2_(fov, gooov, govvv, t2):
             - 1./4 * einsum('klma,micd,klcd...->ia...', gooov, t2, r2)
             - 1./4 * einsum('iecd,klea,klcd...->ia...', govvv, t2, r2))
 
-    return _sigma
+    return _b12
 
 
-def a_d2d1_(fov, gooov, govvv, t2):
+def a21_sigma(fov, gooov, govvv, t2):
     ioo, ivv = mixed_interaction(fov, gooov, govvv)
 
-    def _sigma(r1):
+    def _a21(r1):
         return (
             + asm('0/1')(
                 einsum('jcab,ic...->ijab...', govvv, r1))
@@ -168,13 +155,13 @@ def a_d2d1_(fov, gooov, govvv, t2):
             + 1./2 * asm('2/3')(
                 einsum('kbef,ijef,ka...->ijab...', govvv, t2, r1)))
 
-    return _sigma
+    return _a21
 
 
-def b_d2d1_(fov, gooov, govvv, t2):
+def b21_sigma(fov, gooov, govvv, t2):
     ioo, ivv = mixed_interaction(fov, gooov, govvv)
 
-    def _sigma(r1):
+    def _b21(r1):
         return (
             + asm('0/1')(
                 einsum('kcmi,mjab,kc...->ijab...', ioo, t2, r1))
@@ -187,4 +174,17 @@ def b_d2d1_(fov, gooov, govvv, t2):
             - einsum('ijmc,mkab,kc...->ijab...', gooov, t2, r1)
             - einsum('keab,ijec,kc...->ijab...', govvv, t2, r1))
 
-    return _sigma
+    return _b21
+
+
+def a22_sigma(foo, fvv, goooo, govov, gvvvv):
+
+    def _a22(r2):
+        return (
+            + asm('2/3')(einsum('ac,ijcb...->ijab...', fvv, r2))
+            - asm('0/1')(einsum('ik,kjab...->ijab...', foo, r2))
+            + 1./2 * einsum('abcd,ijcd...->ijab...', gvvvv, r2)
+            + 1./2 * einsum('ijkl,klab...->ijab...', goooo, r2)
+            - asm('0/1|2/3')(einsum('jcla,ilcb...->ijab...', govov, r2)))
+
+    return _a22

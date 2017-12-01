@@ -91,10 +91,10 @@ def _main():
            m2ovov, m2vvvv)
     b11_ = fermitools.lr.ocepa0.b11_sigma(
            goooo, goovv, govov, gvvvv, m2oooo, m2oovv, m2ovov, m2vvvv)
-    a12_ = fermitools.lr.ocepa0.a_d1d2_(fov, gooov, govvv, t2)
-    b12_ = fermitools.lr.ocepa0.b_d1d2_(fov, gooov, govvv, t2)
-    a21_ = fermitools.lr.ocepa0.a_d2d1_(fov, gooov, govvv, t2)
-    b21_ = fermitools.lr.ocepa0.b_d2d1_(fov, gooov, govvv, t2)
+    a12_ = fermitools.lr.ocepa0.a12_sigma(fov, gooov, govvv, t2)
+    b12_ = fermitools.lr.ocepa0.b12_sigma(fov, gooov, govvv, t2)
+    a21_ = fermitools.lr.ocepa0.a21_sigma(fov, gooov, govvv, t2)
+    b21_ = fermitools.lr.ocepa0.b21_sigma(fov, gooov, govvv, t2)
     a22_ = fermitools.lr.ocepa0.a22_sigma(foo, fvv, goooo, govov, gvvvv)
 
     # Solve response properties

@@ -60,9 +60,9 @@ def fancy_repulsion(ffoo, ffvv, goooo, govov, gvvvv, m1oo, m1vv):
     return fgoooo, fgovov, fgvvvv
 
 
-def a_d1d2_(gooov, govvv, fioo, fivv, t2):
+def a12_sigma(gooov, govvv, fioo, fivv, t2):
 
-    def _sigma(r2):
+    def _a12(r2):
         return (
             + 1./2 * einsum('lacd,ilcd...->ia...', govvv, r2)
             + 1./2 * einsum('klid,klad...->ia...', gooov, r2)
@@ -73,12 +73,12 @@ def a_d1d2_(gooov, govvv, fioo, fivv, t2):
             + 1./4 * einsum('mnla,mncd,ilcd...->ia...', gooov, t2, r2)
             + 1./4 * einsum('idef,klef,klad...->ia...', govvv, t2, r2))
 
-    return _sigma
+    return _a12
 
 
-def b_d1d2_(gooov, govvv, fioo, fivv, t2):
+def b12_sigma(gooov, govvv, fioo, fivv, t2):
 
-    def _sigma(r2):
+    def _b12(r2):
         return (
             + 1./2 * einsum('iamk,mlcd,klcd...->ia...', fioo, t2, r2)
             + 1./2 * einsum('iace,kled,klcd...->ia...', fivv, t2, r2)
@@ -87,12 +87,12 @@ def b_d1d2_(gooov, govvv, fioo, fivv, t2):
             - 1./4 * einsum('klma,micd,klcd...->ia...', gooov, t2, r2)
             - 1./4 * einsum('iecd,klea,klcd...->ia...', govvv, t2, r2))
 
-    return _sigma
+    return _b12
 
 
-def a_d2d1_(gooov, govvv, fioo, fivv, t2):
+def a21_sigma(gooov, govvv, fioo, fivv, t2):
 
-    def _sigma(r1):
+    def _a21(r1):
         return (
             + asm('0/1')(
                    einsum('jcab,ic...->ijab...', govvv, r1))
@@ -111,12 +111,12 @@ def a_d2d1_(gooov, govvv, fioo, fivv, t2):
             + 1./2 * asm('2/3')(
                    einsum('kbef,ijef,ka...->ijab...', govvv, t2, r1)))
 
-    return _sigma
+    return _a21
 
 
-def b_d2d1_(gooov, govvv, fioo, fivv, t2):
+def b21_sigma(gooov, govvv, fioo, fivv, t2):
 
-    def _sigma(r1):
+    def _b21(r1):
         return (
             + asm('0/1')(
                    einsum('kcmi,mjab,kc...->ijab...', fioo, t2, r1))
@@ -129,7 +129,7 @@ def b_d2d1_(gooov, govvv, fioo, fivv, t2):
             - einsum('ijmc,mkab,kc...->ijab...', gooov, t2, r1)
             - einsum('keab,ijec,kc...->ijab...', govvv, t2, r1))
 
-    return _sigma
+    return _b21
 
 
 def a22_sigma(ffoo, ffvv, goooo, govov, gvvvv, fgoooo, fgovov, fgvvvv, t2):
@@ -172,4 +172,5 @@ __all__ = [
         'fancy_repulsion', 'fancy_mixed_interaction', 's11_matrix',
         'onebody_transformer', 'onebody_property_gradient',
         'twobody_property_gradient', 'a11_sigma', 'b11_sigma', 's11_sigma',
-        'a_d1d2_', 'b_d1d2_', 'a_d2d1_', 'b_d2d1_', 'a22_sigma', 'b22_sigma']
+        'a12_sigma', 'b12_sigma', 'a21_sigma', 'b21_sigma', 'a22_sigma',
+        'b22_sigma']
