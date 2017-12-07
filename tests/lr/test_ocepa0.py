@@ -58,43 +58,43 @@ def test__twobody_property_gradient():
 
 
 def test__s11_sigma():
-    s11_ = ocepa0.s11_sigma(M1OO, M1VV)
-    assert_almost_equal(s11_(I1), S11, decimal=12)
+    s11 = ocepa0.s11_sigma(M1OO, M1VV)
+    assert_almost_equal(s11(I1), S11, decimal=12)
 
 
 def test__a11_sigma():
-    a11_ = ocepa0.a11_sigma(
+    a11 = ocepa0.a11_sigma(
             HOO, HVV, GOOOO, GOOVV, GOVOV, GVVVV, M1OO, M1VV, M2OOOO, M2OOVV,
             M2OVOV, M2VVVV)
-    assert_almost_equal(a11_(I1), A11, decimal=12)
+    assert_almost_equal(a11(I1), A11, decimal=12)
 
 
 def test__b11_sigma():
-    b11_ = ocepa0.b11_sigma(
+    b11 = ocepa0.b11_sigma(
             GOOOO, GOOVV, GOVOV, GVVVV, M2OOOO, M2OOVV, M2OVOV, M2VVVV)
-    assert_almost_equal(b11_(I1), B11, decimal=12)
+    assert_almost_equal(b11(I1), B11, decimal=12)
 
 
 def test__a12_sigma():
-    a12_ = ocepa0.a12_sigma(FOV, GOOOV, GOVVV, T2)
-    assert_almost_equal(a12_(I2), A12, decimal=12)
+    a12 = ocepa0.a12_sigma(FOV, GOOOV, GOVVV, T2)
+    assert_almost_equal(a12(I2), A12, decimal=12)
 
 
 def test__b12_sigma():
-    b12_ = ocepa0.b12_sigma(FOV, GOOOV, GOVVV, T2)
-    assert_almost_equal(b12_(I2), B12, decimal=12)
+    b12 = ocepa0.b12_sigma(FOV, GOOOV, GOVVV, T2)
+    assert_almost_equal(b12(I2), B12, decimal=12)
 
 
 def test__a21_sigma():
-    a21_ = ocepa0.a21_sigma(FOV, GOOOV, GOVVV, T2)
-    assert_almost_equal(a21_(I1), A21, decimal=12)
+    a21 = ocepa0.a21_sigma(FOV, GOOOV, GOVVV, T2)
+    assert_almost_equal(a21(I1), A21, decimal=12)
 
 
 def test__b21_sigma():
-    b21_ = ocepa0.b21_sigma(FOV, GOOOV, GOVVV, T2)
-    assert_almost_equal(b21_(I1), B21, decimal=12)
+    b21 = ocepa0.b21_sigma(FOV, GOOOV, GOVVV, T2)
+    assert_almost_equal(b21(I1), B21, decimal=12)
 
 
 def test__a22_sigma():
-    a22_ = ocepa0.a22_sigma(FOO, FVV, GOOOO, GOVOV, GVVVV)
-    assert_almost_equal(a22_(I2), A22, decimal=12)
+    a22 = ocepa0.a22_sigma(FOO, FVV, GOOOO, GOVOV, GVVVV)
+    assert_almost_equal(a22(I2), A22, decimal=12)

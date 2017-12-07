@@ -31,31 +31,31 @@ B22 = numpy.load(os.path.join(data_path, 'cation/odc12/b22.npy'))
 
 
 def test__a12_sigma():
-    a12_ = odc12.a12_sigma(GOOOV, GOVVV, FIOO, FIVV, T2)
-    assert_almost_equal(a12_(I2), A12, decimal=12)
+    a12 = odc12.a12_sigma(GOOOV, GOVVV, FIOO, FIVV, T2)
+    assert_almost_equal(a12(I2), A12, decimal=12)
 
 
 def test__b12_sigma():
-    b12_ = odc12.b12_sigma(GOOOV, GOVVV, FIOO, FIVV, T2)
-    assert_almost_equal(b12_(I2), B12, decimal=12)
+    b12 = odc12.b12_sigma(GOOOV, GOVVV, FIOO, FIVV, T2)
+    assert_almost_equal(b12(I2), B12, decimal=12)
 
 
 def test__a21_sigma():
-    a21_ = odc12.a21_sigma(GOOOV, GOVVV, FIOO, FIVV, T2)
-    assert_almost_equal(a21_(I1), A21, decimal=12)
+    a21 = odc12.a21_sigma(GOOOV, GOVVV, FIOO, FIVV, T2)
+    assert_almost_equal(a21(I1), A21, decimal=12)
 
 
 def test__b21_sigma():
-    b21_ = odc12.b21_sigma(GOOOV, GOVVV, FIOO, FIVV, T2)
-    assert_almost_equal(b21_(I1), B21, decimal=12)
+    b21 = odc12.b21_sigma(GOOOV, GOVVV, FIOO, FIVV, T2)
+    assert_almost_equal(b21(I1), B21, decimal=12)
 
 
 def test__a22_sigma():
-    a22_ = odc12.a22_sigma(
+    a22 = odc12.a22_sigma(
             FFOO, FFVV, GOOOO, GOVOV, GVVVV, FGOOOO, FGOVOV, FGVVVV, T2)
-    assert_almost_equal(a22_(I2), A22, decimal=12)
+    assert_almost_equal(a22(I2), A22, decimal=12)
 
 
 def test__b22_sigma():
-    b22_ = odc12.b22_sigma(FGOOOO, FGOVOV, FGVVVV, T2)
-    assert_almost_equal(b22_(I2), B22, decimal=12)
+    b22 = odc12.b22_sigma(FGOOOO, FGOVOV, FGVVVV, T2)
+    assert_almost_equal(b22(I2), B22, decimal=12)

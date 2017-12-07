@@ -13,6 +13,8 @@ from .ocepa0 import a11_sigma
 from .ocepa0 import b11_sigma
 from .ocepa0 import s11_sigma
 from .ocepa0 import a22_sigma as cepa_a22_sigma
+from .ocepa0 import pc11_sigma
+from .ocepa0 import pc22_sigma
 
 
 def fancy_mixed_interaction(fov, gooov, govvv, m1oo, m1vv):
@@ -173,4 +175,4 @@ __all__ = [
         'onebody_transformer', 'onebody_property_gradient',
         'twobody_property_gradient', 'a11_sigma', 'b11_sigma', 's11_sigma',
         'a12_sigma', 'b12_sigma', 'a21_sigma', 'b21_sigma', 'a22_sigma',
-        'b22_sigma']
+        'b22_sigma', 'pc11_sigma', 'pc22_sigma']

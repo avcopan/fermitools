@@ -1,5 +1,6 @@
 import numpy
 from ..math import einsum
+from ..math import broadcast_sum
 from ..math.asym import antisymmetrizer_product as asm
 
 
@@ -188,3 +189,27 @@ def a22_sigma(foo, fvv, goooo, govov, gvvvv):
             - asm('0/1|2/3')(einsum('jcla,ilcb...->ijab...', govov, r2)))
 
     return _a22
+
+
+def pc11_sigma(eo, ev):
+
+    def _pc11(w):
+
+        def __pc11(r1):
+            return r1 / broadcast_sum({0: -eo, 1: +ev, 2: -w})
+
+        return __pc11
+
+    return _pc11
+
+
+def pc22_sigma(eo, ev):
+
+    def _pc22(w):
+
+        def __pc22(r2):
+            return r2 / broadcast_sum({0: -eo, 1: -eo, 2: +ev, 3: +ev, 4: -w})
+
+        return __pc22
+
+    return _pc22

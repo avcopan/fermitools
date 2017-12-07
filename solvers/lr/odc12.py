@@ -6,31 +6,31 @@ from toolz import functoolz
 import fermitools
 
 
-def a_sigma(a11_, a12_, a21_, a22_):
+def a_sigma(a11, a12, a21, a22):
 
     def _a(r):
         r1, r2 = r
-        return (a11_(r1) + a12_(r2), a21_(r1) + a22_(r2))
+        return (a11(r1) + a12(r2), a21(r1) + a22(r2))
 
     return _a
 
 
-def solve_spectrum(nroots, nocc, norb, a11_, b11_, a12_, b12_, a21_,
-                   b21_, a22_, b22_, x11_):
-    xa11_ = functoolz.compose(x11_, a11_)
-    xb11_ = functoolz.compose(x11_, b11_)
-    xa12_ = functoolz.compose(x11_, a12_)
-    xb12_ = functoolz.compose(x11_, b12_)
+def solve_spectrum(nroots, nocc, norb, a11, b11, a12, b12, a21, b21, a22, b22,
+                   x11):
+    xa11 = functoolz.compose(x11, a11)
+    xb11 = functoolz.compose(x11, b11)
+    xa12 = functoolz.compose(x11, a12)
+    xb12 = functoolz.compose(x11, b12)
 
-    ea_ = a_sigma(fermitools.func.add(xa11_, xb11_),
-                  fermitools.func.add(xa12_, xb12_),
-                  fermitools.func.add(a21_, b21_),
-                  fermitools.func.add(a22_, b22_))
+    ea_ = a_sigma(fermitools.func.add(xa11, xb11),
+                  fermitools.func.add(xa12, xb12),
+                  fermitools.func.add(a21, b21),
+                  fermitools.func.add(a22, b22))
 
-    es_ = a_sigma(fermitools.func.sub(xa11_, xb11_),
-                  fermitools.func.sub(xa12_, xb12_),
-                  fermitools.func.sub(a21_, b21_),
-                  fermitools.func.sub(a22_, b22_))
+    es_ = a_sigma(fermitools.func.sub(xa11, xb11),
+                  fermitools.func.sub(xa12, xb12),
+                  fermitools.func.sub(a21, b21),
+                  fermitools.func.sub(a22, b22))
 
     no, nv = nocc, norb-nocc
     ns = no * nv
@@ -48,13 +48,13 @@ def solve_spectrum(nroots, nocc, norb, a11_, b11_, a12_, b12_, a21_,
     return w[sortv], u[:, sortv]
 
 
-def solve_static_response(nocc, norb, a11_, b11_, a12_, b12_, a21_,
-                          b21_, a22_, b22_, pg1, pg2):
+def solve_static_response(nocc, norb, a11, b11, a12, b12, a21, b21, a22, b22,
+                          pg1, pg2):
 
-    ea_ = a_sigma(fermitools.func.add(a11_, b11_),
-                  fermitools.func.add(a12_, b12_),
-                  fermitools.func.add(a21_, b21_),
-                  fermitools.func.add(a22_, b22_))
+    ea_ = a_sigma(fermitools.func.add(a11, b11),
+                  fermitools.func.add(a12, b12),
+                  fermitools.func.add(a21, b21),
+                  fermitools.func.add(a22, b22))
 
     no, nv = nocc, norb-nocc
     ns = no * nv

@@ -1,7 +1,6 @@
 import os
 import numpy
 import scipy
-import time
 
 import fermitools
 import interfaces.psi4 as interface
@@ -11,7 +10,7 @@ data_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data')
 
 CHARGE = +0
 SPIN = 0
-BASIS = 'ano0'
+BASIS = 'cc-pvtz'
 LABELS = ('O', 'H', 'H')
 COORDS = ((0.000000000000,  0.000000000000, -0.143225816552),
           (0.000000000000,  1.638036840407,  1.136548822547),
@@ -23,7 +22,6 @@ W = numpy.load(os.path.join(data_path, 'cation/odc12/w.npy'))
 
 
 def _main():
-    t0 = time.time()
     # Spaces
     na = fermitools.chem.elec.count_alpha(LABELS, CHARGE, SPIN)
     nb = fermitools.chem.elec.count_beta(LABELS, CHARGE, SPIN)
@@ -91,18 +89,18 @@ def _main():
     fgoooo, fgovov, fgvvvv = fermitools.lr.odc12.fancy_repulsion(
             ffoo, ffvv, goooo, govov, gvvvv, m1oo, m1vv)
 
-    a11_ = fermitools.lr.odc12.a11_sigma(
-            hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv, m2oooo, m2oovv,
-            m2ovov, m2vvvv)
-    b11_ = fermitools.lr.odc12.b11_sigma(
-            goooo, goovv, govov, gvvvv, m2oooo, m2oovv, m2ovov, m2vvvv)
-    a12_ = fermitools.lr.odc12.a12_sigma(gooov, govvv, fioo, fivv, t2)
-    b12_ = fermitools.lr.odc12.b12_sigma(gooov, govvv, fioo, fivv, t2)
-    a21_ = fermitools.lr.odc12.a21_sigma(gooov, govvv, fioo, fivv, t2)
-    b21_ = fermitools.lr.odc12.b21_sigma(gooov, govvv, fioo, fivv, t2)
-    a22_ = fermitools.lr.odc12.a22_sigma(
-            ffoo, ffvv, goooo, govov, gvvvv, fgoooo, fgovov, fgvvvv, t2)
-    b22_ = fermitools.lr.odc12.b22_sigma(fgoooo, fgovov, fgvvvv, t2)
+    a11 = fermitools.lr.odc12.a11_sigma(
+           hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv, m2oooo, m2oovv,
+           m2ovov, m2vvvv)
+    b11 = fermitools.lr.odc12.b11_sigma(
+           goooo, goovv, govov, gvvvv, m2oooo, m2oovv, m2ovov, m2vvvv)
+    a12 = fermitools.lr.odc12.a12_sigma(gooov, govvv, fioo, fivv, t2)
+    b12 = fermitools.lr.odc12.b12_sigma(gooov, govvv, fioo, fivv, t2)
+    a21 = fermitools.lr.odc12.a21_sigma(gooov, govvv, fioo, fivv, t2)
+    b21 = fermitools.lr.odc12.b21_sigma(gooov, govvv, fioo, fivv, t2)
+    a22 = fermitools.lr.odc12.a22_sigma(
+           ffoo, ffvv, goooo, govov, gvvvv, fgoooo, fgovov, fgvvvv, t2)
+    b22 = fermitools.lr.odc12.b22_sigma(fgoooo, fgovov, fgvvvv, t2)
 
     # Solve response properties
     p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
@@ -115,19 +113,12 @@ def _main():
     pg1 = fermitools.lr.odc12.onebody_property_gradient(pov, m1oo, m1vv)
     pg2 = fermitools.lr.odc12.twobody_property_gradient(fpoo, -fpvv, t2)
 
-    t = time.time()
-    dt1 = t - t0
-    t0 = t
-
     alpha = solvers.lr.odc12.solve_static_response(
-            norb=norb, nocc=nocc, a11_=a11_, b11_=b11_, a12_=a12_, b12_=b12_,
-            a21_=a21_, b21_=b21_, a22_=a22_, b22_=b22_, pg1=pg1, pg2=pg2)
+            norb=norb, nocc=nocc, a11=a11, b11=b11, a12=a12, b12=b12, a21=a21,
+            b21=b21, a22=a22, b22=b22, pg1=pg1, pg2=pg2)
     print(alpha.round(8))
 
-    t = time.time()
-    dt2 = t - t0
-    t0 = t
-
+    '''
     # Solve excitation energies
     nroots = 1
     no, nv = nocc, norb-nocc
@@ -135,26 +126,17 @@ def _main():
     x11_mat = scipy.linalg.inv(s11_mat)
     x11_arr = fermitools.math.unravel(
             x11_mat, {0: {0: no, 1: nv}, 1: {2: no, 3: nv}})
-    x11_ = fermitools.lr.ocepa0.onebody_transformer(x11_arr)
+    x11 = fermitools.lr.ocepa0.onebody_transformer(x11_arr)
     w, u = solvers.lr.odc12.solve_spectrum(
-            nroots=nroots, norb=norb, nocc=nocc, a11_=a11_, b11_=b11_,
-            a12_=a12_, b12_=b12_, a21_=a21_, b21_=b21_, a22_=a22_, b22_=b22_,
-            x11_=x11_)
+            nroots=nroots, norb=norb, nocc=nocc, a11=a11, b11=b11, a12=a12,
+            b12=b12, a21=a21, b21=b21, a22=a22, b22=b22, x11=x11)
     print(w)
     print(u.shape)
-
-    t = time.time()
-    dt3 = t - t0
-    t0 = t
-
-    print("Time blocks:")
-    print(dt1)
-    print(dt2)
-    print(dt3)
+    '''
 
 
 if __name__ == '__main__':
-    _main()
+    # _main()
 
     # import cProfile
     # cProfile.run('_main()', '_main.profile')
@@ -162,7 +144,12 @@ if __name__ == '__main__':
     # stats = pstats.Stats('_main.profile')
     # stats.strip_dirs().sort_stats('time').print_stats()
 
-    # from pycallgraph import PyCallGraph
-    # from pycallgraph.output import GraphvizOutput
-    # with PyCallGraph(output=GraphvizOutput()):
-    #     _main()
+    from pycallgraph import PyCallGraph
+    from pycallgraph import Config
+    from pycallgraph import GlobbingFilter
+    from pycallgraph.output import GraphvizOutput
+    config = Config()
+    config.trace_filter = GlobbingFilter(include=['fermitools.*'])
+    graphviz = GraphvizOutput(output_file='filtered.png')
+    with PyCallGraph(output=graphviz, config=config):
+        _main()

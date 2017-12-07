@@ -86,16 +86,16 @@ def _main():
     fov = fermitools.oo.ocepa0.fock_oo(hov, gooov)
     fvv = fermitools.oo.ocepa0.fock_vv(hvv, govov)
 
-    a11_ = fermitools.lr.ocepa0.a11_sigma(
-           hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv, m2oooo, m2oovv,
-           m2ovov, m2vvvv)
-    b11_ = fermitools.lr.ocepa0.b11_sigma(
-           goooo, goovv, govov, gvvvv, m2oooo, m2oovv, m2ovov, m2vvvv)
-    a12_ = fermitools.lr.ocepa0.a12_sigma(fov, gooov, govvv, t2)
-    b12_ = fermitools.lr.ocepa0.b12_sigma(fov, gooov, govvv, t2)
-    a21_ = fermitools.lr.ocepa0.a21_sigma(fov, gooov, govvv, t2)
-    b21_ = fermitools.lr.ocepa0.b21_sigma(fov, gooov, govvv, t2)
-    a22_ = fermitools.lr.ocepa0.a22_sigma(foo, fvv, goooo, govov, gvvvv)
+    a11 = fermitools.lr.ocepa0.a11_sigma(
+          hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv, m2oooo, m2oovv,
+          m2ovov, m2vvvv)
+    b11 = fermitools.lr.ocepa0.b11_sigma(
+          goooo, goovv, govov, gvvvv, m2oooo, m2oovv, m2ovov, m2vvvv)
+    a12 = fermitools.lr.ocepa0.a12_sigma(fov, gooov, govvv, t2)
+    b12 = fermitools.lr.ocepa0.b12_sigma(fov, gooov, govvv, t2)
+    a21 = fermitools.lr.ocepa0.a21_sigma(fov, gooov, govvv, t2)
+    b21 = fermitools.lr.ocepa0.b21_sigma(fov, gooov, govvv, t2)
+    a22 = fermitools.lr.ocepa0.a22_sigma(foo, fvv, goooo, govov, gvvvv)
 
     # Solve response properties
     p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
@@ -107,8 +107,8 @@ def _main():
     pg2 = fermitools.lr.ocepa0.twobody_property_gradient(poo, pvv, t2)
 
     alpha = solvers.lr.ocepa0.solve_static_response(
-            norb=norb, nocc=nocc, a11_=a11_, b11_=b11_, a12_=a12_, b12_=b12_,
-            a21_=a21_, b21_=b21_, a22_=a22_, pg1=pg1, pg2=pg2)
+            norb=norb, nocc=nocc, a11=a11, b11=b11, a12=a12, b12=b12, a21=a21,
+            b21=b21, a22=a22, pg1=pg1, pg2=pg2)
     print(alpha.round(8))
 
     assert_almost_equal(EN_DF2, numpy.diag(alpha), decimal=8)
@@ -121,10 +121,10 @@ def _main():
     x11_mat = scipy.linalg.inv(s11_mat)
     x11_arr = fermitools.math.unravel(
             x11_mat, {0: {0: no, 1: nv}, 1: {2: no, 3: nv}})
-    x11_ = fermitools.lr.ocepa0.onebody_transformer(x11_arr)
+    x11 = fermitools.lr.ocepa0.onebody_transformer(x11_arr)
     w, u = solvers.lr.ocepa0.solve_spectrum(
-            nroots=nroots, norb=norb, nocc=nocc, a11_=a11_, b11_=b11_,
-            a12_=a12_, b12_=b12_, a21_=a21_, b21_=b21_, a22_=a22_, x11_=x11_)
+            nroots=nroots, norb=norb, nocc=nocc, a11=a11, b11=b11, a12=a12,
+            b12=b12, a21=a21, b21=b21, a22=a22, x11=x11)
     print(w)
     print(u.shape)
     assert_almost_equal(W[1:nroots], w[1:], decimal=11)
