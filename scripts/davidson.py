@@ -20,9 +20,9 @@ def eig_direct(a, neig, guess, maxdim, tol):
         idx = numpy.argsort(w_unsrt)
         w = w_unsrt[idx]
         s = s_unsrt[:, idx]
-        r = (numpy.dot(av, s[:, :nguess])
-             - numpy.dot(v, s[:, :nguess]) * w[:nguess])
-        v_new = r / (w[:nguess] - numpy.diag(a[:nguess, :nguess]))
+        r = (numpy.dot(av, s[:, :neig])
+             - numpy.dot(v, s[:, :neig]) * w[:neig])
+        v_new = r / (w[:neig] - numpy.diag(a[:neig, :neig]))
         v_old = v
         av_old = av
         r_norm = numpy.linalg.norm(r)
@@ -40,7 +40,7 @@ def eig_direct(a, neig, guess, maxdim, tol):
 def main():
     import time
     from numpy.testing import assert_almost_equal
-    numpy.random.seed(0)
+    numpy.random.seed(2)
 
     dim = 1200
 
@@ -49,7 +49,7 @@ def main():
          + sparsity * numpy.random.rand(dim, dim))
     a = (a + a.T) / 2
 
-    tol = 1e-7
+    tol = 1e-8
     maxdim = dim//2
     nguess = 8
     neig = 4
