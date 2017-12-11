@@ -2,9 +2,8 @@ import numpy
 import fermitools
 
 
-def eig_direct(a, neig, guess, maxdim, tol):
+def eig_direct(a, neig, guess, maxdim, r_thresh):
     dim, nguess = guess.shape
-    r_thresh = tol * dim
     v_old = av_old = numpy.zeros((dim, 0))
     v_new = guess
     niter = maxdim // nguess
@@ -25,10 +24,10 @@ def eig_direct(a, neig, guess, maxdim, tol):
         v_new = r / (w[:neig] - numpy.diag(a[:neig, :neig]))
         v_old = v
         av_old = av
-        r_norm = numpy.linalg.norm(r)
-        converged = r_norm < r_thresh
+        r_rms = numpy.linalg.norm(r) / numpy.sqrt(numpy.product(r.shape))
+        converged = r_rms < r_thresh
         print(("{:-3d} {:7.1e}" + neig * " {:13.9f}")
-              .format(iteration, r_norm, *w))
+              .format(iteration, r_rms, *w))
         if converged:
             break
 
@@ -40,7 +39,7 @@ def eig_direct(a, neig, guess, maxdim, tol):
 def main():
     import time
     from numpy.testing import assert_almost_equal
-    numpy.random.seed(2)
+    numpy.random.seed(0)
 
     dim = 1200
 
@@ -49,7 +48,7 @@ def main():
          + sparsity * numpy.random.rand(dim, dim))
     a = (a + a.T) / 2
 
-    tol = 1e-8
+    r_thresh = 1e-7
     maxdim = dim//2
     nguess = 8
     neig = 4
@@ -66,14 +65,14 @@ def main():
 
     print('davidson, perfect guess')
     _, _, rdim = eig_direct(
-            a=a, neig=neig, guess=u_numpy, maxdim=maxdim, tol=tol)
+            a=a, neig=neig, guess=u_numpy, maxdim=maxdim, r_thresh=r_thresh)
     print(rdim)
     assert rdim == neig
 
     print('davidson, bad guess')
     t0 = time.time()
     w, u, rdim = eig_direct(
-            a=a, neig=neig, guess=guess, maxdim=maxdim, tol=tol)
+            a=a, neig=neig, guess=guess, maxdim=maxdim, r_thresh=r_thresh)
     dt_davidson = time.time() - t0
     print(rdim)
     print(w)
