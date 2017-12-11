@@ -21,3 +21,8 @@ def test__cepa0():
 def test__uhf():
     import scripts.uhf
     scripts.uhf.main()
+
+
+def test__davidson():
+    import scripts.davidson
+    scripts.davidson.main()
