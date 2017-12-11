@@ -5,6 +5,7 @@ from .findif import central_difference
 from .ctr import einsum
 from .rav import ravel, raveler
 from .urav import unravel, unraveler
+from .orth import orthogonalize
 
 __all__ = [
         'spinorb', 'combinatorics', 'asym',
@@ -14,4 +15,5 @@ __all__ = [
         'central_difference',
         'einsum',
         'ravel', 'raveler',
-        'unravel', 'unraveler']
+        'unravel', 'unraveler',
+        'orthogonalize']
