@@ -8,6 +8,6 @@ def orthogonalize(a, against=None, tol=None):
     tol = max(m, n) * numpy.finfo(float).eps if tol is None else tol
 
     a_proj = a - numpy.linalg.multi_dot([b, b.T, a])
-    u, s, vd = scipy.linalg.svd(a_proj)
-    num = numpy.sum(s > tol, dtype=int)
-    return u[:, :num]
+    a_orth, svals, _ = scipy.linalg.svd(a_proj)
+    nkeep = numpy.sum(svals > tol, dtype=int)
+    return a_orth[:, :nkeep]
