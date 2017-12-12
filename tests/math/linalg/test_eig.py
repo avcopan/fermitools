@@ -48,8 +48,8 @@ def pc_(w):
 def test__eigh_direct():
     dim = 2000
     neig = 4
-    nguess = 7
-    r_thresh = 1e-10
+    nguess = 4
+    r_thresh = 1e-11
     a_ = a_sigma(dim)
 
     a = a_(numpy.eye(dim))
@@ -58,8 +58,8 @@ def test__eigh_direct():
     U = vecs[:, :neig]
 
     w, u, info = eig.eigh_direct(
-            a=a_, neig=neig, guess=U, pc=pc_, niter=100, r_thresh=r_thresh,
-            print_conv=True)
+            a=a_, neig=neig, guess=U, pc=pc_, niter=100, nvecs=100,
+            r_thresh=r_thresh)
     assert_almost_equal(w, W, decimal=10)
     assert_almost_equal(numpy.abs(u), numpy.abs(U), decimal=10)
     assert info['niter'] == 1
@@ -68,11 +68,11 @@ def test__eigh_direct():
     t0 = time.time()
     guess = numpy.eye(dim, nguess)
     w, u, info = eig.eigh_direct(
-            a=a_, neig=neig, guess=guess, pc=pc_, niter=100, r_thresh=r_thresh,
-            print_conv=True)
+            a=a_, neig=neig, guess=guess, pc=pc_, niter=1000, nvecs=20,
+            r_thresh=r_thresh)
     dt = time.time() - t0
     assert_almost_equal(w, W, decimal=10)
     assert_almost_equal(numpy.abs(u), numpy.abs(U), decimal=10)
-    assert info['niter'] < 9
-    assert info['rdim'] < 27
-    assert dt < 0.2
+    assert info['niter'] < 14
+    assert info['rdim'] < 18
+    assert dt < 0.3

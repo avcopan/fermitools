@@ -196,7 +196,7 @@ def pc11_sigma(eo, ev):
     def _pc11(w):
 
         def __pc11(r1):
-            return r1 / broadcast_sum({0: -eo, 1: +ev, 2: -w})
+            return r1 / broadcast_sum({0: +eo, 1: -ev, 2: +w})
 
         return __pc11
 
@@ -208,7 +208,7 @@ def pc22_sigma(eo, ev):
     def _pc22(w):
 
         def __pc22(r2):
-            return r2 / broadcast_sum({0: -eo, 1: -eo, 2: +ev, 3: +ev, 4: -w})
+            return r2 / broadcast_sum({0: +eo, 1: +eo, 2: -ev, 3: -ev, 4: +w})
 
         return __pc22
 

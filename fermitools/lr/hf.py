@@ -30,7 +30,7 @@ def pc_sigma(eo, ev):
     def _pc(w):
 
         def __pc(r):
-            return r / broadcast_sum({0: -eo, 1: +ev, 2: -w})
+            return r / broadcast_sum({0: +eo, 1: -ev, 2: +w})
 
         return __pc
 
