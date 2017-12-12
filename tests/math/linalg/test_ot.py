@@ -1,9 +1,9 @@
-import fermitools.math.orth as orth
+import fermitools.math.linalg.ot as ot
 
 import numpy
 
 
-def test__orthogonalize():
+def test__orth():
     numpy.random.seed(0)
 
     t1 = 1.
@@ -18,10 +18,10 @@ def test__orthogonalize():
     b3 = a + t3 * r
     b4 = a + t4 * r
 
-    c1 = orth.orthogonalize(b1, against=a, tol=1e-4)
-    c2 = orth.orthogonalize(b2, against=a, tol=1e-4)
-    c3 = orth.orthogonalize(b3, against=a, tol=1e-4)
-    c4 = orth.orthogonalize(b4, against=a, tol=1e-4)
+    c1 = ot.orth(b1, against=a, tol=1e-4)
+    c2 = ot.orth(b2, against=a, tol=1e-4)
+    c3 = ot.orth(b3, against=a, tol=1e-4)
+    c4 = ot.orth(b4, against=a, tol=1e-4)
 
     assert c1.shape == (100, 3)
     assert c2.shape == (100, 3)

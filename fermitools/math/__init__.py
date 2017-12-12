@@ -1,3 +1,4 @@
+from . import linalg
 from . import spinorb, combinatorics, asym
 from .trans import transform, transformer
 from .bcast import broadcast_sum
@@ -5,9 +6,9 @@ from .findif import central_difference
 from .ctr import einsum
 from .rav import ravel, raveler
 from .urav import unravel, unraveler
-from .orth import orthogonalize
 
 __all__ = [
+        'linalg',
         'spinorb', 'combinatorics', 'asym',
         'transform', 'transformer',
         'broadcast_sum',
@@ -15,5 +16,4 @@ __all__ = [
         'central_difference',
         'einsum',
         'ravel', 'raveler',
-        'unravel', 'unraveler',
-        'orthogonalize']
+        'unravel', 'unraveler']
