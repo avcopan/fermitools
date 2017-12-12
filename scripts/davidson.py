@@ -1,8 +1,9 @@
 import numpy
 import fermitools
+import warnings
 
 
-def eig_direct(a, pc, neig, guess, niter=100, r_thresh=1e-6):
+def eig_direct(a, pc, neig, guess, niter=100, r_thresh=1e-6, print_conv=False):
     dim, nguess = guess.shape
     v_old = av_old = numpy.zeros((dim, 0))
     v_new = guess
@@ -25,14 +26,25 @@ def eig_direct(a, pc, neig, guess, niter=100, r_thresh=1e-6):
         av_old = av
         r_rms = numpy.linalg.norm(r) / numpy.sqrt(numpy.size(r))
         converged = r_rms < r_thresh
-        print(("{:-3d} {:7.1e}" + neig * " {:13.9f}")
-              .format(iteration, r_rms, *w))
+
         if converged:
             break
 
     vals = w[:neig]
     vecs = numpy.dot(v, s[:, :neig])
-    return vals, vecs, len(w)
+    info = {'niter': iteration,
+            'rdim': len(w),
+            'r_rms': r_rms}
+
+    if not converged:
+        warnings.warn("Did not converge! (r_rms: {:7.1e})".format(r_rms))
+
+    if print_conv:
+        print("w = ", vals)
+        print("({:-3d} iterations, {:-3d} vectors, r_rms: {:7.1e})"
+              .format(info['niter'], info['rdim'], info['r_rms']))
+
+    return vals, vecs, info
 
 
 def main():
@@ -73,23 +85,22 @@ def main():
     print(dt_numpy)
 
     print('davidson, perfect guess')
-    _, _, rdim = eig_direct(
-            a=a_, pc=pc_, neig=neig, guess=u_numpy, r_thresh=r_thresh)
-    print(rdim)
-    assert rdim == neig
+    _, _, info = eig_direct(
+            a=a_, pc=pc_, neig=neig, guess=u_numpy, r_thresh=r_thresh,
+            print_conv=True)
+    assert info['rdim'] == neig
 
     print('davidson, bad guess')
     t0 = time.time()
-    w, u, rdim = eig_direct(
-            a=a_, pc=pc_, neig=neig, guess=guess, r_thresh=r_thresh)
+    w, u, info = eig_direct(
+            a=a_, pc=pc_, neig=neig, guess=guess, r_thresh=r_thresh,
+            print_conv=True)
     dt_davidson = time.time() - t0
-    print(rdim)
-    print(w)
     print(dt_davidson)
 
     assert_almost_equal(w, w_numpy)
     assert_almost_equal(numpy.abs(u), numpy.abs(u_numpy))
-    assert(rdim <= 200)
+    assert(info['rdim'] <= 200)
     assert(dt_davidson < 3.)
 
 
