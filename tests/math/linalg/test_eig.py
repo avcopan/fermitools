@@ -8,12 +8,12 @@ numpy.random.seed(0)
 
 
 def a_sigma(dim):
-    ra = numpy.arange(1, dim+1)
+    a_diag = numpy.arange(1, dim+1)
     rn = numpy.random.rand(dim)
     cp3 = 1. * numpy.pad(rn, (3, 0), mode='constant')[:-3, None]
     cp2 = 2. * numpy.pad(rn, (2, 0), mode='constant')[:-2, None]
     cp1 = 3. * numpy.pad(rn, (1, 0), mode='constant')[:-1, None]
-    cp0 = ra[:, None]
+    cp0 = a_diag[:, None]
     cm1 = 3. * numpy.pad(rn[:-1], (0, 1), mode='constant')[:, None]
     cm2 = 2. * numpy.pad(rn[:-2], (0, 2), mode='constant')[:, None]
     cm3 = 1. * numpy.pad(rn[:-3], (0, 3), mode='constant')[:, None]
@@ -34,15 +34,29 @@ def a_sigma(dim):
     return _a
 
 
-def pc_(w):
+def pc_sigma(dim):
+    ra = numpy.arange(1, dim+1)
 
-    d = len(w)
-    a_diag = numpy.arange(1, d+1)
+    def _pc(w):
 
-    def _pc(r):
-        return r / (w - a_diag)
+        a_diag = ra if numpy.ndim(w) == 0 else ra[:, None]
+        w = w if numpy.ndim(w) == 0 else w[None, :]
+
+        def __pc(r):
+            return -r / (a_diag - w)
+
+        return __pc
 
     return _pc
+
+
+def test__eigh_direct_guess():
+    dim = 2000
+    nguess = 4
+    pc_ = pc_sigma(dim)
+
+    guess = eig.eigh_direct_guess(pc=pc_, dim=dim, n=nguess)
+    assert_almost_equal(guess, numpy.eye(dim, nguess))
 
 
 def test__eigh_direct():
@@ -51,6 +65,7 @@ def test__eigh_direct():
     nguess = 4
     r_thresh = 1e-11
     a_ = a_sigma(dim)
+    pc_ = pc_sigma(dim)
 
     a = a_(numpy.eye(dim))
     vals, vecs = numpy.linalg.eigh(a)
