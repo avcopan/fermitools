@@ -1,3 +1,5 @@
+import numpy
+
 from ..math import einsum
 from ..math import broadcast_sum
 
@@ -30,7 +32,8 @@ def pc_sigma(eo, ev):
     def _pc(w):
 
         def __pc(r):
-            return r / broadcast_sum({0: +eo, 1: -ev, 2: +w})
+            denom = broadcast_sum({0: +eo, 1: -ev, 2: +w})
+            return r / numpy.reshape(denom, r.shape)
 
         return __pc
 

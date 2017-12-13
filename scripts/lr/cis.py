@@ -90,17 +90,20 @@ def main():
     print(DT)
 
     w, u, info = fermitools.math.linalg.eigh_direct(
-            a=a_mat_, neig=neig, guess=U, pc=pc_mat_)
+            a=a_mat_, neig=neig, pc=pc_mat_, guess=U)
     print(info)
     assert info['niter'] == 1
     assert info['rdim'] == neig
     assert_almost_equal(w, W, decimal=10)
 
-    nguess = neig
     t0 = time.time()
-    guess = fermitools.math.linalg.orth(numpy.random.rand(nsingles, nguess))
+
+    print("Alternative guess:")
+    nguess = neig + 2
+    guess = fermitools.math.linalg.eigh_direct_guess(
+            pc=pc_mat_, dim=nsingles, n=nguess)
     w, u, info = fermitools.math.linalg.eigh_direct(
-            a=a_mat_, neig=neig, guess=guess, pc=pc_mat_, niter=niter,
+            a=a_mat_, neig=neig, pc=pc_mat_, guess=guess, niter=niter,
             nvecs=nvecs, r_thresh=r_thresh)
     dt = time.time() - t0
     print(info)

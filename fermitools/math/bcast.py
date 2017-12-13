@@ -32,7 +32,7 @@ def _expand(a, axes, ndim):
 
     :rtype: numpy.ndarray
     """
-    atrans = numpy.transpose(a, numpy.argsort(axes))
+    atrans = numpy.transpose(numpy.atleast_1d(a), numpy.argsort(axes))
     ix = tuple(numpy.newaxis if ax not in axes else slice(None,)
                for ax in range(ndim))
     return atrans[ix]
