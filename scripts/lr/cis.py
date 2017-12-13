@@ -77,7 +77,7 @@ def main():
     # Solve excitation energies
     neig = 7
     niter = 100
-    nvecs = 50
+    nvec = 50
     r_thresh = 1e-7
 
     t0 = time.time()
@@ -89,8 +89,9 @@ def main():
     print(W)
     print(DT)
 
-    w, u, info = fermitools.math.linalg.eigh_direct(
-            a=a_mat_, neig=neig, pc=pc_mat_, guess=U)
+    ad = r_(fermitools.math.broadcast_sum({0: -eo, 1: +ev}))
+    w, u, info = fermitools.math.linalg.direct.eigh(
+            a=a_mat_, neig=neig, guess=U, ad=ad)
     print(info)
     assert info['niter'] == 1
     assert info['rdim'] == neig
@@ -100,11 +101,10 @@ def main():
 
     print("Alternative guess:")
     nguess = neig + 2
-    guess = fermitools.math.linalg.eigh_direct_guess(
-            pc=pc_mat_, dim=nsingles, n=nguess)
-    w, u, info = fermitools.math.linalg.eigh_direct(
-            a=a_mat_, neig=neig, pc=pc_mat_, guess=guess, niter=niter,
-            nvecs=nvecs, r_thresh=r_thresh)
+    guess = fermitools.math.linalg.direct.evec_guess(ad, nguess)
+    w, u, info = fermitools.math.linalg.direct.eigh(
+            a=a_mat_, neig=neig, guess=guess, ad=ad, niter=niter, nvec=nvec,
+            r_thresh=r_thresh)
     dt = time.time() - t0
     print(info)
     print(w)

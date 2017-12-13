@@ -1,40 +1,23 @@
 import numpy
-import scipy
 import warnings
 
-from .ot import orth
+from ..ot import orth
+from ...bcast import broadcast_sum
 
 
-def eigh_direct_guess(pc, dim, n):
-    """generate a set of guess eigenvectors from the preconditioner
+def eigh(a, neig, ad, guess, niter=100, nvec=100, r_thresh=1e-6):
+    """solve for the lowest eigenvalues of a hermitian matrix
 
-    :param pc: the preconditioner, usually some approximation of -(a - w)^-1
-    :type pc: typing.Callable
-    :param dim: the dimension of the eigenproblem
-    :type dim: int
-    :param n: the number of guess vectors
-    :type n: int
-
-    :rtype: numpy.ndarray
-    """
-    pc_diag = pc(0.)(numpy.ones(dim))
-    srt = numpy.argsort(pc_diag)
-    values = numpy.ones(n)
-    indices = (srt[:n], range(n))
-    return scipy.sparse.coo_matrix((values, indices), shape=(dim, n)).toarray()
-
-
-def eigh_direct(a, neig, pc, guess, niter=100, nvecs=100, r_thresh=1e-6):
-    """direct solver for the lowest eigenvalues of a hermitian matrix
-
-    :param a: a callable linear operator
+    :param a: the matrix, as a callable linear operator
     :type a: typing.Callable
+    :param dim: the dimension of `a`
+    :type dim: int
     :param neig: the number of eigenvalues to solve
     :type neig: int
-    :param guess: the initial guess vectors
+    :param guess: initial guess vectors
     :type guess: numpy.ndarray
-    :param pc: the preconditioner, usually some approximation of -(a - w)^-1
-    :type pc: typing.Callable
+    :param ad: the diagonal elements of a, or an approximation to them
+    :type ad: numpy.ndarray
     :param niter: the maximum number of iterations
     :type niter: int
     :param r_thresh: the maximum number of vectors to hold in memory
@@ -43,10 +26,11 @@ def eigh_direct(a, neig, pc, guess, niter=100, nvecs=100, r_thresh=1e-6):
     :returns: eigenvalues, eigenvectors, convergence info
     :rtype: (numpy.ndarray, numpy.ndarray, dict)
     """
-    rdim0 = 0
     dim, nguess = guess.shape
-    v = numpy.zeros((dim, nvecs))
-    av = numpy.zeros((dim, nvecs))
+
+    rdim0 = 0
+    v = numpy.zeros((dim, nvec))
+    av = numpy.zeros((dim, nvec))
 
     rdim1 = nguess
     rdim = rdim0 + rdim1
@@ -73,14 +57,14 @@ def eigh_direct(a, neig, pc, guess, niter=100, nvecs=100, r_thresh=1e-6):
         if converged:
             break
 
-        vstep = pc(w)(r)
+        vstep = -r / numpy.reshape(broadcast_sum({0: ad, 1: -w}), r.shape)
         v1 = orth(vstep, against=v[:, :rdim], tol=r_thresh)
 
         _, rdim1 = v1.shape
         rdim0 = rdim
         rdim = rdim0 + rdim1
 
-        if rdim > nvecs:
+        if rdim > nvec:
             rdim0 = 0
             rdim = neig
             v[:, rdim0:rdim] = x
