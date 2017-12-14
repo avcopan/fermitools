@@ -1,33 +1,23 @@
 import numpy
 import scipy
-import functools
 from toolz import functoolz
 from numpy.testing import assert_almost_equal
+import time
 
 import fermitools
-import interfaces.psi4 as interface
 import solvers
+import interfaces.psi4 as interface
 
 CHARGE = +0
 SPIN = 0
-BASIS = 'sto-3g'
+BASIS = '6-31g*'
 LABELS = ('O', 'H', 'H')
 COORDS = ((0.000000000000,  0.000000000000, -0.143225816552),
           (0.000000000000,  1.638036840407,  1.136548822547),
           (0.000000000000, -1.638036840407,  1.136548822547))
-W = [
-        0.2851637170, 0.2851637170, 0.2851637170, 0.2997434467, 0.2997434467,
-        0.2997434467, 0.3526266606, 0.3526266606, 0.3526266606, 0.3547782530,
-        0.3651313107, 0.3651313107, 0.3651313107, 0.4153174946, 0.5001011401,
-        0.5106610509, 0.5106610509, 0.5106610509, 0.5460719086, 0.5460719086,
-        0.5460719086, 0.5513718846, 0.6502707118, 0.8734253708, 1.1038187957,
-        1.1038187957, 1.1038187957, 1.1957870714, 1.1957870714, 1.1957870714,
-        1.2832053178, 1.3237421886, 19.9585040647, 19.9585040647,
-        19.9585040647, 20.0109471551, 20.0113074586, 20.0113074586,
-        20.0113074586, 20.0504919449]
 
 
-def _main():
+def main():
     # Spaces
     na = fermitools.chem.elec.count_alpha(LABELS, CHARGE, SPIN)
     nb = fermitools.chem.elec.count_beta(LABELS, CHARGE, SPIN)
@@ -77,57 +67,71 @@ def _main():
     r_ = fermitools.math.raveler({0: (0, 1)})
     u_ = fermitools.math.unraveler({0: {0: no, 1: nv}})
 
-    # Evaluate dipole polarizability using linear response theory
-    p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
-    p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
-    pov = fermitools.math.transform(p_aso, {1: co, 2: cv})
-    pg = r_(fermitools.lr.hf.pg(pov))
-
     a_ = fermitools.lr.hf.a_sigma(foo, fvv, govov)
     b_ = fermitools.lr.hf.b_sigma(goovv)
-    pc_ = fermitools.lr.hf.pc_sigma(eo, ev)
 
-    e_sum_ = functoolz.compose(
-            r_, fermitools.func.add(a_, b_), u_)
-    e_dif_ = functoolz.compose(
-            r_, fermitools.func.sub(a_, b_), u_)
+    a_mat_ = functoolz.compose(r_, a_, u_)
+    b_mat_ = functoolz.compose(r_, b_, u_)
 
-    e_eff_ = functoolz.compose(e_sum_, e_dif_)
+    def e_mat_(r):
+        ru, rl = numpy.split(r, 2, axis=0)
+        eru = a_mat_(ru) + b_mat_(rl)
+        erl = b_mat_(ru) + a_mat_(rl)
+        return numpy.concatenate((eru, erl), axis=0)
 
-    # Response function
-    n = nsingles
-    e_sum_ = scipy.sparse.linalg.LinearOperator((n, n), matvec=e_sum_)
-    r_solver_ = functools.partial(scipy.sparse.linalg.cg, e_sum_)
-    rs, _ = zip(*map(r_solver_, -2 * numpy.moveaxis(pg, -1, 0)))
-    r = numpy.moveaxis(tuple(rs), -1, 0)
-    alpha = numpy.tensordot(r, pg, axes=(0, 0))
-    print(alpha.round(8))
+    def s_mat_(r):
+        ru, rl = numpy.split(r, 2, axis=0)
+        sru = +ru
+        srl = -rl
+        return numpy.concatenate((sru, srl), axis=0)
 
-    # Excitation energies
-    nroots = 5
-    e_eff_ = scipy.sparse.linalg.LinearOperator((n, n), matvec=e_eff_)
-    w2, u = scipy.sparse.linalg.eigs(e_eff_, k=nroots, which='SR')
-    w = numpy.sqrt(numpy.real(sorted(w2)))
+    # Solve excitation energies
+    dim = 2 * nsingles
+    neig = 7
+    nvec = 50
+    nguess = neig + 2
+    niter = 100
+    r_thresh = 1e-7
+
+    t0 = time.time()
+    e_mat = e_mat_(numpy.eye(dim))
+    s_mat = s_mat_(numpy.eye(dim))
+    vals, vecs = scipy.linalg.eigh(s_mat, b=e_mat)
+    DT = time.time() - t0
+    W = -1. / vals[:neig]
+    U = vecs[:, :neig]
+    print("numpy:")
+    print(W)
+    print(DT)
+
+    ad = r_(fermitools.math.broadcast_sum({0: -eo, 1: +ev}))
+    ed = numpy.concatenate((+ad, +ad))
+    md = numpy.ones(nsingles)
+    sd = numpy.concatenate((+md, -md))
+    v, u, info = fermitools.math.linalg.direct.eighg(
+            a=s_mat_, b=e_mat_, neig=neig, ad=sd, bd=ed, guess=U,
+            r_thresh=r_thresh, nvec=nvec, niter=niter)
+    w = -1. / v
+    print("perfect guess:")
     print(w)
-    assert_almost_equal(w, W[:nroots])
+    print(info)
+    assert info['niter'] == 1
+    assert info['rdim'] == neig
+    assert_almost_equal(w, W, decimal=10)
 
-    # w_td, u_td = scipy.linalg.eigh(r_(a_(u_(numpy.eye(n)))))
-    # x = u_td[:, :nroots]
-    # y = numpy.zeros_like(x)
-    x = numpy.eye(n)[:, :nroots]
-    y = numpy.zeros_like(x)
-
-    a = functoolz.compose(r_, a_, u_)
-    b = functoolz.compose(r_, b_, u_)
-
-    def pc(w):
-        return functoolz.compose(r_, pc_(w), u_)
-
-    w_new = solvers.lr.hf.solve_spectrum(
-            nroots=nroots, a=a, b=b, pc=pc, x_guess=x, y_guess=y)
-    print(w_new)
-    assert_almost_equal(w_new, W[:nroots])
+    t0 = time.time()
+    guess = fermitools.math.linalg.direct.evec_guess(sd, nguess, bd=ed)
+    v, u, info = fermitools.math.linalg.direct.eighg(
+            a=s_mat_, b=e_mat_, neig=neig, ad=sd, bd=ed, guess=guess,
+            r_thresh=r_thresh, nvec=nvec, niter=niter)
+    w = -1. / v
+    dt = time.time() - t0
+    print("approximate guess:")
+    print(w)
+    print(info)
+    print(dt)
+    assert_almost_equal(w, W, decimal=10)
 
 
 if __name__ == '__main__':
-    _main()
+    main()

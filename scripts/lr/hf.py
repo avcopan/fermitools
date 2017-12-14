@@ -22,7 +22,7 @@ ALPHA_DIAG = numpy.load(os.path.join(data_path, 'cation/hf/alpha_diag.npy'))
 EN_DF2 = numpy.load(os.path.join(data_path, 'cation/hf/en_df2.npy'))
 
 
-def _main():
+def main():
     # Spaces
     na = fermitools.chem.elec.count_alpha(LABELS, CHARGE, SPIN)
     nb = fermitools.chem.elec.count_beta(LABELS, CHARGE, SPIN)
@@ -106,4 +106,4 @@ def _main():
 
 
 if __name__ == '__main__':
-    _main()
+    main()

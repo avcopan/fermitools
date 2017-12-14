@@ -21,7 +21,7 @@ EN_DF2 = numpy.load(os.path.join(data_path, 'cation/odc12/en_df2.npy'))
 W = numpy.load(os.path.join(data_path, 'cation/odc12/w.npy'))
 
 
-def _main():
+def main():
     # Spaces
     na = fermitools.chem.elec.count_alpha(LABELS, CHARGE, SPIN)
     nb = fermitools.chem.elec.count_beta(LABELS, CHARGE, SPIN)
@@ -136,10 +136,10 @@ def _main():
 
 
 if __name__ == '__main__':
-    # _main()
+    # main()
 
     # import cProfile
-    # cProfile.run('_main()', '_main.profile')
+    # cProfile.run('main()', '_main.profile')
     # import pstats
     # stats = pstats.Stats('_main.profile')
     # stats.strip_dirs().sort_stats('time').print_stats()
@@ -152,4 +152,4 @@ if __name__ == '__main__':
     config.trace_filter = GlobbingFilter(include=['fermitools.*'])
     graphviz = GraphvizOutput(output_file='filtered.png')
     with PyCallGraph(output=graphviz, config=config):
-        _main()
+        main()
