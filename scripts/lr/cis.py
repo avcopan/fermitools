@@ -67,12 +67,8 @@ def main():
     u_ = fermitools.math.unraveler({0: {0: no, 1: nv}})
 
     a_ = fermitools.lr.hf.a_sigma(foo, fvv, govov)
-    pc_ = fermitools.lr.hf.pc_sigma(eo, ev)
 
     a_mat_ = functoolz.compose(r_, a_, u_)
-
-    def pc_mat_(w):
-        return functoolz.compose(r_, pc_(w), u_)
 
     # Solve excitation energies
     neig = 7
