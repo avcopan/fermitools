@@ -1,13 +1,16 @@
-import os
 import numpy
 import scipy
-from numpy.testing import assert_almost_equal
+import time
 
 import fermitools
-import interfaces.psi4 as interface
 import solvers
+import interfaces.psi4 as interface
 
-data_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data')
+import os
+from numpy.testing import assert_almost_equal
+
+data_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                         '../data')
 
 CHARGE = +0
 SPIN = 0
@@ -16,10 +19,7 @@ LABELS = ('O', 'H', 'H')
 COORDS = ((0.000000000000,  0.000000000000, -0.143225816552),
           (0.000000000000,  1.638036840407,  1.136548822547),
           (0.000000000000, -1.638036840407,  1.136548822547))
-# ALPHA_DIAG = numpy.load(os.path.join(data_path,
-#                                      'neutral/odc12/alpha_diag.npy'))
-EN_DF2 = numpy.load(os.path.join(data_path, 'neutral/odc12/en_df2.npy'))
-W = numpy.load(os.path.join(data_path, 'neutral/odc12/w.npy'))
+W_REF = numpy.load(os.path.join(data_path, 'neutral/odc12/w.npy'))
 
 
 def main():
@@ -58,6 +58,9 @@ def main():
     print('{:20.15f}'.format(en_tot))
 
     # Define LR inputs
+    no, nv = nocc, norb-nocc
+    ns = no * nv
+    nd = no * (no - 1) * nv * (nv - 1) // 4
     co, cv = numpy.split(c, (nocc,), axis=1)
     hoo = fermitools.math.transform(h_aso, {0: co, 1: co})
     hov = fermitools.math.transform(h_aso, {0: co, 1: cv})
@@ -95,6 +98,7 @@ def main():
            m2ovov, m2vvvv)
     b11 = fermitools.lr.odc12.b11_sigma(
            goooo, goovv, govov, gvvvv, m2oooo, m2oovv, m2ovov, m2vvvv)
+    s11 = fermitools.lr.odc12.s11_sigma(m1oo, m1vv)
     a12 = fermitools.lr.odc12.a12_sigma(gooov, govvv, fioo, fivv, t2)
     b12 = fermitools.lr.odc12.b12_sigma(gooov, govvv, fioo, fivv, t2)
     a21 = fermitools.lr.odc12.a21_sigma(gooov, govvv, fioo, fivv, t2)
@@ -103,39 +107,94 @@ def main():
            ffoo, ffvv, goooo, govov, gvvvv, fgoooo, fgovov, fgvvvv, t2)
     b22 = fermitools.lr.odc12.b22_sigma(fgoooo, fgovov, fgvvvv, t2)
 
-    # Solve response properties
-    p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
-    p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
-    poo = fermitools.math.transform(p_aso, {1: co, 2: co})
-    pov = fermitools.math.transform(p_aso, {1: co, 2: cv})
-    pvv = fermitools.math.transform(p_aso, {1: cv, 2: cv})
-    fpoo = fermitools.oo.odc12.fancy_property(poo, m1oo)
-    fpvv = fermitools.oo.odc12.fancy_property(pvv, m1vv)
-    pg1 = fermitools.lr.odc12.onebody_property_gradient(pov, m1oo, m1vv)
-    pg2 = fermitools.lr.odc12.twobody_property_gradient(fpoo, -fpvv, t2)
+    r1_ = fermitools.math.raveler({0: (0, 1)})
+    u1_ = fermitools.math.unraveler({0: {0: no, 1: nv}})
+    r2_ = fermitools.math.asym.megaraveler({0: ((0, 1), (2, 3))})
+    u2_ = fermitools.math.asym.megaunraveler({0: {(0, 1): no, (2, 3): nv}})
 
-    alpha = solvers.lr.odc12.solve_static_response(
-            norb=norb, nocc=nocc, a11=a11, b11=b11, a12=a12, b12=b12, a21=a21,
-            b21=b21, a22=a22, b22=b22, pg1=pg1, pg2=pg2)
-    print(alpha.round(8))
+    def combine_blocks(bl11, bl12, bl21, bl22):
 
-    # assert_almost_equal(EN_DF2, numpy.diag(alpha), decimal=8)
-    # assert_almost_equal(ALPHA_DIAG, numpy.diag(alpha), decimal=11)
+        def _bl(r):
+            r1r, r2r = numpy.split(r, (ns,), axis=0)
+            r1u, r2u = u1_(r1r), u2_(r2r)
+            sig1 = r1_(bl11(r1u) + bl12(r2u))
+            sig2 = r2_(bl21(r1u) + bl22(r2u))
+            return numpy.concatenate((sig1, sig2), axis=0)
+
+        return _bl
+
+    def nullmap(r):
+        return 0.
+
+    def idmap(r):
+        return r
+
+    print(nd)
+    a = combine_blocks(bl11=a11, bl12=a12, bl21=a21, bl22=a22)
+    b = combine_blocks(bl11=b11, bl12=b12, bl21=b21, bl22=b22)
+    s = combine_blocks(bl11=s11, bl12=nullmap, bl21=nullmap, bl22=idmap)
+
+    def e(r):
+        ru, rl = numpy.split(r, 2, axis=0)
+        sigu = a(ru) + b(rl)
+        sigl = b(ru) + a(rl)
+        return numpy.concatenate((sigu, sigl), axis=0)
+
+    def m(r):
+        ru, rl = numpy.split(r, 2, axis=0)
+        sigu = +s(ru)
+        sigl = -s(rl)
+        return numpy.concatenate((sigu, sigl), axis=0)
 
     # Solve excitation energies
-    nroots = 200
-    no, nv = nocc, norb-nocc
-    s11_mat = fermitools.lr.ocepa0.s11_matrix(m1oo, m1vv)
-    x11_mat = scipy.linalg.inv(s11_mat)
-    x11_arr = fermitools.math.unravel(
-            x11_mat, {0: {0: no, 1: nv}, 1: {2: no, 3: nv}})
-    x11 = fermitools.lr.ocepa0.onebody_transformer(x11_arr)
-    w, u = solvers.lr.odc12.solve_spectrum(
-            nroots=nroots, norb=norb, nocc=nocc, a11=a11, b11=b11, a12=a12,
-            b12=b12, a21=a21, b21=b21, a22=a22, b22=b22, x11=x11)
+    dim = 2 * (ns + nd)
+    neig = 7
+
+    t0 = time.time()
+    e_mat = e(numpy.eye(dim))
+    m_mat = m(numpy.eye(dim))
+    vals, vecs = scipy.linalg.eigh(m_mat, b=e_mat)
+    DT = time.time() - t0
+    W = -1. / vals[:neig]
+    U = vecs[:, :neig]
+    print("numpy:")
+    print(W)
+    print(U.shape)
+    print(DT)
+    assert_almost_equal(W, W_REF[:neig])
+
+    nguess = neig + 3
+    nvec = 50
+    niter = 100
+    r_thresh = 1e-7
+    ed = fermitools.math.linalg.direct.diag(e, dim=dim)
+    md = fermitools.math.linalg.direct.diag(m, dim=dim)
+
+    # Perfect guess
+    v, u, info = fermitools.math.linalg.direct.eighg(
+            a=m, b=e, neig=neig, ad=md, bd=ed, guess=U, r_thresh=r_thresh,
+            nvec=nvec, niter=niter)
+    w = -1. / v
+    print("perfect guess:")
     print(w)
-    print(u.shape)
-    assert_almost_equal(W[1:nroots], w[1:], decimal=11)
+    print(info)
+    assert info['niter'] == 1
+    assert info['rdim'] == neig
+    assert_almost_equal(w, W, decimal=10)
+
+    # Approximate guess
+    t0 = time.time()
+    guess = fermitools.math.linalg.direct.evec_guess(md, nguess, bd=ed)
+    v, u, info = fermitools.math.linalg.direct.eighg(
+            a=m, b=e, neig=neig, ad=md, bd=ed, guess=guess,
+            r_thresh=r_thresh, nvec=nvec, niter=niter)
+    w = -1. / v
+    dt = time.time() - t0
+    print("approximate guess:")
+    print(w)
+    print(info)
+    print(dt)
+    assert_almost_equal(w, W, decimal=10)
 
 
 if __name__ == '__main__':
