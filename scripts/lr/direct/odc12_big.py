@@ -6,20 +6,14 @@ import fermitools
 import solvers
 import interfaces.psi4 as interface
 
-import os
-from numpy.testing import assert_almost_equal
-
-data_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                         '../data')
 
 CHARGE = +0
 SPIN = 0
-BASIS = 'sto-3g'
+BASIS = '6-31+g**'
 LABELS = ('O', 'H', 'H')
 COORDS = ((0.000000000000,  0.000000000000, -0.143225816552),
           (0.000000000000,  1.638036840407,  1.136548822547),
           (0.000000000000, -1.638036840407,  1.136548822547))
-W_REF = numpy.load(os.path.join(data_path, 'neutral/odc12/w.npy'))
 
 
 def main():
@@ -147,22 +141,7 @@ def main():
         return numpy.concatenate((sigu, sigl), axis=0)
 
     # Solve excitation energies
-    dim = 2 * (ns + nd)
-    neig = 7
-
-    t0 = time.time()
-    e_mat = e(numpy.eye(dim))
-    m_mat = m(numpy.eye(dim))
-    vals, vecs = scipy.linalg.eigh(m_mat, b=e_mat)
-    DT = time.time() - t0
-    W = -1. / vals[:neig]
-    U = vecs[:, :neig]
-    print("numpy:")
-    print(W)
-    print(U.shape)
-    print(DT)
-    assert_almost_equal(W, W_REF[:neig])
-
+    neig = 1
     nguess = neig * 2
     nvec = neig * 2
     niter = 100
@@ -179,18 +158,6 @@ def main():
     ed = numpy.concatenate((+ad1, +ad2, +ad1, +ad2))
     md = numpy.concatenate((+sd1, +sd2, -sd1, -sd2))
 
-    # Perfect guess
-    v, u, info = fermitools.math.linalg.direct.eighg(
-            a=m, b=e, neig=neig, ad=md, bd=ed, guess=U, r_thresh=r_thresh,
-            nvec=nvec, niter=niter)
-    w = -1. / v
-    print("perfect guess:")
-    print(w)
-    print(info)
-    assert info['niter'] == 1
-    assert info['rdim'] == neig
-    assert_almost_equal(w, W, decimal=10)
-
     # Approximate guess
     t0 = time.time()
     guess = fermitools.math.linalg.direct.evec_guess(md, nguess, bd=ed)
@@ -203,7 +170,6 @@ def main():
     print(w)
     print(info)
     print(dt)
-    assert_almost_equal(w, W, decimal=10)
 
 
 if __name__ == '__main__':

@@ -8,6 +8,8 @@ def orth(a, against=None, tol=None):
     tol = max(m, n) * numpy.finfo(float).eps if tol is None else tol
 
     a_proj = a - numpy.linalg.multi_dot([b, b.T, a])
-    a_orth, svals, _ = scipy.linalg.svd(a_proj)
+    a_orth, svals, _ = scipy.linalg.svd(a_proj,
+                                        full_matrices=False,
+                                        overwrite_a=True)
     nkeep = numpy.sum(svals > tol, dtype=int)
     return a_orth[:, :nkeep]

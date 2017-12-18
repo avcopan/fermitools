@@ -137,6 +137,9 @@ def eighg(a, b, neig, ad, bd, guess, niter=100, nvec=100, r_thresh=1e-6):
 
         converged = r_rms < r_thresh
 
+        info = {'niter': iteration + 1, 'rdim': rdim, 'r_rms': r_rms}
+        print(info)
+
         if converged:
             break
 
@@ -154,8 +157,6 @@ def eighg(a, b, neig, ad, bd, guess, niter=100, nvec=100, r_thresh=1e-6):
             v[:, rdim0:rdim] = x
         else:
             v[:, rdim0:rdim] = v1
-
-    info = {'niter': iteration + 1, 'rdim': rdim, 'r_rms': r_rms}
 
     if not converged:
         warnings.warn("Did not converge! (r_rms: {:7.1e})".format(r_rms))

@@ -88,8 +88,8 @@ def main():
     # Solve excitation energies
     dim = 2 * nsingles
     neig = 7
-    nvec = 50
-    nguess = neig + 2
+    nvec = 2 * neig
+    nguess = 2 * neig
     niter = 100
     r_thresh = 1e-7
 
