@@ -1,6 +1,7 @@
-import psi4.core
-
+import psi4
 import numpy
+
+from .util import psi4_molecule
 
 
 # Public
@@ -30,18 +31,11 @@ def unrestricted_orbitals(basis, labels, coords, charge=0, spin=0, niter=100,
     :return: an array of two square matrices
     :rtype: numpy.ndarray
     """
-    mol = _psi4_molecule_object(basis=basis,
-                                labels=labels,
-                                coords=coords,
-                                charge=charge,
-                                spin=spin)
+    psi4.set_options({'e_convergence': e_thresh, 'd_convergence': r_thresh,
+                      'maxiter': niter, 'guess': guess, 'reference': 'RHF'})
+    mol = psi4_molecule(labels=labels, coords=coords, charge=charge, spin=spin)
     wfn = psi4.core.Wavefunction.build(mol, basis)
     sf, _ = psi4.driver.dft_funcs.build_superfunctional("HF", False)
-    psi4.core.set_global_option('guess', guess)
-    psi4.core.set_global_option('e_convergence', e_thresh)
-    psi4.core.set_global_option('d_convergence', r_thresh)
-    psi4.core.set_global_option('maxiter', niter)
-    psi4.core.set_global_option('reference', 'UHF')
     hf = psi4.core.UHF(wfn, sf)
     hf.compute_energy()
     ac = numpy.array(hf.Ca())
@@ -74,68 +68,22 @@ def restricted_orbitals(basis, labels, coords, charge=0, spin=0, niter=100,
     :return: a square matrix
     :rtype: numpy.ndarray
     """
-    mol = _psi4_molecule_object(basis=basis,
-                                labels=labels,
-                                coords=coords,
-                                charge=charge,
-                                spin=spin)
+    psi4.set_options({'e_convergence': e_thresh, 'd_convergence': r_thresh,
+                      'maxiter': niter, 'guess': guess, 'reference': 'RHF'})
+    mol = psi4_molecule(labels=labels, coords=coords, charge=charge, spin=spin)
     wfn = psi4.core.Wavefunction.build(mol, basis)
     sf, _ = psi4.driver.dft_funcs.build_superfunctional("HF", False)
-    psi4.core.set_global_option('guess', guess)
-    psi4.core.set_global_option('e_convergence', e_thresh)
-    psi4.core.set_global_option('d_convergence', r_thresh)
-    psi4.core.set_global_option('maxiter', niter)
 
     if spin is 0:
-        psi4.core.set_global_option('reference', 'RHF')
+        psi4.set_options({'reference': 'RHF'})
         hf = psi4.core.RHF(wfn, sf)
     else:
-        psi4.core.set_global_option('reference', 'ROHF')
+        psi4.set_options({'reference': 'ROHF'})
         hf = psi4.core.ROHF(wfn, sf)
 
     hf.compute_energy()
     c = numpy.array(hf.Ca())
     return c
-
-
-# Private
-def _coordinate_string(labels, coords):
-    """coordinate string
-
-    :param labels: atomic symbols labeling the nuclei
-    :type labels: tuple
-    :param coords: nuclear coordinates in Bohr
-    :type coords: numpy.ndarray
-
-    :rtype: str
-    """
-    coord_line_template = "{:2s} {: >17.12f} {: >17.12f} {: >17.12f}"
-    coord_str = "\n".join(coord_line_template.format(label, *coord)
-                          for label, coord in zip(labels, coords))
-    coord_str += "\nunits bohr"
-    return coord_str
-
-
-def _psi4_molecule_object(basis, labels, coords, charge, spin):
-    """build a Psi4 Molecule object
-
-    :param basis: basis set name
-    :type basis: str
-    :param labels: atomic symbols labeling the nuclei
-    :type labels: tuple
-    :param coords: nuclear coordinates in Bohr
-    :type coords: numpy.ndarray
-
-    :rtype: psi4.core.Molecule
-    """
-    coord_str = _coordinate_string(labels=labels, coords=coords)
-    mol = psi4.core.Molecule.create_molecule_from_string(coord_str)
-    mol.set_molecular_charge(charge)
-    mol.set_multiplicity(spin + 1)
-    mol.reset_point_group('C1')
-    mol.update_geometry()
-
-    return mol
 
 
 # Testing

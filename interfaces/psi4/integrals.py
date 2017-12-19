@@ -1,13 +1,15 @@
-import psi4.core
-
+import psi4
 import numpy
+import scipy.linalg
+
+from .util import psi4_basis
 
 
 # Public
 def nbf(basis, labels):
     coords = numpy.random.rand(3, len(labels))
-    mints = _psi4_mints_object(basis=basis, labels=labels, coords=coords)
-    return int(mints.nbf())
+    bs = psi4_basis(basis=basis, labels=labels, coords=coords)
+    return int(bs.nbf())
 
 
 def overlap(basis, labels, coords):
@@ -23,8 +25,9 @@ def overlap(basis, labels, coords):
     :return: a square matrix
     :rtype: numpy.ndarray
     """
-    mints = _psi4_mints_object(basis=basis, labels=labels, coords=coords)
-    return numpy.array(mints.ao_overlap())
+    bs = psi4_basis(basis=basis, labels=labels, coords=coords)
+    mh = psi4.core.MintsHelper(bs)
+    return numpy.array(mh.ao_overlap())
 
 
 def kinetic(basis, labels, coords):
@@ -40,8 +43,9 @@ def kinetic(basis, labels, coords):
     :return: a square matrix
     :rtype: numpy.ndarray
     """
-    mints = _psi4_mints_object(basis=basis, labels=labels, coords=coords)
-    return numpy.array(mints.ao_kinetic())
+    bs = psi4_basis(basis=basis, labels=labels, coords=coords)
+    mh = psi4.core.MintsHelper(bs)
+    return numpy.array(mh.ao_kinetic())
 
 
 def nuclear(basis, labels, coords):
@@ -57,8 +61,9 @@ def nuclear(basis, labels, coords):
     :return: a square matrix
     :rtype: numpy.ndarray
     """
-    mints = _psi4_mints_object(basis=basis, labels=labels, coords=coords)
-    return numpy.array(mints.ao_potential())
+    bs = psi4_basis(basis=basis, labels=labels, coords=coords)
+    mh = psi4.core.MintsHelper(bs)
+    return numpy.array(mh.ao_potential())
 
 
 def core_hamiltonian(basis, labels, coords):
@@ -79,6 +84,26 @@ def core_hamiltonian(basis, labels, coords):
     return t + v
 
 
+def coulomb_metric(basis, labels, coords):
+    """coulomb metric integrals, (P|r12^-1|Q)
+
+    :param basis: basis set name
+    :type basis: str
+    :param labels: atomic symbols labeling the nuclei
+    :type labels: tuple
+    :param coords: nuclear coordinates in Bohr
+    :type coords: numpy.ndarray
+
+    :return: a square matrix
+    :rtype: numpy.ndarray
+    """
+    bs0 = psi4.core.BasisSet.zero_ao_basis_set()
+    bs = psi4_basis(basis=basis, labels=labels, coords=coords)
+
+    mh = psi4.core.MintsHelper(bs)
+    return numpy.squeeze(mh.ao_eri(bs, bs0, bs, bs0))
+
+
 def dipole(basis, labels, coords):
     """electric dipole integrals
 
@@ -92,8 +117,9 @@ def dipole(basis, labels, coords):
     :return: an array of three square matrices
     :rtype: numpy.ndarray
     """
-    mints = _psi4_mints_object(basis=basis, labels=labels, coords=coords)
-    return numpy.array(tuple(map(numpy.array, mints.ao_dipole())))
+    bs = psi4_basis(basis=basis, labels=labels, coords=coords)
+    mh = psi4.core.MintsHelper(bs)
+    return numpy.array(tuple(map(numpy.array, mh.ao_dipole())))
 
 
 def repulsion(basis, labels, coords):
@@ -109,48 +135,55 @@ def repulsion(basis, labels, coords):
     :return: a four-index tensor of equal dimensions
     :rtype: numpy.ndarray
     """
-    mints = _psi4_mints_object(basis=basis, labels=labels, coords=coords)
-    return numpy.array(mints.ao_eri()).transpose((0, 2, 1, 3))
+    bs = psi4_basis(basis=basis, labels=labels, coords=coords)
+    mh = psi4.core.MintsHelper(bs)
+    return numpy.array(mh.ao_eri()).transpose((0, 2, 1, 3))
 
 
-# Private
-def _coordinate_string(labels, coords):
-    """coordinate string
+def threecenter_repulsion(basis1, basis2, basis3, labels, coords):
+    """three-center electron-electron repulsion integrals
 
+    :param basis1: basis set name for first center (electron 1)
+    :type basis1: str
+    :param basis2: basis set name for second center (electron 1)
+    :type basis2: str
+    :param basis3: basis set name for third center (electron 2)
+    :type basis3: str
     :param labels: atomic symbols labeling the nuclei
     :type labels: tuple
     :param coords: nuclear coordinates in Bohr
     :type coords: numpy.ndarray
 
-    :rtype: str
+    :return: three-index tensor
+    :rtype: numpy.ndarray
     """
-    coord_line_template = "{:2s} {: >17.12f} {: >17.12f} {: >17.12f}"
-    coord_str = "\n".join(coord_line_template.format(label, *coord)
-                          for label, coord in zip(labels, coords))
-    coord_str += "\nunits bohr"
-    return coord_str
+    bs0 = psi4.core.BasisSet.zero_ao_basis_set()
+    bs1 = psi4_basis(basis=basis1, labels=labels, coords=coords)
+    bs2 = psi4_basis(basis=basis2, labels=labels, coords=coords)
+    bs3 = psi4_basis(basis=basis3, labels=labels, coords=coords)
+    mh = psi4.core.MintsHelper(bs1)
+    return numpy.squeeze(mh.ao_eri(bs1, bs2, bs3, bs0))
 
 
-def _psi4_mints_object(basis, labels, coords):
-    """build a Psi4 MintsHelper object
+def factorized_repulsion(basis, auxbasis, labels, coords):
+    """electron-electron repulsion, factorized by resolution of the identity
 
     :param basis: basis set name
     :type basis: str
+    :param auxbasis: auxiliary basis set name
+    :type auxbasis: str
     :param labels: atomic symbols labeling the nuclei
     :type labels: tuple
     :param coords: nuclear coordinates in Bohr
     :type coords: numpy.ndarray
 
-    :rtype: psi4.core.MintsHelper
+    :return: three-index tensor; last axis is the factorization index
+    :rtype: numpy.ndarray
     """
-    coord_str = _coordinate_string(labels=labels, coords=coords)
-    mol = psi4.core.Molecule.create_molecule_from_string(coord_str)
-    mol.reset_point_group("c1")
-    mol.update_geometry()
-
-    psi4.core.clean()
-
-    basis_obj = psi4.core.BasisSet.build(mol, 'BASIS', basis)
-    mints_obj = psi4.core.MintsHelper(basis_obj)
-
-    return mints_obj
+    cm = coulomb_metric(basis=auxbasis, labels=labels, coords=coords)
+    xy = scipy.linalg.cholesky(scipy.linalg.inv(cm))
+    rijy = threecenter_repulsion(
+            basis1=basis, basis2=basis, basis3=auxbasis, labels=labels,
+            coords=coords)
+    rijx = numpy.tensordot(rijy, xy, axes=(-1, -1))
+    return rijx
