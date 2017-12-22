@@ -11,8 +11,3 @@ def test__omp2():
 def test__ocepa0():
     import scripts.oo.ocepa0
     scripts.oo.ocepa0._main()
-
-
-def test__odc12():
-    import scripts.oo.odc12
-    scripts.oo.odc12._main()

@@ -5,16 +5,84 @@ from ..math import einsum
 from ..math import transform
 from ..math import broadcast_sum
 from ..math.asym import antisymmetrizer_product as asm
-from .ocepa0 import s11_matrix
-from .ocepa0 import onebody_transformer
-from .ocepa0 import onebody_property_gradient
-from .ocepa0 import twobody_property_gradient
-from .ocepa0 import a11_sigma
-from .ocepa0 import b11_sigma
-from .ocepa0 import s11_sigma
-from .ocepa0 import a22_sigma as cepa_a22_sigma
-from .ocepa0 import pc11_sigma
-from .ocepa0 import pc22_sigma
+
+
+def onebody_property_gradient(pov, m1oo, m1vv):
+    return (
+        + einsum('...ie,ea->ia...', pov, m1vv)
+        - einsum('im,...ma->ia...', m1oo, pov))
+
+
+def twobody_property_gradient(poo, pvv, t2):
+    return (
+        + asm('2/3')(
+              einsum('...ac,ijcb->ijab...', pvv, t2))
+        - asm('0/1')(
+              einsum('...ik,kjab->ijab...', poo, t2)))
+
+
+def a11_sigma(foo, fvv, goooo, goovv, govov, gvvvv, m1oo, m1vv, t2):
+    fcoo = (numpy.dot(foo, m1oo)
+            + 1./2 * einsum('imef,jmef->ij', goovv, t2)
+            + 1./4 * einsum('imno,jmcd,nocd->ij', goooo, t2, t2)
+            - einsum('iemf,mkec,jkfc->ij', govov, t2, t2))
+    fcvv = (numpy.dot(fvv, m1vv)
+            + 1./2 * einsum('mnae,mnbe->ab', goovv, t2)
+            + 1./4 * einsum('aefg,klbe,klfg->ab', gvvvv, t2, t2)
+            - einsum('nema,mkec,nkbc->ab', govov, t2, t2))
+    fsoo = (fcoo + numpy.transpose(fcoo)) / 2.
+    fsvv = (fcvv + numpy.transpose(fcvv)) / 2.
+
+    def _a11(r1):
+        return (
+            - einsum('ab,ib...->ia...', fsvv, r1)
+            - einsum('ij,ja...->ia...', fsoo, r1)
+            + einsum('ij,ab,jb...->ia...', foo, m1vv, r1)
+            + einsum('ab,ij,jb...->ia...', fvv, m1oo, r1)
+            - einsum('manb,mj,in,jb...->ia...', govov, m1oo, m1oo, r1)
+            - einsum('iejf,af,eb,jb...->ia...', govov, m1vv, m1vv, r1)
+            + einsum('jame,im,be,jb...->ia...', govov, m1oo, m1vv, r1)
+            + einsum('ibme,jm,ae,jb...->ia...', govov, m1oo, m1vv, r1)
+            - einsum('minj,nkac,mkbc,jb...->ia...', goooo, t2, t2, r1)
+            + 1./2 * einsum('manb,micd,njcd,jb...->ia...', govov, t2, t2, r1)
+            + 1./2 * einsum('iejf,klae,klbf,jb...->ia...', govov, t2, t2, r1)
+            - einsum('aebf,jkec,ikfc,jb...->ia...', gvvvv, t2, t2, r1)
+            - einsum('ibme,mkac,jkec,jb...->ia...', govov, t2, t2, r1)
+            - einsum('jame,mkbc,ikec,jb...->ia...', govov, t2, t2, r1)
+            )
+
+    return _a11
+
+
+def b11_sigma(goooo, goovv, govov, gvvvv, m1oo, m1vv, t2):
+
+    def _b11(r1):
+        return (
+            + einsum('jema,imbe,jb...->ia...', govov, t2, r1)
+            + einsum('iemb,jmae,jb...->ia...', govov, t2, r1)
+            + 1./2 * einsum('ijmn,mnab,jb...->ia...', goooo, t2, r1)
+            + 1./2 * einsum('efab,ijef,jb...->ia...', gvvvv, t2, r1)
+            + einsum('imbe,jm,ea,jb...->ia...', goovv, m1oo, m1vv, r1)
+            + einsum('jmae,im,eb,jb...->ia...', goovv, m1oo, m1vv, r1)
+            + einsum('mnab,im,jn,jb...->ia...', goovv, m1oo, m1oo, r1)
+            + einsum('ijef,ea,fb,jb...->ia...', goovv, m1vv, m1vv, r1)
+            + 1./4 * einsum('mnab,ijcd,mncd,jb...->ia...', goovv, t2, t2, r1)
+            - einsum('imbe,mkec,jkac,jb...->ia...', goovv, t2, t2, r1)
+            - einsum('jmae,mkec,ikbc,jb...->ia...', goovv, t2, t2, r1)
+            + 1./4 * einsum('ijef,klef,klab,jb...->ia...', goovv, t2, t2, r1)
+            )
+
+    return _b11
+
+
+def s11_sigma(m1oo, m1vv):
+
+    def _s11(r1):
+        return (
+            + einsum('ij,ja...->ia...', m1oo, r1)
+            - einsum('ab,ib...->ia...', m1vv, r1))
+
+    return _s11
 
 
 def fancy_mixed_interaction(fov, gooov, govvv, m1oo, m1vv):
@@ -136,12 +204,13 @@ def b21_sigma(gooov, govvv, fioo, fivv, t2):
 
 def a22_sigma(ffoo, ffvv, goooo, govov, gvvvv, fgoooo, fgovov, fgvvvv, t2):
 
-    cepa_a22_ = cepa_a22_sigma(
-            foo=+ffoo, fvv=-ffvv, goooo=goooo, govov=govov, gvvvv=gvvvv)
-
     def _a22(r2):
         return (
-            + cepa_a22_(r2)
+            - asm('2/3')(einsum('ac,ijcb...->ijab...', ffvv, r2))
+            - asm('0/1')(einsum('ik,kjab...->ijab...', ffoo, r2))
+            + 1./2 * einsum('abcd,ijcd...->ijab...', gvvvv, r2)
+            + 1./2 * einsum('ijkl,klab...->ijab...', goooo, r2)
+            - asm('0/1|2/3')(einsum('jcla,ilcb...->ijab...', govov, r2))
             + 1./2 * asm('2/3')(
                 einsum('afec,ijeb,klfd,klcd...->ijab...', fgvvvv, t2, t2, r2))
             + 1./2 * asm('2/3')(
@@ -168,11 +237,3 @@ def b22_sigma(fgoooo, fgovov, fgvvvv, t2):
                 einsum('mnik,mjab,nlcd,klcd...->ijab...', fgoooo, t2, t2, r2)))
 
     return _b22
-
-
-__all__ = [
-        'fancy_repulsion', 'fancy_mixed_interaction', 's11_matrix',
-        'onebody_transformer', 'onebody_property_gradient',
-        'twobody_property_gradient', 'a11_sigma', 'b11_sigma', 's11_sigma',
-        'a12_sigma', 'b12_sigma', 'a21_sigma', 'b21_sigma', 'a22_sigma',
-        'b22_sigma', 'pc11_sigma', 'pc22_sigma']

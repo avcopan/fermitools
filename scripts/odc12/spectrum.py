@@ -3,14 +3,12 @@ import scipy
 import time
 
 import fermitools
-import solvers
 import interfaces.psi4 as interface
 
 import os
 from numpy.testing import assert_almost_equal
 
-data_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                         '../data')
+data_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data')
 
 CHARGE = +0
 SPIN = 0
@@ -19,7 +17,7 @@ LABELS = ('O', 'H', 'H')
 COORDS = ((0.000000000000,  0.000000000000, -0.143225816552),
           (0.000000000000,  1.638036840407,  1.136548822547),
           (0.000000000000, -1.638036840407,  1.136548822547))
-W_REF = numpy.load(os.path.join(data_path, 'neutral/odc12/w.npy'))
+W_REF = numpy.load(os.path.join(data_path, 'neutral/w.npy'))
 
 
 def main():
@@ -44,23 +42,19 @@ def main():
     c_unsrt = scipy.linalg.block_diag(ac, bc)
     sortvec = fermitools.math.spinorb.ab2ov(dim=nbf, na=na, nb=nb)
     c_unsrt = scipy.linalg.block_diag(ac, bc)
-    c = fermitools.math.spinorb.sort(c_unsrt, order=sortvec, axes=(1,))
+    c_guess = fermitools.math.spinorb.sort(c_unsrt, order=sortvec, axes=(1,))
 
-    # Solve OCEPA0
+    # Solve
     t2_guess = numpy.zeros((nocc, nocc, norb-nocc, norb-nocc))
-    en_elec, c, t2 = solvers.oo.odc12.solve(
-            norb=norb, nocc=nocc, h_aso=h_aso, g_aso=g_aso, c_guess=c,
-            t2_guess=t2_guess, niter=200, e_thresh=1e-14, r_thresh=1e-13,
-            print_conv=True)
+    en_elec, c, t2, info = fermitools.oo.odc12.solve(
+            h_aso=h_aso, g_aso=g_aso, c_guess=c_guess, t2_guess=t2_guess,
+            niter=200, r_thresh=1e-14)
     en_nuc = fermitools.chem.nuc.energy(labels=LABELS, coords=COORDS)
     en_tot = en_elec + en_nuc
     print("\nGround state energy:")
     print('{:20.15f}'.format(en_tot))
 
     # Define LR inputs
-    no, nv = nocc, norb-nocc
-    ns = no * nv
-    nd = no * (no - 1) * nv * (nv - 1) // 4
     co, cv = numpy.split(c, (nocc,), axis=1)
     hoo = fermitools.math.transform(h_aso, {0: co, 1: co})
     hov = fermitools.math.transform(h_aso, {0: co, 1: cv})
@@ -71,33 +65,26 @@ def main():
     govov = fermitools.math.transform(g_aso, {0: co, 1: cv, 2: co, 3: cv})
     govvv = fermitools.math.transform(g_aso, {0: co, 1: cv, 2: cv, 3: cv})
     gvvvv = fermitools.math.transform(g_aso, {0: cv, 1: cv, 2: cv, 3: cv})
-    cm1oo, m1vv = fermitools.oo.odc12.onebody_correlation_density(t2)
-    m1oo = numpy.eye(nocc) + cm1oo
-    k2oooo = fermitools.oo.odc12.twobody_cumulant_oooo(t2)
-    k2oovv = fermitools.oo.odc12.twobody_cumulant_oovv(t2)
-    k2ovov = fermitools.oo.odc12.twobody_cumulant_ovov(t2)
-    k2vvvv = fermitools.oo.odc12.twobody_cumulant_vvvv(t2)
+    m1oo, m1vv = fermitools.oo.odc12.onebody_density(t2)
 
-    m2oooo = fermitools.oo.odc12.twobody_moment_oooo(m1oo, k2oooo)
-    m2oovv = fermitools.oo.odc12.twobody_moment_oovv(k2oovv)
-    m2ovov = fermitools.oo.odc12.twobody_moment_ovov(m1oo, m1vv, k2ovov)
-    m2vvvv = fermitools.oo.odc12.twobody_moment_vvvv(m1vv, k2vvvv)
-
-    foo = fermitools.oo.odc12.fock_oo(hoo, goooo, govov, m1oo, m1vv)
-    fov = fermitools.oo.odc12.fock_oo(hov, gooov, govvv, m1oo, m1vv)
-    fvv = fermitools.oo.odc12.fock_vv(hvv, govov, gvvvv, m1oo, m1vv)
+    foo = fermitools.oo.odc12.fock_xy(
+            hxy=hoo, goxoy=goooo, gxvyv=govov, m1oo=m1oo, m1vv=m1vv)
+    fov = fermitools.oo.odc12.fock_xy(
+            hxy=hov, goxoy=gooov, gxvyv=govvv, m1oo=m1oo, m1vv=m1vv)
+    fvv = fermitools.oo.odc12.fock_xy(
+            hxy=hvv, goxoy=govov, gxvyv=gvvvv, m1oo=m1oo, m1vv=m1vv)
     ffoo = fermitools.oo.odc12.fancy_property(foo, m1oo)
     ffvv = fermitools.oo.odc12.fancy_property(fvv, m1vv)
+
     fioo, fivv = fermitools.lr.odc12.fancy_mixed_interaction(
             fov, gooov, govvv, m1oo, m1vv)
     fgoooo, fgovov, fgvvvv = fermitools.lr.odc12.fancy_repulsion(
             ffoo, ffvv, goooo, govov, gvvvv, m1oo, m1vv)
 
     a11 = fermitools.lr.odc12.a11_sigma(
-           hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv, m2oooo, m2oovv,
-           m2ovov, m2vvvv)
+           foo, fvv, goooo, goovv, govov, gvvvv, m1oo, m1vv, t2)
     b11 = fermitools.lr.odc12.b11_sigma(
-           goooo, goovv, govov, gvvvv, m2oooo, m2oovv, m2ovov, m2vvvv)
+           goooo, goovv, govov, gvvvv, m1oo, m1vv, t2)
     s11 = fermitools.lr.odc12.s11_sigma(m1oo, m1vv)
     a12 = fermitools.lr.odc12.a12_sigma(gooov, govvv, fioo, fivv, t2)
     b12 = fermitools.lr.odc12.b12_sigma(gooov, govvv, fioo, fivv, t2)
@@ -107,6 +94,9 @@ def main():
            ffoo, ffvv, goooo, govov, gvvvv, fgoooo, fgovov, fgvvvv, t2)
     b22 = fermitools.lr.odc12.b22_sigma(fgoooo, fgovov, fgvvvv, t2)
 
+    no, nv = nocc, norb-nocc
+    ns = no * nv
+    nd = no * (no - 1) * nv * (nv - 1) // 4
     r1_ = fermitools.math.raveler({0: (0, 1)})
     u1_ = fermitools.math.unraveler({0: {0: no, 1: nv}})
     r2_ = fermitools.math.asym.megaraveler({0: ((0, 1), (2, 3))})
