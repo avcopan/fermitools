@@ -63,13 +63,13 @@ def test__onebody_density():
 
 def test__orbital_gradient():
     r1 = odc12.orbital_gradient(
-            HOV, GOOOV, GOVVV, M1OO, M1VV, T2)
+            FOV, GOOOV, GOVVV, M1OO, M1VV, T2)
     assert_almost_equal(r1, 0., decimal=10)
 
 
 def test__electronic_energy():
     en_elec = odc12.electronic_energy(
-            HOO, HVV, GOOOO, GOOVV, GOVOV, GVVVV, M1OO, M1VV, T2)
+            HOO, HVV, GOOOO, GOOVV, GOVOV, GVVVV, M1OO, M1VV, FOO, FVV, T2)
     assert_almost_equal(en_elec, EN_ELEC, decimal=10)
 
 
@@ -102,4 +102,4 @@ def test__solve():
 
 
 if __name__ == '__main__':
-    test__solve()
+    test__electronic_energy()

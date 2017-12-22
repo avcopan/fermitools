@@ -30,12 +30,13 @@ def solve(h_aso, g_aso, c_guess, t2_guess, niter=50, r_thresh=1e-8):
         gvvvv = transform(g_aso, {0: cv, 1: cv, 2: cv, 3: cv})
         # Orbital step
         m1oo, m1vv = onebody_density(t2)
-        foo = fock_xy(hxy=hoo, goxoy=goooo, gxvyv=govov, m1oo=m1oo, m1vv=m1vv)
-        fvv = fock_xy(hxy=hvv, goxoy=govov, gxvyv=gvvvv, m1oo=m1oo, m1vv=m1vv)
+        foo = fock_xy(hoo, goooo, govov, m1oo, m1vv)
+        fov = fock_xy(hov, gooov, govvv, m1oo, m1vv)
+        fvv = fock_xy(hvv, govov, gvvvv, m1oo, m1vv)
         eo = numpy.diagonal(foo)
         ev = numpy.diagonal(fvv)
         e1 = broadcast_sum({0: +eo, 1: -ev})
-        r1 = orbital_gradient(hov, gooov, govvv, m1oo, m1vv, t2)
+        r1 = orbital_gradient(fov, gooov, govvv, m1oo, m1vv, t2)
         t1 = r1 / e1
         a = numpy.bmat([[zoo, -t1], [+t1.T, zvv]])
         u = scipy.linalg.expm(a)
@@ -51,7 +52,7 @@ def solve(h_aso, g_aso, c_guess, t2_guess, niter=50, r_thresh=1e-8):
         t2 = t2 + r2 / fe2
 
         en_elec = electronic_energy(
-                hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv, t2)
+                hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv, foo, fvv, t2)
 
         r1_max = numpy.amax(numpy.abs(r1))
         r2_max = numpy.amax(numpy.abs(r2))
@@ -124,13 +125,9 @@ def onebody_density(t2):
     return m1oo, m1vv
 
 
-def orbital_gradient(hov, gooov, govvv, m1oo, m1vv, t2):
-    return (+ einsum('ma,im->ia', hov, m1oo)
-            - einsum('ie,ae->ia', hov, m1vv)
-            + einsum('mlna,mn,li->ia', gooov, m1oo, m1oo)
-            - einsum('ifed,ae,fd->ia', govvv, m1vv, m1vv)
-            + einsum('mfae,mi,fe->ia', govvv, m1oo, m1vv)
-            - einsum('mine,mn,ae->ia', gooov, m1oo, m1vv)
+def orbital_gradient(fov, gooov, govvv, m1oo, m1vv, t2):
+    return (+ einsum('ma,im->ia', fov, m1oo)
+            - einsum('ie,ae->ia', fov, m1vv)
             - 1./2 * einsum('mnie,mnae->ia', gooov, t2)
             + 1./2 * einsum('maef,mief->ia', govvv, t2)
             + 1./4 * einsum('mlna,mlcd,nicd->ia', gooov, t2, t2)
@@ -139,12 +136,10 @@ def orbital_gradient(hov, gooov, govvv, m1oo, m1vv, t2):
             + einsum('mine,nkac,mkec->ia', gooov, t2, t2))
 
 
-def electronic_energy(hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv, t2):
-    return (+ numpy.vdot(hoo, m1oo)
-            + numpy.vdot(hvv, m1vv)
-            + 1./2 * einsum('ikjl,ij,kl', goooo, m1oo, m1oo)
-            + 1./2 * einsum('acbd,ab,cd', gvvvv, m1vv, m1vv)
-            + einsum('iajb,ij,ab', govov, m1oo, m1vv)
+def electronic_energy(hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv, foo,
+                      fvv, t2):
+    return (+ 1./2 * numpy.vdot(hoo + foo, m1oo)
+            + 1./2 * numpy.vdot(hvv + fvv, m1vv)
             + 1./2 * numpy.vdot(goovv, t2)
             - einsum('iajb,jkac,ikbc', govov, t2, t2)
             + 1./8 * einsum('abcd,klab,klcd', gvvvv, t2, t2)
