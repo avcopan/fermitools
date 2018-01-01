@@ -1,18 +1,5 @@
 import numpy
-import scipy
-import scipy.linalg
-
-
-def diag(a, dim):
-    """diagonal matrix elements of a linear operator
-
-    :param a: linear operator
-    :type a: typing.Callable
-    :param dim: the dimension of a (if rectangular, use the smaller one)
-    :type dim: int
-    """
-    a_diag = tuple(a(ei)[i] for i, ei in enumerate(numpy.eye(dim)))
-    return numpy.array(a_diag)
+import scipy.sparse
 
 
 def evec_guess(ad, nvec, bd=None):

@@ -102,39 +102,26 @@ def main():
     r2_ = fermitools.math.asym.megaraveler({0: ((0, 1), (2, 3))})
     u2_ = fermitools.math.asym.megaunraveler({0: {(0, 1): no, (2, 3): nv}})
 
-    def combine_blocks(bl11, bl12, bl21, bl22):
+    from toolz import functoolz
 
-        def _bl(r):
-            r1r, r2r = numpy.split(r, (ns,), axis=0)
-            r1u, r2u = u1_(r1r), u2_(r2r)
-            sig1 = r1_(bl11(r1u) + bl12(r2u))
-            sig2 = r2_(bl21(r1u) + bl22(r2u))
-            return numpy.concatenate((sig1, sig2), axis=0)
+    a11_ = functoolz.compose(r1_, a11, u1_)
+    a12_ = functoolz.compose(r1_, a12, u2_)
+    a21_ = functoolz.compose(r2_, a21, u1_)
+    a22_ = functoolz.compose(r2_, a22, u2_)
+    b11_ = functoolz.compose(r1_, b11, u1_)
+    b12_ = functoolz.compose(r1_, b12, u2_)
+    b21_ = functoolz.compose(r2_, b21, u1_)
+    b22_ = functoolz.compose(r2_, b22, u2_)
+    s11_ = functoolz.compose(r1_, s11, u1_)
 
-        return _bl
+    a = fermitools.math.linalg.direct.bmat([[a11_, a12_], [a21_, a22_]], (ns,))
+    b = fermitools.math.linalg.direct.bmat([[b11_, b12_], [b21_, b22_]], (ns,))
+    s = fermitools.math.linalg.direct.block_diag(
+            [s11_, fermitools.math.linalg.direct.eye], (ns,))
 
-    def nullmap(r):
-        return 0.
-
-    def idmap(r):
-        return r
-
-    print(nd)
-    a = combine_blocks(bl11=a11, bl12=a12, bl21=a21, bl22=a22)
-    b = combine_blocks(bl11=b11, bl12=b12, bl21=b21, bl22=b22)
-    s = combine_blocks(bl11=s11, bl12=nullmap, bl21=nullmap, bl22=idmap)
-
-    def e(r):
-        ru, rl = numpy.split(r, 2, axis=0)
-        sigu = a(ru) + b(rl)
-        sigl = b(ru) + a(rl)
-        return numpy.concatenate((sigu, sigl), axis=0)
-
-    def m(r):
-        ru, rl = numpy.split(r, 2, axis=0)
-        sigu = +s(ru)
-        sigl = -s(rl)
-        return numpy.concatenate((sigu, sigl), axis=0)
+    e = fermitools.math.linalg.direct.bmat([[a, b], [b, a]], 2)
+    m = fermitools.math.linalg.direct.block_diag(
+            [s, fermitools.math.linalg.direct.negative(s)], 2)
 
     # Solve excitation energies
     dim = 2 * (ns + nd)
@@ -149,9 +136,10 @@ def main():
     U = vecs[:, :neig]
     print("numpy:")
     print(W)
+    print(W_REF)
     print(U.shape)
     print(DT)
-    assert_almost_equal(W, W_REF[:neig])
+    assert_almost_equal(W[SPIN:neig], W_REF[SPIN:neig])
 
     nguess = neig * 2
     nvec = neig * 2
@@ -193,7 +181,7 @@ def main():
     print(w)
     print(info)
     print(dt)
-    assert_almost_equal(w, W, decimal=10)
+    assert_almost_equal(w[SPIN:neig], W[SPIN:neig], decimal=10)
 
 
 if __name__ == '__main__':

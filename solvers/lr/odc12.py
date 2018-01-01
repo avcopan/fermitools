@@ -15,39 +15,6 @@ def a_sigma(a11, a12, a21, a22):
     return _a
 
 
-def solve_spectrum(nroots, nocc, norb, a11, b11, a12, b12, a21, b21, a22, b22,
-                   x11):
-    xa11 = functoolz.compose(x11, a11)
-    xb11 = functoolz.compose(x11, b11)
-    xa12 = functoolz.compose(x11, a12)
-    xb12 = functoolz.compose(x11, b12)
-
-    ea_ = a_sigma(fermitools.func.add(xa11, xb11),
-                  fermitools.func.add(xa12, xb12),
-                  fermitools.func.add(a21, b21),
-                  fermitools.func.add(a22, b22))
-
-    es_ = a_sigma(fermitools.func.sub(xa11, xb11),
-                  fermitools.func.sub(xa12, xb12),
-                  fermitools.func.sub(a21, b21),
-                  fermitools.func.sub(a22, b22))
-
-    no, nv = nocc, norb-nocc
-    ns = no * nv
-    nd = no * (no - 1) * nv * (nv - 1) // 4
-    split = splitter(ns)
-    bmat_unravel = bmat_unraveler(no, nv)
-    e_matvec = functoolz.compose(
-            join, bmat_ravel, ea_, es_, bmat_unravel, split)
-    e_eff_ = scipy.sparse.linalg.LinearOperator(
-            shape=(ns+nd, ns+nd), matvec=e_matvec)
-
-    w2, u = scipy.sparse.linalg.eigs(e_eff_, k=nroots, which='SR')
-    w = numpy.sqrt(numpy.real(w2))
-    sortv = numpy.argsort(w2)
-    return w[sortv], u[:, sortv]
-
-
 def solve_static_response(nocc, norb, a11, b11, a12, b12, a21, b21, a22, b22,
                           pg1, pg2):
 
