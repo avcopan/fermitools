@@ -1,6 +1,5 @@
 import numpy
 import scipy
-import time
 
 import fermitools
 import interfaces.psi4 as interface
@@ -54,134 +53,12 @@ def main():
     print("\nGround state energy:")
     print('{:20.15f}'.format(en_tot))
 
-    # Define LR inputs
-    co, cv = numpy.split(c, (nocc,), axis=1)
-    hoo = fermitools.math.transform(h_aso, {0: co, 1: co})
-    hov = fermitools.math.transform(h_aso, {0: co, 1: cv})
-    hvv = fermitools.math.transform(h_aso, {0: cv, 1: cv})
-    goooo = fermitools.math.transform(g_aso, {0: co, 1: co, 2: co, 3: co})
-    gooov = fermitools.math.transform(g_aso, {0: co, 1: co, 2: co, 3: cv})
-    goovv = fermitools.math.transform(g_aso, {0: co, 1: co, 2: cv, 3: cv})
-    govov = fermitools.math.transform(g_aso, {0: co, 1: cv, 2: co, 3: cv})
-    govvv = fermitools.math.transform(g_aso, {0: co, 1: cv, 2: cv, 3: cv})
-    gvvvv = fermitools.math.transform(g_aso, {0: cv, 1: cv, 2: cv, 3: cv})
-    m1oo, m1vv = fermitools.oo.odc12.onebody_density(t2)
-
-    foo = fermitools.oo.odc12.fock_xy(
-            hxy=hoo, goxoy=goooo, gxvyv=govov, m1oo=m1oo, m1vv=m1vv)
-    fov = fermitools.oo.odc12.fock_xy(
-            hxy=hov, goxoy=gooov, gxvyv=govvv, m1oo=m1oo, m1vv=m1vv)
-    fvv = fermitools.oo.odc12.fock_xy(
-            hxy=hvv, goxoy=govov, gxvyv=gvvvv, m1oo=m1oo, m1vv=m1vv)
-    ffoo = fermitools.oo.odc12.fancy_property(foo, m1oo)
-    ffvv = fermitools.oo.odc12.fancy_property(fvv, m1vv)
-
-    fioo, fivv = fermitools.lr.odc12.fancy_mixed_interaction(
-            fov, gooov, govvv, m1oo, m1vv)
-    fgoooo, fgovov, fgvvvv = fermitools.lr.odc12.fancy_repulsion(
-            ffoo, ffvv, goooo, govov, gvvvv, m1oo, m1vv)
-
-    a11 = fermitools.lr.odc12.a11_sigma(
-           foo, fvv, goooo, goovv, govov, gvvvv, m1oo, m1vv, t2)
-    b11 = fermitools.lr.odc12.b11_sigma(
-           goooo, goovv, govov, gvvvv, m1oo, m1vv, t2)
-    s11 = fermitools.lr.odc12.s11_sigma(m1oo, m1vv)
-    a12 = fermitools.lr.odc12.a12_sigma(gooov, govvv, fioo, fivv, t2)
-    b12 = fermitools.lr.odc12.b12_sigma(gooov, govvv, fioo, fivv, t2)
-    a21 = fermitools.lr.odc12.a21_sigma(gooov, govvv, fioo, fivv, t2)
-    b21 = fermitools.lr.odc12.b21_sigma(gooov, govvv, fioo, fivv, t2)
-    a22 = fermitools.lr.odc12.a22_sigma(
-           ffoo, ffvv, goooo, govov, gvvvv, fgoooo, fgovov, fgvvvv, t2)
-    b22 = fermitools.lr.odc12.b22_sigma(fgoooo, fgovov, fgvvvv, t2)
-
-    no, nv = nocc, norb-nocc
-    ns = no * nv
-    nd = no * (no - 1) * nv * (nv - 1) // 4
-    r1_ = fermitools.math.raveler({0: (0, 1)})
-    u1_ = fermitools.math.unraveler({0: {0: no, 1: nv}})
-    r2_ = fermitools.math.asym.megaraveler({0: ((0, 1), (2, 3))})
-    u2_ = fermitools.math.asym.megaunraveler({0: {(0, 1): no, (2, 3): nv}})
-
-    from toolz import functoolz
-
-    a11_ = functoolz.compose(r1_, a11, u1_)
-    a12_ = functoolz.compose(r1_, a12, u2_)
-    a21_ = functoolz.compose(r2_, a21, u1_)
-    a22_ = functoolz.compose(r2_, a22, u2_)
-    b11_ = functoolz.compose(r1_, b11, u1_)
-    b12_ = functoolz.compose(r1_, b12, u2_)
-    b21_ = functoolz.compose(r2_, b21, u1_)
-    b22_ = functoolz.compose(r2_, b22, u2_)
-    s11_ = functoolz.compose(r1_, s11, u1_)
-
-    a = fermitools.math.linalg.direct.bmat([[a11_, a12_], [a21_, a22_]], (ns,))
-    b = fermitools.math.linalg.direct.bmat([[b11_, b12_], [b21_, b22_]], (ns,))
-    s = fermitools.math.linalg.direct.block_diag(
-            [s11_, fermitools.math.linalg.direct.eye], (ns,))
-
-    e = fermitools.math.linalg.direct.bmat([[a, b], [b, a]], 2)
-    m = fermitools.math.linalg.direct.block_diag(
-            [s, fermitools.math.linalg.direct.negative(s)], 2)
-
-    # Solve excitation energies
-    dim = 2 * (ns + nd)
-    neig = 7
-
-    t0 = time.time()
-    e_mat = e(numpy.eye(dim))
-    m_mat = m(numpy.eye(dim))
-    vals, vecs = scipy.linalg.eigh(m_mat, b=e_mat)
-    DT = time.time() - t0
-    W = -1. / vals[:neig]
-    U = vecs[:, :neig]
-    print("numpy:")
-    print(W)
-    print(W_REF)
-    print(U.shape)
-    print(DT)
-    assert_almost_equal(W[SPIN:neig], W_REF[SPIN:neig])
-
-    nguess = neig * 2
-    nvec = neig * 2
-    niter = 100
-    r_thresh = 1e-7
-    eo = numpy.diagonal(foo)
-    ev = numpy.diagonal(fvv)
-    efo = numpy.diagonal(ffoo)
-    efv = numpy.diagonal(ffvv)
-    ad1 = r1_(fermitools.math.broadcast_sum({0: -eo, 1: +ev}))
-    ad2 = r2_(fermitools.math.broadcast_sum(
-        {0: -efo, 1: -efo, 2: -efv, 3: -efv}))
-    sd1 = numpy.ones(ns)
-    sd2 = numpy.ones(nd)
-    ed = numpy.concatenate((+ad1, +ad2, +ad1, +ad2))
-    md = numpy.concatenate((+sd1, +sd2, -sd1, -sd2))
-
-    # Perfect guess
-    v, u, info = fermitools.math.linalg.direct.eighg(
-            a=m, b=e, neig=neig, ad=md, bd=ed, guess=U, r_thresh=r_thresh,
-            nvec=nvec, niter=niter)
-    w = -1. / v
-    print("perfect guess:")
+    nroot = 7
+    w, u, info = fermitools.lr.odc12.solve_spectrum(
+            h_aso=h_aso, g_aso=g_aso, c=c, t2=t2, nroot=nroot, niter=100,
+            r_thresh=1e-7)
     print(w)
-    print(info)
-    assert info['niter'] == 1
-    assert info['rdim'] == neig
-    assert_almost_equal(w, W, decimal=10)
-
-    # Approximate guess
-    t0 = time.time()
-    guess = fermitools.math.linalg.direct.evec_guess(md, nguess, bd=ed)
-    v, u, info = fermitools.math.linalg.direct.eighg(
-            a=m, b=e, neig=neig, ad=md, bd=ed, guess=guess,
-            r_thresh=r_thresh, nvec=nvec, niter=niter)
-    w = -1. / v
-    dt = time.time() - t0
-    print("approximate guess:")
-    print(w)
-    print(info)
-    print(dt)
-    assert_almost_equal(w[SPIN:neig], W[SPIN:neig], decimal=10)
+    assert_almost_equal(w[SPIN:nroot], W_REF[SPIN:nroot], decimal=10)
 
 
 if __name__ == '__main__':

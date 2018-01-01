@@ -1,10 +1,105 @@
 import numpy
 import scipy
+from toolz import functoolz
 
 from ..math import einsum
 from ..math import transform
 from ..math import broadcast_sum
+from ..math import raveler, unraveler
 from ..math.asym import antisymmetrizer_product as asm
+from ..math.asym import megaraveler, megaunraveler
+from ..math.linalg.direct import eye
+from ..math.linalg.direct import negative
+from ..math.linalg.direct import bmat
+from ..math.linalg.direct import block_diag
+from ..math.linalg.direct import evec_guess
+from ..math.linalg.direct import eighg
+
+from ..oo.odc12 import fock_xy
+from ..oo.odc12 import fancy_property
+from ..oo.odc12 import onebody_density
+
+
+def solve_spectrum(h_aso, g_aso, c, t2, nroot=1, nvec=None, niter=50,
+                   r_thresh=1e-6):
+    nvec = 2 * nroot if nvec is None else nvec
+    no, _, nv, _ = t2.shape
+    co, cv = numpy.split(c, (no,), axis=1)
+    hoo = transform(h_aso, {0: co, 1: co})
+    hov = transform(h_aso, {0: co, 1: cv})
+    hvv = transform(h_aso, {0: cv, 1: cv})
+    goooo = transform(g_aso, {0: co, 1: co, 2: co, 3: co})
+    gooov = transform(g_aso, {0: co, 1: co, 2: co, 3: cv})
+    goovv = transform(g_aso, {0: co, 1: co, 2: cv, 3: cv})
+    govov = transform(g_aso, {0: co, 1: cv, 2: co, 3: cv})
+    govvv = transform(g_aso, {0: co, 1: cv, 2: cv, 3: cv})
+    gvvvv = transform(g_aso, {0: cv, 1: cv, 2: cv, 3: cv})
+    m1oo, m1vv = onebody_density(t2)
+
+    foo = fock_xy(hxy=hoo, goxoy=goooo, gxvyv=govov, m1oo=m1oo, m1vv=m1vv)
+    fov = fock_xy(hxy=hov, goxoy=gooov, gxvyv=govvv, m1oo=m1oo, m1vv=m1vv)
+    fvv = fock_xy(hxy=hvv, goxoy=govov, gxvyv=gvvvv, m1oo=m1oo, m1vv=m1vv)
+    ffoo = fancy_property(foo, m1oo)
+    ffvv = fancy_property(fvv, m1vv)
+
+    eo = numpy.diagonal(foo)
+    ev = numpy.diagonal(fvv)
+    efo = numpy.diagonal(ffoo)
+    efv = numpy.diagonal(ffvv)
+
+    fioo, fivv = fancy_mixed_interaction(fov, gooov, govvv, m1oo, m1vv)
+    fgoooo, fgovov, fgvvvv = fancy_repulsion(
+            ffoo, ffvv, goooo, govov, gvvvv, m1oo, m1vv)
+
+    ad1u = broadcast_sum({0: -eo, 1: +ev})
+    ad2u = broadcast_sum({0: -efo, 1: -efo, 2: -efv, 3: -efv})
+    a11u = a11_sigma(foo, fvv, goooo, goovv, govov, gvvvv, m1oo, m1vv, t2)
+    b11u = b11_sigma(goooo, goovv, govov, gvvvv, m1oo, m1vv, t2)
+    s11u = s11_sigma(m1oo, m1vv)
+    a12u = a12_sigma(gooov, govvv, fioo, fivv, t2)
+    b12u = b12_sigma(gooov, govvv, fioo, fivv, t2)
+    a21u = a21_sigma(gooov, govvv, fioo, fivv, t2)
+    b21u = b21_sigma(gooov, govvv, fioo, fivv, t2)
+    a22u = a22_sigma(
+            ffoo, ffvv, goooo, govov, gvvvv, fgoooo, fgovov, fgvvvv, t2)
+    b22u = b22_sigma(fgoooo, fgovov, fgvvvv, t2)
+
+    r1_ = raveler({0: (0, 1)})
+    u1_ = unraveler({0: {0: no, 1: nv}})
+    r2_ = megaraveler({0: ((0, 1), (2, 3))})
+    u2_ = megaunraveler({0: {(0, 1): no, (2, 3): nv}})
+
+    ns = no * nv
+    nd = no * (no - 1) * nv * (nv - 1) // 4
+    ad1 = r1_(ad1u)
+    ad2 = r2_(ad2u)
+    sd1 = numpy.ones(ns)
+    sd2 = numpy.ones(nd)
+    a11 = functoolz.compose(r1_, a11u, u1_)
+    a12 = functoolz.compose(r1_, a12u, u2_)
+    a21 = functoolz.compose(r2_, a21u, u1_)
+    a22 = functoolz.compose(r2_, a22u, u2_)
+    b11 = functoolz.compose(r1_, b11u, u1_)
+    b12 = functoolz.compose(r1_, b12u, u2_)
+    b21 = functoolz.compose(r2_, b21u, u1_)
+    b22 = functoolz.compose(r2_, b22u, u2_)
+    s11 = functoolz.compose(r1_, s11u, u1_)
+
+    a = bmat([[a11, a12], [a21, a22]], (ns,))
+    b = bmat([[b11, b12], [b21, b22]], (ns,))
+    s = block_diag([s11, eye], (ns,))
+    e = bmat([[a, b], [b, a]], 2)
+    m = block_diag([s, negative(s)], 2)
+    ed = numpy.concatenate((+ad1, +ad2, +ad1, +ad2))
+    md = numpy.concatenate((+sd1, +sd2, -sd1, -sd2))
+
+    guess = evec_guess(md, nvec, bd=ed)
+    v, u, info = eighg(
+            a=m, b=e, neig=nroot, ad=md, bd=ed, guess=guess,
+            r_thresh=r_thresh, nvec=nvec, niter=niter)
+    w = -1. / v
+
+    return w, u, info
 
 
 def onebody_property_gradient(pov, m1oo, m1vv):
