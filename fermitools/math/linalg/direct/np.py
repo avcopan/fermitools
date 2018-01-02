@@ -5,6 +5,10 @@ def eye(x):
     return x
 
 
+def zero(x):
+    return 0.
+
+
 def negative(f):
 
     def _neg(x):

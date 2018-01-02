@@ -31,9 +31,11 @@ def main():
     nbf = interface.integrals.nbf(BASIS, LABELS)
     norb = 2 * nbf
     h_ao = interface.integrals.core_hamiltonian(BASIS, LABELS, COORDS)
+    p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
     r_ao = interface.integrals.repulsion(BASIS, LABELS, COORDS)
 
     h_aso = fermitools.math.spinorb.expand(h_ao, brakets=((0, 1),))
+    p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
     r_aso = fermitools.math.spinorb.expand(r_ao, brakets=((0, 2), (1, 3)))
     g_aso = r_aso - numpy.transpose(r_aso, (0, 1, 3, 2))
 
@@ -54,6 +56,32 @@ def main():
     en_tot = en_elec + en_nuc
     print("\nGround state energy:")
     print('{:20.15f}'.format(en_tot))
+
+    # Solve response
+    no, _, nv, _ = t2.shape
+
+    co, cv = numpy.split(c, (no,), axis=1)
+    hoo = fermitools.math.transform(h_aso, {0: co, 1: co})
+    hov = fermitools.math.transform(h_aso, {0: co, 1: cv})
+    hvv = fermitools.math.transform(h_aso, {0: cv, 1: cv})
+    poo = fermitools.math.transform(p_aso, {1: co, 2: co})
+    pov = fermitools.math.transform(p_aso, {1: co, 2: cv})
+    pvv = fermitools.math.transform(p_aso, {1: cv, 2: cv})
+    goooo = fermitools.math.transform(g_aso, {0: co, 1: co, 2: co, 3: co})
+    gooov = fermitools.math.transform(g_aso, {0: co, 1: co, 2: co, 3: cv})
+    goovv = fermitools.math.transform(g_aso, {0: co, 1: co, 2: cv, 3: cv})
+    govov = fermitools.math.transform(g_aso, {0: co, 1: cv, 2: co, 3: cv})
+    govvv = fermitools.math.transform(g_aso, {0: co, 1: cv, 2: cv, 3: cv})
+    gvvvv = fermitools.math.transform(g_aso, {0: cv, 1: cv, 2: cv, 3: cv})
+
+    pg = fermitools.lr.odc12.property_gradient(
+            poo=poo, pov=pov, pvv=pvv, t2=t2)
+    a, b = fermitools.lr.odc12.hessian_sigma(
+            hoo=hoo, hov=hov, hvv=hvv, goooo=goooo, gooov=gooov, goovv=goovv,
+            govov=govov, govvv=govvv, gvvvv=gvvvv, t2=t2, complex=True)
+
+    alpha_new = fermitools.lr.odc12.solve_static_response(a=a, b=b, pg=pg)
+    print(alpha_new.round(10))
 
     # Define LR inputs
     co, cv = numpy.split(c, (nocc,), axis=1)
@@ -110,6 +138,7 @@ def main():
             b21=b21, a22=a22, b22=b22, pg1=pg1, pg2=pg2)
     print(alpha.round(8))
 
+    assert_almost_equal(alpha, alpha_new, decimal=10)
     assert_almost_equal(EN_DF2, numpy.diag(alpha), decimal=8)
     assert_almost_equal(ALPHA_DIAG, numpy.diag(alpha), decimal=11)
 

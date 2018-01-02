@@ -43,7 +43,7 @@ def main():
     c_unsrt = scipy.linalg.block_diag(ac, bc)
     c_guess = fermitools.math.spinorb.sort(c_unsrt, order=sortvec, axes=(1,))
 
-    # Solve
+    # Solve ground state
     t2_guess = numpy.zeros((nocc, nocc, norb-nocc, norb-nocc))
     en_elec, c, t2, info = fermitools.oo.odc12.solve(
             h_aso=h_aso, g_aso=g_aso, c_guess=c_guess, t2_guess=t2_guess,
@@ -53,9 +53,35 @@ def main():
     print("\nGround state energy:")
     print('{:20.15f}'.format(en_tot))
 
+    # Solve spectrum
     nroot = 7
+    no, _, nv, _ = t2.shape
+    n1 = no * nv
+    n2 = no * (no - 1) * nv * (nv - 1) // 4
+
+    co, cv = numpy.split(c, (no,), axis=1)
+    hoo = fermitools.math.transform(h_aso, {0: co, 1: co})
+    hov = fermitools.math.transform(h_aso, {0: co, 1: cv})
+    hvv = fermitools.math.transform(h_aso, {0: cv, 1: cv})
+    goooo = fermitools.math.transform(g_aso, {0: co, 1: co, 2: co, 3: co})
+    gooov = fermitools.math.transform(g_aso, {0: co, 1: co, 2: co, 3: cv})
+    goovv = fermitools.math.transform(g_aso, {0: co, 1: co, 2: cv, 3: cv})
+    govov = fermitools.math.transform(g_aso, {0: co, 1: cv, 2: co, 3: cv})
+    govvv = fermitools.math.transform(g_aso, {0: co, 1: cv, 2: cv, 3: cv})
+    gvvvv = fermitools.math.transform(g_aso, {0: cv, 1: cv, 2: cv, 3: cv})
+
+    sd = numpy.ones(n1+n2)
+    ad = fermitools.lr.odc12.approximate_diagonal_hessian(
+            hoo=hoo, hvv=hvv, goooo=goooo, govov=govov, gvvvv=gvvvv, t2=t2)
+
+    s = fermitools.lr.odc12.metric_sigma(t2=t2)
+    d = fermitools.math.linalg.direct.zero
+    a, b = fermitools.lr.odc12.hessian_sigma(
+            hoo=hoo, hov=hov, hvv=hvv, goooo=goooo, gooov=gooov, goovv=goovv,
+            govov=govov, govvv=govvv, gvvvv=gvvvv, t2=t2, complex=True)
+
     w, u, info = fermitools.lr.odc12.solve_spectrum(
-            h_aso=h_aso, g_aso=g_aso, c=c, t2=t2, nroot=nroot, niter=100,
+            a=a, b=b, s=s, d=d, ad=ad, sd=sd, nroot=nroot, niter=100,
             r_thresh=1e-7)
     print(w)
     assert_almost_equal(w[SPIN:nroot], W_REF[SPIN:nroot], decimal=10)
