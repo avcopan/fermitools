@@ -5,7 +5,8 @@ import warnings
 from ..math import broadcast_sum
 from ..math import transform
 from ..math import einsum
-from ..math.asym import antisymmetrizer_product as asm
+
+from .ocepa0 import twobody_amplitude_gradient
 
 
 def solve(h_aso, g_aso, c_guess, t2_guess, niter=50, r_thresh=1e-8):
@@ -96,15 +97,6 @@ def fancy_property(pxx, m1xx):
     tfpxx = transform(pxx, {ax1: ux, ax2: ux}) / n1xx
     fpxx = transform(tfpxx, {ax1: ux.T, ax2: ux.T})
     return fpxx
-
-
-def twobody_amplitude_gradient(goooo, goovv, govov, gvvvv, foo, fvv, t2):
-    return (goovv
-            + asm("2/3")(einsum('ac,ijcb->ijab', fvv, t2))
-            - asm("0/1")(einsum('ki,kjab->ijab', foo, t2))
-            + 1. / 2 * einsum("abcd,ijcd->ijab", gvvvv, t2)
-            + 1. / 2 * einsum("klij,klab->ijab", goooo, t2)
-            - asm("0/1|2/3")(einsum("kaic,jkbc->ijab", govov, t2)))
 
 
 def onebody_density(t2):

@@ -201,8 +201,7 @@ def b11_sigma(goooo, goovv, govov, gvvvv, m1oo, m1vv, t2):
             + 1./4 * einsum('mnab,ijcd,mncd,jb...->ia...', goovv, t2, t2, r1)
             - einsum('imbe,mkec,jkac,jb...->ia...', goovv, t2, t2, r1)
             - einsum('jmae,mkec,ikbc,jb...->ia...', goovv, t2, t2, r1)
-            + 1./4 * einsum('ijef,klef,klab,jb...->ia...', goovv, t2, t2, r1)
-            )
+            + 1./4 * einsum('ijef,klef,klab,jb...->ia...', goovv, t2, t2, r1))
 
     return _b11
 

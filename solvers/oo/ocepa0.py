@@ -29,6 +29,7 @@ def solve(norb, nocc, h_aso, g_aso, c_guess, t2_guess, niter=50,
         govvv = fermitools.math.transform(g_aso, {0: co, 1: cv, 2: cv, 3: cv})
         gvvvv = fermitools.math.transform(g_aso, {0: cv, 1: cv, 2: cv, 3: cv})
         foo = fermitools.oo.ocepa0.fock_xy(hoo, goooo)
+        fov = fermitools.oo.ocepa0.fock_xy(hov, gooov)
         fvv = fermitools.oo.ocepa0.fock_xy(hvv, govov)
         eo = numpy.diagonal(foo)
         ev = numpy.diagonal(fvv)
@@ -47,12 +48,12 @@ def solve(norb, nocc, h_aso, g_aso, c_guess, t2_guess, niter=50,
         k2vvvv = fermitools.oo.ocepa0.twobody_cumulant_vvvv(t2)
 
         m2oooo = fermitools.oo.ocepa0.twobody_moment_oooo(dm1oo, cm1oo, k2oooo)
-        m2oovv = fermitools.oo.ocepa0.twobody_moment_oovv(k2oovv)
+        m2oovv = k2oovv
         m2ovov = fermitools.oo.ocepa0.twobody_moment_ovov(dm1oo, cm1vv, k2ovov)
-        m2vvvv = fermitools.oo.ocepa0.twobody_moment_vvvv(k2vvvv)
+        m2vvvv = k2vvvv
 
         r1 = fermitools.oo.ocepa0.orbital_gradient(
-                hov, gooov, govvv, m1oo, m1vv, m2oooo, m2oovv, m2ovov, m2vvvv)
+                fov, gooov, govvv, t2)
         e1 = fermitools.math.broadcast_sum({0: +eo, 1: -ev})
         t1 = r1 / e1
         a = numpy.bmat([[zoo, -t1], [+t1.T, zvv]])
@@ -132,9 +133,9 @@ def e_f(norb, nocc, h_aso, g_aso, c):
         k2vvvv = fermitools.oo.ocepa0.twobody_cumulant_vvvv(t2)
 
         m2oooo = fermitools.oo.ocepa0.twobody_moment_oooo(dm1oo, cm1oo, k2oooo)
-        m2oovv = fermitools.oo.ocepa0.twobody_moment_oovv(k2oovv)
+        m2oovv = k2oovv
         m2ovov = fermitools.oo.ocepa0.twobody_moment_ovov(dm1oo, cm1vv, k2ovov)
-        m2vvvv = fermitools.oo.ocepa0.twobody_moment_vvvv(k2vvvv)
+        m2vvvv = k2vvvv
 
         en_elec = fermitools.oo.ocepa0.electronic_energy(
                 h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],

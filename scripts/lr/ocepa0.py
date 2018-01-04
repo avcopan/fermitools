@@ -78,9 +78,9 @@ def main():
     k2vvvv = fermitools.oo.ocepa0.twobody_cumulant_vvvv(t2)
 
     m2oooo = fermitools.oo.ocepa0.twobody_moment_oooo(dm1oo, cm1oo, k2oooo)
-    m2oovv = fermitools.oo.ocepa0.twobody_moment_oovv(k2oovv)
+    m2oovv = k2oovv
     m2ovov = fermitools.oo.ocepa0.twobody_moment_ovov(dm1oo, cm1vv, k2ovov)
-    m2vvvv = fermitools.oo.ocepa0.twobody_moment_vvvv(k2vvvv)
+    m2vvvv = k2vvvv
 
     foo = fermitools.oo.ocepa0.fock_oo(hoo, goooo)
     fov = fermitools.oo.ocepa0.fock_oo(hov, gooov)
@@ -135,6 +135,7 @@ def main():
     # numpy.save('goooo', goooo)
     # numpy.save('goovv', goovv)
     # numpy.save('govov', govov)
+    # numpy.save('gvvvv', gvvvv)
     # numpy.save('gvvvv', gvvvv)
     # numpy.save('t2', t2)
 

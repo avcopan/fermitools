@@ -15,6 +15,7 @@ GOOOO = numpy.load(os.path.join(data_path, 'ocepa0/goooo.npy'))
 GOOOV = numpy.load(os.path.join(data_path, 'ocepa0/gooov.npy'))
 GOOVV = numpy.load(os.path.join(data_path, 'ocepa0/goovv.npy'))
 GOVOV = numpy.load(os.path.join(data_path, 'ocepa0/govov.npy'))
+GOVVV = numpy.load(os.path.join(data_path, 'ocepa0/govvv.npy'))
 GVVVV = numpy.load(os.path.join(data_path, 'ocepa0/gvvvv.npy'))
 FOO = numpy.load(os.path.join(data_path, 'ocepa0/foo.npy'))
 FOV = numpy.load(os.path.join(data_path, 'ocepa0/fov.npy'))
@@ -33,3 +34,8 @@ def test__twobody_amplitude_gradient():
     print(numpy.amax(r2))
     print(numpy.amin(r2))
     assert_almost_equal(r2, 0., decimal=10)
+
+
+def test__orbital_gradient():
+    r1 = ocepa0.orbital_gradient(FOV, GOOOV, GOVVV, T2)
+    assert_almost_equal(r1, 0., decimal=10)
