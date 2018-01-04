@@ -20,25 +20,31 @@ from ..oo.odc12 import fancy_property
 from ..oo.odc12 import onebody_density
 
 
-def approximate_diagonal_hessian(hoo, hvv, goooo, govov, gvvvv, t2):
-    no, _, nv, _ = t2.shape
-    r1 = raveler({0: (0, 1)})
-    r2 = megaraveler({0: ((0, 1), (2, 3))})
+def solve_static_response(a, b, pg):
+    a_ = a(numpy.eye(len(pg)))
+    b_ = b(numpy.eye(len(pg)))
 
-    m1oo, m1vv = onebody_density(t2)
-    foo = fock_xy(hxy=hoo, goxoy=goooo, gxvyv=govov, m1oo=m1oo, m1vv=m1vv)
-    fvv = fock_xy(hxy=hvv, goxoy=govov, gxvyv=gvvvv, m1oo=m1oo, m1vv=m1vv)
-    ffoo = fancy_property(foo, m1oo)
-    ffvv = fancy_property(fvv, m1vv)
+    e = a_ + b_
+    r = scipy.linalg.solve(e, -2*pg)
+    return r
 
-    eo = numpy.diagonal(foo)
-    ev = numpy.diagonal(fvv)
-    efo = numpy.diagonal(ffoo)
-    efv = numpy.diagonal(ffvv)
 
-    ad1 = r1(broadcast_sum({0: -eo, 1: +ev}))
-    ad2 = r2(broadcast_sum({0: -efo, 1: -efo, 2: -efv, 3: -efv}))
-    return numpy.concatenate((ad1, ad2), axis=0)
+def solve_spectrum(a, b, s, d, ad, sd, nroot=1, nvec=None, niter=50,
+                   r_thresh=1e-6):
+    nvec = 2 * nroot if nvec is None else nvec
+
+    e = bmat([[a, b], [b, a]], 2)
+    m = bmat([[s, d], [negative(d), negative(s)]], 2)
+    ed = numpy.concatenate((+ad, +ad))
+    md = numpy.concatenate((+sd, -sd))
+
+    guess = evec_guess(md, nvec, bd=ed)
+    v, u, info = eighg(
+            a=m, b=e, neig=nroot, ad=md, bd=ed, guess=guess,
+            r_thresh=r_thresh, nvec=nvec, niter=niter)
+    w = -1. / v
+
+    return w, u, info
 
 
 def hessian_sigma(hoo, hov, hvv, goooo, gooov, goovv, govov, govvv, gvvvv, t2,
@@ -100,6 +106,27 @@ def metric_sigma(t2):
     return s
 
 
+def approximate_diagonal_hessian(hoo, hvv, goooo, govov, gvvvv, t2):
+    no, _, nv, _ = t2.shape
+    r1 = raveler({0: (0, 1)})
+    r2 = megaraveler({0: ((0, 1), (2, 3))})
+
+    m1oo, m1vv = onebody_density(t2)
+    foo = fock_xy(hxy=hoo, goxoy=goooo, gxvyv=govov, m1oo=m1oo, m1vv=m1vv)
+    fvv = fock_xy(hxy=hvv, goxoy=govov, gxvyv=gvvvv, m1oo=m1oo, m1vv=m1vv)
+    ffoo = fancy_property(foo, m1oo)
+    ffvv = fancy_property(fvv, m1vv)
+
+    eo = numpy.diagonal(foo)
+    ev = numpy.diagonal(fvv)
+    efo = numpy.diagonal(ffoo)
+    efv = numpy.diagonal(ffvv)
+
+    ad1 = r1(broadcast_sum({0: -eo, 1: +ev}))
+    ad2 = r2(broadcast_sum({0: -efo, 1: -efo, 2: -efv, 3: -efv}))
+    return numpy.concatenate((ad1, ad2), axis=0)
+
+
 def property_gradient(poo, pov, pvv, t2):
     r1 = raveler({0: (0, 1)})
     r2 = megaraveler({0: ((0, 1), (2, 3))})
@@ -110,33 +137,6 @@ def property_gradient(poo, pov, pvv, t2):
     pg1 = r1(onebody_property_gradient(pov, m1oo, m1vv))
     pg2 = r2(twobody_property_gradient(fpoo, -fpvv, t2))
     return numpy.concatenate((pg1, pg2), axis=0)
-
-
-def solve_static_response(a, b, pg):
-    a_ = a(numpy.eye(len(pg)))
-    b_ = b(numpy.eye(len(pg)))
-
-    e = a_ + b_
-    r = scipy.linalg.solve(e, -2*pg)
-    return r
-
-
-def solve_spectrum(a, b, s, d, ad, sd, nroot=1, nvec=None, niter=50,
-                   r_thresh=1e-6):
-    nvec = 2 * nroot if nvec is None else nvec
-
-    e = bmat([[a, b], [b, a]], 2)
-    m = bmat([[s, d], [negative(d), negative(s)]], 2)
-    ed = numpy.concatenate((+ad, +ad))
-    md = numpy.concatenate((+sd, -sd))
-
-    guess = evec_guess(md, nvec, bd=ed)
-    v, u, info = eighg(
-            a=m, b=e, neig=nroot, ad=md, bd=ed, guess=guess,
-            r_thresh=r_thresh, nvec=nvec, niter=niter)
-    w = -1. / v
-
-    return w, u, info
 
 
 def onebody_property_gradient(pov, m1oo, m1vv):
