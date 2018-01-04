@@ -130,13 +130,13 @@ def main():
     assert_almost_equal(W[1:nroots], w[1:], decimal=11)
 
     # Save stuff
-    numpy.save('foo', foo)
-    numpy.save('fvv', fvv)
-    numpy.save('goooo', goooo)
-    numpy.save('goovv', goovv)
-    numpy.save('govov', govov)
-    numpy.save('gvvvv', gvvvv)
-    numpy.save('t2', t2)
+    # numpy.save('foo', foo)
+    # numpy.save('fvv', fvv)
+    # numpy.save('goooo', goooo)
+    # numpy.save('goovv', goovv)
+    # numpy.save('govov', govov)
+    # numpy.save('gvvvv', gvvvv)
+    # numpy.save('t2', t2)
 
 
 if __name__ == '__main__':
