@@ -10,8 +10,8 @@ NITER = 200
 R_THRESH = 1e-13
 H_ASO = numpy.load(os.path.join(data_path, 'h_aso.npy'))
 G_ASO = numpy.load(os.path.join(data_path, 'g_aso.npy'))
-C = numpy.load(os.path.join(data_path, 'odc12/c.npy'))
-T2 = numpy.load(os.path.join(data_path, 'odc12/t2.npy'))
+C_GUESS = numpy.load(os.path.join(data_path, 'c_guess.npy'))
+T2_GUESS = numpy.load(os.path.join(data_path, 't2_guess.npy'))
 HOO = numpy.load(os.path.join(data_path, 'odc12/hoo.npy'))
 HOV = numpy.load(os.path.join(data_path, 'odc12/hov.npy'))
 HVV = numpy.load(os.path.join(data_path, 'odc12/hvv.npy'))
@@ -33,8 +33,8 @@ FFOO = numpy.load(os.path.join(data_path, 'odc12/ffoo.npy'))
 FFVV = numpy.load(os.path.join(data_path, 'odc12/ffvv.npy'))
 EN_ELEC = numpy.load(os.path.join(data_path, 'odc12/en_elec.npy'))
 MU_ELEC = numpy.load(os.path.join(data_path, 'odc12/mu_elec.npy'))
-C_GUESS = numpy.load(os.path.join(data_path, 'c_guess.npy'))
-T2_GUESS = numpy.load(os.path.join(data_path, 't2_guess.npy'))
+C = numpy.load(os.path.join(data_path, 'odc12/c.npy'))
+T2 = numpy.load(os.path.join(data_path, 'odc12/t2.npy'))
 
 
 def test__fock_xy():

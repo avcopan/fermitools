@@ -47,7 +47,5 @@ def coordinate_string(labels, coords):
     :rtype: str
     """
     line = '{:2s} {: >17.12f} {: >17.12f} {: >17.12f}'
-    print(labels)
-    print(coords)
     xyz = '\n'.join(line.format(l, *c) for l, c in zip(labels, coords))
     return 'units bohr\n{:s}'.format(xyz)

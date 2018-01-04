@@ -1,8 +1,44 @@
 import numpy
-from .hf import fock_oo, fock_ov, fock_vv
-from .omp2 import onebody_correlation_density
 from ..math import einsum
 from ..math.asym import antisymmetrizer_product as asm
+
+# Old
+from .omp2 import onebody_correlation_density
+
+
+# New
+def fock_xy(hxy, goxoy):
+    return hxy + numpy.trace(goxoy, axis1=0, axis2=2)
+
+
+def twobody_amplitude_gradient(goooo, goovv, govov, gvvvv, foo, fvv, t2):
+    return (goovv
+            + asm("2/3")(einsum('ac,ijcb->ijab', fvv, t2))
+            - asm("0/1")(einsum('ki,kjab->ijab', foo, t2))
+            + 1. / 2 * einsum("abcd,ijcd->ijab", gvvvv, t2)
+            + 1. / 2 * einsum("klij,klab->ijab", goooo, t2)
+            - asm("0/1|2/3")(einsum("kaic,jkbc->ijab", govov, t2)))
+
+
+# Old
+__all__ = [
+        'onebody_correlation_density', 'twobody_cumulant_oooo',
+        'twobody_cumulant_oovv', 'twobody_cumulant_ovov',
+        'twobody_cumulant_vvvv', 'twobody_moment_oooo', 'twobody_moment_oovv',
+        'twobody_moment_ovov', 'twobody_moment_vvvv',
+        'twobody_amplitude_gradient', 'electronic_energy', 'orbital_gradient']
+
+
+def fock_oo(hoo, goooo):
+    return fock_xy(hoo, goooo)
+
+
+def fock_vv(hvv, govov):
+    return fock_xy(hvv, govov)
+
+
+def fock_ov(hov, gooov):
+    return fock_xy(hov, gooov)
 
 
 def twobody_cumulant_oooo(t2):
@@ -60,21 +96,3 @@ def orbital_gradient(hov, gooov, govvv, m1oo, m1vv, m2oooo, m2oovv, m2ovov,
             - einsum('mine,mane->ia', gooov, m2ovov)
             + 1./2 * einsum('maef,mief->ia', govvv, m2oovv)
             - 1./2 * einsum('ifed,afed->ia', govvv, m2vvvv))
-
-
-def twobody_amplitude_gradient(goooo, goovv, govov, gvvvv, foo, fvv, t2):
-    return (goovv
-            + asm("2/3")(einsum('ac,ijcb->ijab', fvv, t2))
-            - asm("0/1")(einsum('ki,kjab->ijab', foo, t2))
-            + 1. / 2 * einsum("abcd,ijcd->ijab", gvvvv, t2)
-            + 1. / 2 * einsum("klij,klab->ijab", goooo, t2)
-            - asm("0/1|2/3")(einsum("kaic,jkbc->ijab", govov, t2)))
-
-
-__all__ = [
-        'onebody_correlation_density', 'twobody_cumulant_oooo',
-        'twobody_cumulant_oovv', 'twobody_cumulant_ovov',
-        'twobody_cumulant_vvvv', 'twobody_moment_oooo', 'twobody_moment_oovv',
-        'twobody_moment_ovov', 'twobody_moment_vvvv',
-        'twobody_amplitude_gradient', 'electronic_energy', 'fock_oo',
-        'fock_ov', 'fock_vv', 'orbital_gradient', 'twobody_amplitude_gradient']

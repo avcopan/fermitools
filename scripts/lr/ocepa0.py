@@ -112,7 +112,7 @@ def main():
     print(alpha.round(8))
 
     assert_almost_equal(EN_DF2, numpy.diag(alpha), decimal=8)
-    assert_almost_equal(ALPHA_DIAG, numpy.diag(alpha), decimal=11)
+    assert_almost_equal(ALPHA_DIAG, numpy.diag(alpha), decimal=10)
 
     # Solve excitation energies
     nroots = 200
@@ -128,6 +128,15 @@ def main():
     print(w)
     print(u.shape)
     assert_almost_equal(W[1:nroots], w[1:], decimal=11)
+
+    # Save stuff
+    numpy.save('foo', foo)
+    numpy.save('fvv', fvv)
+    numpy.save('goooo', goooo)
+    numpy.save('goovv', goovv)
+    numpy.save('govov', govov)
+    numpy.save('gvvvv', gvvvv)
+    numpy.save('t2', t2)
 
 
 if __name__ == '__main__':

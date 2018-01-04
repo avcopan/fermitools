@@ -8,27 +8,34 @@ import fermitools
 
 def solve(norb, nocc, h_aso, g_aso, c_guess, t2_guess, niter=50,
           e_thresh=1e-10, r_thresh=1e-9, print_conv=False):
-    o = slice(None, nocc)
-    v = slice(nocc, None)
+    no, _, nv, _ = t2_guess.shape
 
-    gen = numpy.zeros((norb, norb))
-    dm1oo = numpy.eye(nocc)
+    zoo = numpy.zeros((no, no))
+    zvv = numpy.zeros((nv, nv))
+    dm1oo = numpy.eye(no)
 
     c = c_guess
     t2 = t2_guess
     en_elec_last = 0.
     for iteration in range(niter):
-        h = fermitools.math.transform(h_aso, {0: c, 1: c})
-        g = fermitools.math.transform(g_aso, {0: c, 1: c, 2: c, 3: c})
-        foo = fermitools.oo.ocepa0.fock_oo(h[o, o], g[o, o, o, o])
-        fvv = fermitools.oo.ocepa0.fock_vv(h[v, v], g[o, v, o, v])
+        co, cv = numpy.split(c, (no,), axis=1)
+        hoo = fermitools.math.transform(h_aso, {0: co, 1: co})
+        hov = fermitools.math.transform(h_aso, {0: co, 1: cv})
+        hvv = fermitools.math.transform(h_aso, {0: cv, 1: cv})
+        goooo = fermitools.math.transform(g_aso, {0: co, 1: co, 2: co, 3: co})
+        gooov = fermitools.math.transform(g_aso, {0: co, 1: co, 2: co, 3: cv})
+        goovv = fermitools.math.transform(g_aso, {0: co, 1: co, 2: cv, 3: cv})
+        govov = fermitools.math.transform(g_aso, {0: co, 1: cv, 2: co, 3: cv})
+        govvv = fermitools.math.transform(g_aso, {0: co, 1: cv, 2: cv, 3: cv})
+        gvvvv = fermitools.math.transform(g_aso, {0: cv, 1: cv, 2: cv, 3: cv})
+        foo = fermitools.oo.ocepa0.fock_xy(hoo, goooo)
+        fvv = fermitools.oo.ocepa0.fock_xy(hvv, govov)
         eo = numpy.diagonal(foo)
         ev = numpy.diagonal(fvv)
         e2 = fermitools.math.broadcast_sum({0: +eo, 1: +eo,
                                             2: -ev, 3: -ev})
         r2 = fermitools.oo.ocepa0.twobody_amplitude_gradient(
-                g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
-                g[v, v, v, v], foo, fvv, t2)
+                goooo, goovv, govov, gvvvv, foo, fvv, t2)
         t2 += r2 / e2
         cm1oo, cm1vv = fermitools.oo.ocepa0.onebody_correlation_density(t2)
         m1oo = dm1oo + cm1oo
@@ -45,19 +52,16 @@ def solve(norb, nocc, h_aso, g_aso, c_guess, t2_guess, niter=50,
         m2vvvv = fermitools.oo.ocepa0.twobody_moment_vvvv(k2vvvv)
 
         r1 = fermitools.oo.ocepa0.orbital_gradient(
-                h[o, v], g[o, o, o, v], g[o, v, v, v], m1oo, m1vv,
-                m2oooo, m2oovv, m2ovov, m2vvvv)
+                hov, gooov, govvv, m1oo, m1vv, m2oooo, m2oovv, m2ovov, m2vvvv)
         e1 = fermitools.math.broadcast_sum({0: +eo, 1: -ev})
         t1 = r1 / e1
-        gen[v, o] = numpy.transpose(t1)
-        gen[o, v] = -t1
-        u = scipy.linalg.expm(gen)
+        a = numpy.bmat([[zoo, -t1], [+t1.T, zvv]])
+        u = scipy.linalg.expm(a)
         c = numpy.dot(c, u)
 
         en_elec = fermitools.oo.ocepa0.electronic_energy(
-                h[o, o], h[v, v], g[o, o, o, o], g[o, o, v, v], g[o, v, o, v],
-                g[v, v, v, v], m1oo, m1vv, m2oooo, m2oovv, m2ovov,
-                m2vvvv)
+                hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv, m2oooo,
+                m2oovv, m2ovov, m2vvvv)
         en_change = en_elec - en_elec_last
         en_elec_last = en_elec
 
