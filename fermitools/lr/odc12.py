@@ -117,9 +117,8 @@ def solve_static_response(a, b, pg):
     b_ = b(numpy.eye(len(pg)))
 
     e = a_ + b_
-
     r = scipy.linalg.solve(e, -2*pg)
-    return numpy.tensordot(r, pg, axes=(0, 0))
+    return r
 
 
 def solve_spectrum(a, b, s, d, ad, sd, nroot=1, nvec=None, niter=50,

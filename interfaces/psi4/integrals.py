@@ -7,7 +7,7 @@ from .util import psi4_basis
 
 # Public
 def nbf(basis, labels):
-    coords = numpy.random.rand(3, len(labels))
+    coords = numpy.random.rand(len(labels), 3)
     bs = psi4_basis(basis=basis, labels=labels, coords=coords)
     return int(bs.nbf())
 
