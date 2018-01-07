@@ -43,9 +43,6 @@ def solve(h_aso, g_aso, c_guess, t2_guess, niter=50, r_thresh=1e-8):
                 goooo, goovv, govov, gvvvv, foo, fvv, t2)
         t2 += r2 / e2
 
-        en_elec = electronic_energy(
-                hoo, hvv, goooo, goovv, govov, gvvvv, t2)
-
         r1_max = numpy.amax(numpy.abs(r1))
         r2_max = numpy.amax(numpy.abs(r2))
 
@@ -55,6 +52,8 @@ def solve(h_aso, g_aso, c_guess, t2_guess, niter=50, r_thresh=1e-8):
             break
 
     info = {'niter': iteration + 1, 'r1_max': r1_max, 'r2_max': r2_max}
+
+    en_elec = electronic_energy(hoo, hvv, goooo, goovv, govov, gvvvv, t2)
 
     if not converged:
         warnings.warn("Did not converge!")
@@ -76,7 +75,7 @@ def twobody_amplitude_gradient(goooo, goovv, govov, gvvvv, foo, fvv, t2):
 
 
 def orbital_gradient(fov, gooov, govvv, t2):
-    return (+ einsum('ia->ia', fov)
+    return (+ fov
             - 1./2 * einsum('ma,ikcd,mkcd->ia', fov, t2, t2)
             - 1./2 * einsum('ie,klac,klec->ia', fov, t2, t2)
             - 1./2 * einsum('mnie,mnae->ia', gooov, t2)

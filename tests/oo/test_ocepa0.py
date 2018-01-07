@@ -31,6 +31,7 @@ T2 = numpy.load(os.path.join(data_path, 'ocepa0/t2.npy'))
 M1OO = numpy.load(os.path.join(data_path, 'ocepa0/m1oo.npy'))
 M1VV = numpy.load(os.path.join(data_path, 'ocepa0/m1vv.npy'))
 EN_ELEC = numpy.load(os.path.join(data_path, 'ocepa0/en_elec.npy'))
+MU_ELEC = numpy.load(os.path.join(data_path, 'ocepa0/mu_elec.npy'))
 
 
 def test__solve():
@@ -58,8 +59,7 @@ def test__solve():
     m1oo, m1vv = ocepa0.onebody_density(t2)
     mu_elec = [numpy.vdot(pxoo, m1oo) + numpy.vdot(pxvv, m1vv)
                for pxoo, pxvv in zip(POO, PVV)]
-    numpy.save('mu_elec', mu_elec)
-    # assert_almost_equal(mu_elec, MU_ELEC, decimal=10)
+    assert_almost_equal(mu_elec, MU_ELEC, decimal=10)
 
 
 def test__fock_xy():

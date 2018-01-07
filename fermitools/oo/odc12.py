@@ -52,9 +52,6 @@ def solve(h_aso, g_aso, c_guess, t2_guess, niter=50, r_thresh=1e-8):
                 goooo, goovv, govov, gvvvv, +ffoo, -ffvv, t2)
         t2 = t2 + r2 / fe2
 
-        en_elec = electronic_energy(
-                hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv, t2)
-
         r1_max = numpy.amax(numpy.abs(r1))
         r2_max = numpy.amax(numpy.abs(r2))
 
@@ -64,6 +61,9 @@ def solve(h_aso, g_aso, c_guess, t2_guess, niter=50, r_thresh=1e-8):
             break
 
     info = {'niter': iteration + 1, 'r1_max': r1_max, 'r2_max': r2_max}
+
+    en_elec = electronic_energy(
+            hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv, t2)
 
     if not converged:
         warnings.warn("Did not converge!")
