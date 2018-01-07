@@ -34,10 +34,8 @@ def en_functional(no, nv, h_aso, g_aso, c):
         govov = fermitools.math.transform(g_aso, {0: co, 1: cv, 2: co, 3: cv})
         gvvvv = fermitools.math.transform(g_aso, {0: cv, 1: cv, 2: cv, 3: cv})
         m1oo, m1vv = fermitools.oo.odc12.onebody_density(t2)
-        foo = fermitools.oo.odc12.fock_xy(hoo, goooo, govov, m1oo, m1vv)
-        fvv = fermitools.oo.odc12.fock_xy(hvv, govov, gvvvv, m1oo, m1vv)
         en_elec = fermitools.oo.odc12.electronic_energy(
-                hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv, foo, fvv, t2)
+                hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv, t2)
         return en_elec
 
     return _en

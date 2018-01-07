@@ -44,18 +44,19 @@ def main():
     c_unsrt = scipy.linalg.block_diag(ac, bc)
     sortvec = fermitools.math.spinorb.ab2ov(dim=nbf, na=na, nb=nb)
     c_unsrt = scipy.linalg.block_diag(ac, bc)
-    c = fermitools.math.spinorb.sort(c_unsrt, order=sortvec, axes=(1,))
+    c_guess = fermitools.math.spinorb.sort(c_unsrt, order=sortvec, axes=(1,))
 
-    # Solve OCEPA0
+    # Solve ground state
     t2_guess = numpy.zeros((nocc, nocc, norb-nocc, norb-nocc))
-    en_elec, c, t2 = solvers.oo.ocepa0.solve(
-            norb=norb, nocc=nocc, h_aso=h_aso, g_aso=g_aso, c_guess=c,
-            t2_guess=t2_guess, niter=200, e_thresh=1e-14, r_thresh=1e-13,
-            print_conv=True)
+    en_elec, c, t2, info = fermitools.oo.ocepa0.solve(
+            h_aso=h_aso, g_aso=g_aso, c_guess=c_guess, t2_guess=t2_guess,
+            niter=200, r_thresh=1e-14)
+    print(info)
     en_nuc = fermitools.chem.nuc.energy(labels=LABELS, coords=COORDS)
     en_tot = en_elec + en_nuc
     print("\nGround state energy:")
     print('{:20.15f}'.format(en_tot))
+    assert_almost_equal(en_elec, -82.716887007189214, decimal=13)
 
     # Define LR inputs
     co, cv = numpy.split(c, (nocc,), axis=1)
@@ -68,29 +69,14 @@ def main():
     govov = fermitools.math.transform(g_aso, {0: co, 1: cv, 2: co, 3: cv})
     govvv = fermitools.math.transform(g_aso, {0: co, 1: cv, 2: cv, 3: cv})
     gvvvv = fermitools.math.transform(g_aso, {0: cv, 1: cv, 2: cv, 3: cv})
-    dm1oo = numpy.eye(nocc)
-    cm1oo, cm1vv = fermitools.oo.ocepa0.onebody_correlation_density(t2)
-    m1oo = dm1oo + cm1oo
-    m1vv = cm1vv
-    k2oooo = fermitools.oo.ocepa0.twobody_cumulant_oooo(t2)
-    k2oovv = fermitools.oo.ocepa0.twobody_cumulant_oovv(t2)
-    k2ovov = fermitools.oo.ocepa0.twobody_cumulant_ovov(t2)
-    k2vvvv = fermitools.oo.ocepa0.twobody_cumulant_vvvv(t2)
 
-    m2oooo = fermitools.oo.ocepa0.twobody_moment_oooo(dm1oo, cm1oo, k2oooo)
-    m2oovv = k2oovv
-    m2ovov = fermitools.oo.ocepa0.twobody_moment_ovov(dm1oo, cm1vv, k2ovov)
-    m2vvvv = k2vvvv
-
-    foo = fermitools.oo.ocepa0.fock_oo(hoo, goooo)
-    fov = fermitools.oo.ocepa0.fock_oo(hov, gooov)
-    fvv = fermitools.oo.ocepa0.fock_vv(hvv, govov)
+    foo = fermitools.oo.ocepa0.fock_xy(hoo, goooo)
+    fov = fermitools.oo.ocepa0.fock_xy(hov, gooov)
+    fvv = fermitools.oo.ocepa0.fock_xy(hvv, govov)
 
     a11 = fermitools.lr.ocepa0.a11_sigma(
-          hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv, m2oooo, m2oovv,
-          m2ovov, m2vvvv)
-    b11 = fermitools.lr.ocepa0.b11_sigma(
-          goooo, goovv, govov, gvvvv, m2oooo, m2oovv, m2ovov, m2vvvv)
+          hoo, hvv, goooo, goovv, govov, gvvvv, t2)
+    b11 = fermitools.lr.ocepa0.b11_sigma(goooo, goovv, govov, gvvvv, t2)
     a12 = fermitools.lr.ocepa0.a12_sigma(fov, gooov, govvv, t2)
     b12 = fermitools.lr.ocepa0.b12_sigma(fov, gooov, govvv, t2)
     a21 = fermitools.lr.ocepa0.a21_sigma(fov, gooov, govvv, t2)
@@ -103,7 +89,7 @@ def main():
     poo = fermitools.math.transform(p_aso, {1: co, 2: co})
     pov = fermitools.math.transform(p_aso, {1: co, 2: cv})
     pvv = fermitools.math.transform(p_aso, {1: cv, 2: cv})
-    pg1 = fermitools.lr.ocepa0.onebody_property_gradient(pov, m1oo, m1vv)
+    pg1 = fermitools.lr.ocepa0.onebody_property_gradient(pov, t2)
     pg2 = fermitools.lr.ocepa0.twobody_property_gradient(poo, pvv, t2)
 
     alpha = solvers.lr.ocepa0.solve_static_response(
@@ -117,7 +103,7 @@ def main():
     # Solve excitation energies
     nroots = 200
     no, nv = nocc, norb-nocc
-    s11_mat = fermitools.lr.ocepa0.s11_matrix(m1oo, m1vv)
+    s11_mat = fermitools.lr.ocepa0.s11_matrix(t2)
     x11_mat = scipy.linalg.inv(s11_mat)
     x11_arr = fermitools.math.unravel(
             x11_mat, {0: {0: no, 1: nv}, 1: {2: no, 3: nv}})
@@ -130,14 +116,26 @@ def main():
     assert_almost_equal(W[1:nroots], w[1:], decimal=11)
 
     # Save stuff
-    # numpy.save('foo', foo)
-    # numpy.save('fvv', fvv)
+    # m1oo, m1vv = fermitools.oo.ocepa0.onebody_density(t2)
+    # numpy.save('hoo', hoo)
+    # numpy.save('hov', hov)
+    # numpy.save('hvv', hvv)
+    # numpy.save('poo', poo)
+    # numpy.save('pvv', pvv)
     # numpy.save('goooo', goooo)
+    # numpy.save('gooov', gooov)
     # numpy.save('goovv', goovv)
     # numpy.save('govov', govov)
+    # numpy.save('govvv', govvv)
     # numpy.save('gvvvv', gvvvv)
-    # numpy.save('gvvvv', gvvvv)
+    # numpy.save('foo', foo)
+    # numpy.save('fov', fov)
+    # numpy.save('fvv', fvv)
+    # numpy.save('c', c)
     # numpy.save('t2', t2)
+    # numpy.save('m1oo', m1oo)
+    # numpy.save('m1vv', m1vv)
+    # numpy.save('en_elec', en_elec)
 
 
 if __name__ == '__main__':

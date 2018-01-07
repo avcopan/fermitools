@@ -19,7 +19,7 @@ def en_f_function(h_aso, p_aso, g_aso, c_guess, t2_guess, niter=200,
 
     def _en(f):
         hp_aso = h_aso - numpy.tensordot(f, p_aso, axes=(0, 0))
-        en_elec, c, t2, info = fermitools.oo.odc12.solve(
+        en_elec, c, t2, info = fermitools.oo.ocepa0.solve(
                 h_aso=hp_aso, g_aso=g_aso, c_guess=c_guess, t2_guess=t2_guess,
                 niter=niter, r_thresh=r_thresh)
 
@@ -59,9 +59,9 @@ def main():
 
     # Solve
     t2_guess = numpy.zeros((nocc, nocc, norb-nocc, norb-nocc))
-    en_elec, c, t2, info = fermitools.oo.odc12.solve(
+    en_elec, c, t2, info = fermitools.oo.ocepa0.solve(
             h_aso=h_aso, g_aso=g_aso, c_guess=c_guess, t2_guess=t2_guess,
-            niter=200, r_thresh=1e-13)
+            niter=300, r_thresh=1e-14)
     en_nuc = fermitools.chem.nuc.energy(labels=LABELS, coords=COORDS)
     en_tot = en_elec + en_nuc
     print("\nGround state energy:")
@@ -70,62 +70,32 @@ def main():
     # Differentiate
     en_f_ = en_f_function(
             h_aso=h_aso, p_aso=p_aso, g_aso=g_aso, c_guess=c, t2_guess=t2,
-            niter=200, r_thresh=1e-11, print_conv=True)
+            niter=200, r_thresh=1e-13, print_conv=True)
     en_elec = en_f_((0., 0., 0.))
     print(en_elec)
 
     print("First derivative")
     en_df = fermitools.math.central_difference(
-            f=en_f_, x=(0., 0., 0.), step=0.03, nder=1, npts=15)
+            f=en_f_, x=(0., 0., 0.), step=0.001, nder=1, npts=5)
     print(en_df)
-
-    print("Second derivative")
-    en_df2 = fermitools.math.central_difference(
-            f=en_f_, x=(0., 0., 0.), step=0.03, nder=2, npts=15)
-    print(en_df2)
 
     # LR inputs
     no, _, nv, _ = t2.shape
     co, cv = numpy.split(c, (nocc,), axis=1)
-    hoo = fermitools.math.transform(h_aso, {0: co, 1: co})
-    hov = fermitools.math.transform(h_aso, {0: co, 1: cv})
-    hvv = fermitools.math.transform(h_aso, {0: cv, 1: cv})
     poo = fermitools.math.transform(p_aso, {1: co, 2: co})
-    pov = fermitools.math.transform(p_aso, {1: co, 2: cv})
     pvv = fermitools.math.transform(p_aso, {1: cv, 2: cv})
-    goooo = fermitools.math.transform(g_aso, {0: co, 1: co, 2: co, 3: co})
-    gooov = fermitools.math.transform(g_aso, {0: co, 1: co, 2: co, 3: cv})
-    goovv = fermitools.math.transform(g_aso, {0: co, 1: co, 2: cv, 3: cv})
-    govov = fermitools.math.transform(g_aso, {0: co, 1: cv, 2: co, 3: cv})
-    govvv = fermitools.math.transform(g_aso, {0: co, 1: cv, 2: cv, 3: cv})
-    gvvvv = fermitools.math.transform(g_aso, {0: cv, 1: cv, 2: cv, 3: cv})
 
     # Evaluate dipole moment as expectation value
-    m1oo, m1vv = fermitools.oo.odc12.onebody_density(t2)
+    m1oo, m1vv = fermitools.oo.ocepa0.onebody_density(t2)
     mu = numpy.array([numpy.vdot(pxoo, m1oo) + numpy.vdot(pxvv, m1vv)
                       for pxoo, pxvv in zip(poo, pvv)])
-
-    # Evaluate dipole polarizability by linear response
-    pg = fermitools.lr.odc12.property_gradient(
-            poo=poo, pov=pov, pvv=pvv, t2=t2)
-    a, b = fermitools.lr.odc12.hessian_sigma(
-            hoo=hoo, hov=hov, hvv=hvv, goooo=goooo, gooov=gooov, goovv=goovv,
-            govov=govov, govvv=govvv, gvvvv=gvvvv, t2=t2, complex=True)
-    r = fermitools.lr.odc12.solve_static_response(a=a, b=b, pg=pg)
-    alpha = numpy.dot(r.T, pg)
 
     print("Compare dE/df to <Psi|mu|Psi>:")
     print(en_df.round(10))
     print(mu.round(10))
     print(max(numpy.abs(en_df + mu)))
 
-    print("Compare d2E/df2 to <<mu; mu>>:")
-    print(en_df2.round(10))
-    print(alpha.round(10))
-    print(max(numpy.abs(en_df2 - numpy.diag(alpha))))
-
     assert_almost_equal(en_df, -mu, decimal=9)
-    assert_almost_equal(en_df2, numpy.diag(alpha), decimal=9)
 
 
 if __name__ == '__main__':

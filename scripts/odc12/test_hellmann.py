@@ -31,7 +31,7 @@ def en_f_function(h_aso, p_aso, g_aso, c_guess, t2_guess, niter=200,
     return _en
 
 
-def main():
+def test_main():
     # Spaces
     na = fermitools.chem.elec.count_alpha(LABELS, CHARGE, SPIN)
     nb = fermitools.chem.elec.count_beta(LABELS, CHARGE, SPIN)
@@ -129,4 +129,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    test_main()

@@ -10,7 +10,13 @@ NITER = 200
 R_THRESH = 1e-13
 H_ASO = numpy.load(os.path.join(data_path, 'h_aso.npy'))
 G_ASO = numpy.load(os.path.join(data_path, 'g_aso.npy'))
+C_GUESS = numpy.load(os.path.join(data_path, 'c_guess.npy'))
+T2_GUESS = numpy.load(os.path.join(data_path, 't2_guess.npy'))
+HOO = numpy.load(os.path.join(data_path, 'ocepa0/hoo.npy'))
 HOV = numpy.load(os.path.join(data_path, 'ocepa0/hov.npy'))
+HVV = numpy.load(os.path.join(data_path, 'ocepa0/hvv.npy'))
+POO = numpy.load(os.path.join(data_path, 'ocepa0/poo.npy'))
+PVV = numpy.load(os.path.join(data_path, 'ocepa0/pvv.npy'))
 GOOOO = numpy.load(os.path.join(data_path, 'ocepa0/goooo.npy'))
 GOOOV = numpy.load(os.path.join(data_path, 'ocepa0/gooov.npy'))
 GOOVV = numpy.load(os.path.join(data_path, 'ocepa0/goovv.npy'))
@@ -20,7 +26,40 @@ GVVVV = numpy.load(os.path.join(data_path, 'ocepa0/gvvvv.npy'))
 FOO = numpy.load(os.path.join(data_path, 'ocepa0/foo.npy'))
 FOV = numpy.load(os.path.join(data_path, 'ocepa0/fov.npy'))
 FVV = numpy.load(os.path.join(data_path, 'ocepa0/fvv.npy'))
+C = numpy.load(os.path.join(data_path, 'ocepa0/c.npy'))
 T2 = numpy.load(os.path.join(data_path, 'ocepa0/t2.npy'))
+M1OO = numpy.load(os.path.join(data_path, 'ocepa0/m1oo.npy'))
+M1VV = numpy.load(os.path.join(data_path, 'ocepa0/m1vv.npy'))
+EN_ELEC = numpy.load(os.path.join(data_path, 'ocepa0/en_elec.npy'))
+
+
+def test__solve():
+    # test approximate guess
+    en_elec, c, t2, info = ocepa0.solve(
+            h_aso=H_ASO, g_aso=G_ASO, c_guess=C_GUESS, t2_guess=T2_GUESS,
+            niter=NITER, r_thresh=R_THRESH)
+    assert_almost_equal(en_elec, EN_ELEC, decimal=10)
+    assert_almost_equal(c, C, decimal=10)
+    assert_almost_equal(t2, T2, decimal=10)
+    assert info['niter'] < 150
+    assert info['r1_max'] < R_THRESH
+    assert info['r2_max'] < R_THRESH
+    # test perfect guess
+    en_elec, c, t2, info = ocepa0.solve(
+            h_aso=H_ASO, g_aso=G_ASO, c_guess=C, t2_guess=T2, niter=NITER,
+            r_thresh=R_THRESH)
+    assert_almost_equal(en_elec, EN_ELEC, decimal=10)
+    assert_almost_equal(c, C, decimal=10)
+    assert_almost_equal(t2, T2, decimal=8)
+    assert info['niter'] == 1
+    assert info['r1_max'] < R_THRESH
+    assert info['r2_max'] < R_THRESH
+    # test properties
+    m1oo, m1vv = ocepa0.onebody_density(t2)
+    mu_elec = [numpy.vdot(pxoo, m1oo) + numpy.vdot(pxvv, m1vv)
+               for pxoo, pxvv in zip(POO, PVV)]
+    numpy.save('mu_elec', mu_elec)
+    # assert_almost_equal(mu_elec, MU_ELEC, decimal=10)
 
 
 def test__fock_xy():
@@ -31,11 +70,21 @@ def test__fock_xy():
 def test__twobody_amplitude_gradient():
     r2 = ocepa0.twobody_amplitude_gradient(
             GOOOO, GOOVV, GOVOV, GVVVV, FOO, FVV, T2)
-    print(numpy.amax(r2))
-    print(numpy.amin(r2))
     assert_almost_equal(r2, 0., decimal=10)
 
 
 def test__orbital_gradient():
     r1 = ocepa0.orbital_gradient(FOV, GOOOV, GOVVV, T2)
     assert_almost_equal(r1, 0., decimal=10)
+
+
+def test__electronic_energy():
+    en_elec = ocepa0.electronic_energy(
+            HOO, HVV, GOOOO, GOOVV, GOVOV, GVVVV, T2)
+    assert_almost_equal(en_elec, EN_ELEC, decimal=10)
+
+
+def test__onebody_density():
+    m1oo, m1vv = ocepa0.onebody_density(T2)
+    assert_almost_equal(m1oo, M1OO, decimal=10)
+    assert_almost_equal(m1vv, M1VV, decimal=10)

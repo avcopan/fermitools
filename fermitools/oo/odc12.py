@@ -53,7 +53,7 @@ def solve(h_aso, g_aso, c_guess, t2_guess, niter=50, r_thresh=1e-8):
         t2 = t2 + r2 / fe2
 
         en_elec = electronic_energy(
-                hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv, foo, fvv, t2)
+                hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv, t2)
 
         r1_max = numpy.amax(numpy.abs(r1))
         r2_max = numpy.amax(numpy.abs(r2))
@@ -128,8 +128,9 @@ def orbital_gradient(fov, gooov, govvv, m1oo, m1vv, t2):
             + einsum('mine,nkac,mkec->ia', gooov, t2, t2))
 
 
-def electronic_energy(hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv, foo,
-                      fvv, t2):
+def electronic_energy(hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv, t2):
+    foo = fock_xy(hoo, goooo, govov, m1oo, m1vv)
+    fvv = fock_xy(hvv, govov, gvvvv, m1oo, m1vv)
     return (+ 1./2 * numpy.vdot(hoo + foo, m1oo)
             + 1./2 * numpy.vdot(hvv + fvv, m1vv)
             + 1./2 * numpy.vdot(goovv, t2)

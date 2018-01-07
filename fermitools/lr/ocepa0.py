@@ -1,10 +1,12 @@
 import numpy
 from ..math import einsum
-from ..math import broadcast_sum
 from ..math.asym import antisymmetrizer_product as asm
 
 
-def s11_matrix(m1oo, m1vv):
+def s11_matrix(t2):
+    dm1oo, cm1oo, cm1vv = onebody_moment(t2)
+    m1oo = dm1oo + cm1oo
+    m1vv = cm1vv
     no, _ = m1oo.shape
     nv, _ = m1vv.shape
     io = numpy.eye(no)
@@ -22,7 +24,10 @@ def onebody_transformer(trans_arr):
     return _onebody_transform
 
 
-def onebody_property_gradient(pov, m1oo, m1vv):
+def onebody_property_gradient(pov, t2):
+    dm1oo, cm1oo, cm1vv = onebody_moment(t2)
+    m1oo = dm1oo + cm1oo
+    m1vv = cm1vv
     return (
         + einsum('...ie,ea->ia...', pov, m1vv)
         - einsum('im,...ma->ia...', m1oo, pov))
@@ -36,8 +41,17 @@ def twobody_property_gradient(poo, pvv, t2):
               einsum('...ik,kjab->ijab...', poo, t2)))
 
 
-def a11_sigma(hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv, m2oooo,
-              m2oovv, m2ovov, m2vvvv):
+def a11_sigma(hoo, hvv, goooo, goovv, govov, gvvvv, t2):
+    dm1oo, cm1oo, cm1vv = onebody_moment(t2)
+    m1oo = dm1oo + cm1oo
+    m1vv = cm1vv
+    k2oooo = twobody_cumulant_oooo(t2)
+    k2ovov = twobody_cumulant_ovov(t2)
+    k2vvvv = twobody_cumulant_vvvv(t2)
+    m2oooo = twobody_moment_oooo(dm1oo, cm1oo, k2oooo)
+    m2oovv = t2
+    m2ovov = twobody_moment_ovov(dm1oo, cm1vv, k2ovov)
+    m2vvvv = k2vvvv
     fcoo = (numpy.dot(hoo, m1oo)
             + 1./2 * einsum('imno,jmno->ij', goooo, m2oooo)
             + 1./2 * einsum('imef,jmef->ij', goovv, m2oovv)
@@ -65,7 +79,15 @@ def a11_sigma(hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv, m2oooo,
     return _a11
 
 
-def b11_sigma(goooo, goovv, govov, gvvvv, m2oooo, m2oovv, m2ovov, m2vvvv):
+def b11_sigma(goooo, goovv, govov, gvvvv, t2):
+    dm1oo, cm1oo, cm1vv = onebody_moment(t2)
+    k2oooo = twobody_cumulant_oooo(t2)
+    k2ovov = twobody_cumulant_ovov(t2)
+    k2vvvv = twobody_cumulant_vvvv(t2)
+    m2oooo = twobody_moment_oooo(dm1oo, cm1oo, k2oooo)
+    m2oovv = t2
+    m2ovov = twobody_moment_ovov(dm1oo, cm1vv, k2ovov)
+    m2vvvv = k2vvvv
 
     def _b11(r1):
         return (
@@ -81,7 +103,10 @@ def b11_sigma(goooo, goovv, govov, gvvvv, m2oooo, m2oovv, m2ovov, m2vvvv):
     return _b11
 
 
-def s11_sigma(m1oo, m1vv):
+def s11_sigma(t2):
+    dm1oo, cm1oo, cm1vv = onebody_moment(t2)
+    m1oo = dm1oo + cm1oo
+    m1vv = cm1vv
 
     def _s11(r1):
         return (
@@ -191,25 +216,43 @@ def a22_sigma(foo, fvv, goooo, govov, gvvvv):
     return _a22
 
 
-def pc11_sigma(eo, ev):
+def onebody_moment(t2):
+    """ the one-body correlation density matrix
 
-    def _pc11(w):
+    :param t2: two-body amplitudes
+    :type t2: numpy.ndarray
 
-        def __pc11(r1):
-            return r1 / broadcast_sum({0: +eo, 1: -ev, 2: +w})
+    :returns: occupied and virtual blocks of correlation density
+    :rtype: (numpy.ndarray, numpy.ndarray)
+    """
+    cm1oo = - 1./2 * einsum('jkab,ikab->ij', t2, t2)
+    cm1vv = + 1./2 * einsum('ijac,ijbc->ab', t2, t2)
+    dm1oo = numpy.eye(*cm1oo.shape)
+    return dm1oo, cm1oo, cm1vv
 
-        return __pc11
 
-    return _pc11
+def twobody_cumulant_oooo(t2):
+    return 1./2 * einsum('ijcd,klcd->ijkl', t2, t2)
 
 
-def pc22_sigma(eo, ev):
+def twobody_cumulant_oovv(t2):
+    return t2
 
-    def _pc22(w):
 
-        def __pc22(r2):
-            return r2 / broadcast_sum({0: +eo, 1: +eo, 2: -ev, 3: -ev, 4: +w})
+def twobody_cumulant_ovov(t2):
+    return -einsum('ikac,jkbc->jaib', t2, t2)
 
-        return __pc22
 
-    return _pc22
+def twobody_cumulant_vvvv(t2):
+    return 1./2 * einsum('klab,klcd->abcd', t2, t2)
+
+
+def twobody_moment_oooo(dm1oo, cm1oo, k2oooo):
+    return (k2oooo
+            + asm("2/3")(
+                + einsum('ik,jl->ijkl', cm1oo, dm1oo)
+                + einsum('ik,jl->ijkl', dm1oo, dm1oo + cm1oo)))
+
+
+def twobody_moment_ovov(dm1oo, cm1vv, k2ovov):
+    return (k2ovov + einsum('ij,ab->iajb', dm1oo, cm1vv))
