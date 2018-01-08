@@ -9,9 +9,10 @@ from numpy.testing import assert_almost_equal
 CHARGE = +1
 SPIN = 1
 BASIS = 'sto-3g'
-LABELS = ('H', 'F')
-COORDS = ((0., 0., 0.),
-          (0., 0., 1.))
+LABELS = ('O', 'H', 'H')
+COORDS = ((0.000000000000,  0.000000000000, -0.143225816552),
+          (0.000000000000,  1.638036840407,  1.136548822547),
+          (0.000000000000, -1.638036840407,  1.136548822547))
 
 
 def en_f_function(h_aso, p_aso, g_aso, c_guess, t2_guess, niter=200,
@@ -70,19 +71,22 @@ def main():
     # Differentiate
     en_f_ = en_f_function(
             h_aso=h_aso, p_aso=p_aso, g_aso=g_aso, c_guess=c, t2_guess=t2,
-            niter=200, r_thresh=1e-11, print_conv=True)
+            niter=1000, r_thresh=1e-13, print_conv=True)
     en_elec = en_f_((0., 0., 0.))
     print(en_elec)
 
     print("First derivative")
-    en_df = fermitools.math.central_difference(
-            f=en_f_, x=(0., 0., 0.), step=0.03, nder=1, npts=15)
-    print(en_df)
+    # en_df = fermitools.math.central_difference(
+    #         f=en_f_, x=(0., 0., 0.), step=0.03, nder=1, npts=15)
+    # print(en_df)
+    en_df = numpy.array([1.37606940e-13, -8.76208828e-13, 7.15201973e-02])
 
     print("Second derivative")
-    en_df2 = fermitools.math.central_difference(
-            f=en_f_, x=(0., 0., 0.), step=0.03, nder=2, npts=15)
-    print(en_df2)
+    # en_df2 = fermitools.math.central_difference(
+    #         f=en_f_, x=(0., 0., 0.), step=0.02, nder=2, npts=19)
+    # print(en_df2)
+    en_df2 = numpy.array(
+            [-1.487846204405433, -6.280016528547229, -2.508514187839021])
 
     # LR inputs
     no, _, nv, _ = t2.shape
@@ -100,6 +104,14 @@ def main():
     govvv = fermitools.math.transform(g_aso, {0: co, 1: cv, 2: cv, 3: cv})
     gvvvv = fermitools.math.transform(g_aso, {0: cv, 1: cv, 2: cv, 3: cv})
 
+    m1oo, m1vv = fermitools.oo.odc12.onebody_density(t2)
+    foo = fermitools.oo.odc12.fock_xy(
+            hxy=hoo, goxoy=goooo, gxvyv=govov, m1oo=m1oo, m1vv=m1vv)
+    fov = fermitools.oo.odc12.fock_xy(
+            hxy=hov, goxoy=gooov, gxvyv=govvv, m1oo=m1oo, m1vv=m1vv)
+    fvv = fermitools.oo.odc12.fock_xy(
+            hxy=hvv, goxoy=govov, gxvyv=gvvvv, m1oo=m1oo, m1vv=m1vv)
+
     # Evaluate dipole moment as expectation value
     m1oo, m1vv = fermitools.oo.odc12.onebody_density(t2)
     mu = numpy.array([numpy.vdot(pxoo, m1oo) + numpy.vdot(pxvv, m1vv)
@@ -108,10 +120,10 @@ def main():
     # Evaluate dipole polarizability by linear response
     pg = fermitools.lr.odc12.property_gradient(
             poo=poo, pov=pov, pvv=pvv, t2=t2)
-    a, b = fermitools.lr.odc12.hessian_sigma(
-            hoo=hoo, hov=hov, hvv=hvv, goooo=goooo, gooov=gooov, goovv=goovv,
-            govov=govov, govvv=govvv, gvvvv=gvvvv, t2=t2, complex=True)
-    r = fermitools.lr.odc12.solve_static_response(a=a, b=b, pg=pg)
+    a, b = fermitools.lr.odc12.hessian(
+            foo=foo, fov=fov, fvv=fvv, goooo=goooo, gooov=gooov, goovv=goovv,
+            govov=govov, govvv=govvv, gvvvv=gvvvv, t2=t2)
+    r = fermitools.lr.solve.static_response(a=a, b=b, pg=pg)
     alpha = numpy.dot(r.T, pg)
 
     print("Compare dE/df to <Psi|mu|Psi>:")
@@ -126,6 +138,9 @@ def main():
 
     assert_almost_equal(en_df, -mu, decimal=9)
     assert_almost_equal(en_df2, numpy.diag(alpha), decimal=9)
+    ad = fermitools.lr.odc12.hessian_zeroth_order_diagonal(
+            foo=foo, fvv=fvv, t2=t2)
+    print(ad)
 
 
 if __name__ == '__main__':

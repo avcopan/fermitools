@@ -100,6 +100,14 @@ def test_main():
     govvv = fermitools.math.transform(g_aso, {0: co, 1: cv, 2: cv, 3: cv})
     gvvvv = fermitools.math.transform(g_aso, {0: cv, 1: cv, 2: cv, 3: cv})
 
+    m1oo, m1vv = fermitools.oo.odc12.onebody_density(t2)
+    foo = fermitools.oo.odc12.fock_xy(
+            hxy=hoo, goxoy=goooo, gxvyv=govov, m1oo=m1oo, m1vv=m1vv)
+    fov = fermitools.oo.odc12.fock_xy(
+            hxy=hov, goxoy=gooov, gxvyv=govvv, m1oo=m1oo, m1vv=m1vv)
+    fvv = fermitools.oo.odc12.fock_xy(
+            hxy=hvv, goxoy=govov, gxvyv=gvvvv, m1oo=m1oo, m1vv=m1vv)
+
     # Evaluate dipole moment as expectation value
     m1oo, m1vv = fermitools.oo.odc12.onebody_density(t2)
     mu = numpy.array([numpy.vdot(pxoo, m1oo) + numpy.vdot(pxvv, m1vv)
@@ -108,10 +116,10 @@ def test_main():
     # Evaluate dipole polarizability by linear response
     pg = fermitools.lr.odc12.property_gradient(
             poo=poo, pov=pov, pvv=pvv, t2=t2)
-    a, b = fermitools.lr.odc12.hessian_sigma(
-            hoo=hoo, hov=hov, hvv=hvv, goooo=goooo, gooov=gooov, goovv=goovv,
-            govov=govov, govvv=govvv, gvvvv=gvvvv, t2=t2, complex=True)
-    r = fermitools.lr.odc12.solve_static_response(a=a, b=b, pg=pg)
+    a, b = fermitools.lr.odc12.hessian(
+            foo=foo, fov=fov, fvv=fvv, goooo=goooo, gooov=gooov, goovv=goovv,
+            govov=govov, govvv=govvv, gvvvv=gvvvv, t2=t2)
+    r = fermitools.lr.solve.static_response(a=a, b=b, pg=pg)
     alpha = numpy.dot(r.T, pg)
 
     print("Compare dE/df to <Psi|mu|Psi>:")

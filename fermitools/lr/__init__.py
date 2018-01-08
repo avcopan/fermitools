@@ -1,3 +1,3 @@
-from . import hf, ocepa0, odc12
+from . import solve, hf, ocepa0, odc12
 
-__all__ = ['hf', 'ocepa0', 'odc12']
+__all__ = ['solve', 'hf', 'ocepa0', 'odc12']

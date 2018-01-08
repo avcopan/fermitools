@@ -5,22 +5,23 @@ import warnings
 from ..ot import orth
 
 
-def eigh(a, neig, ad, guess, niter=100, nvec=100, r_thresh=1e-6):
+def eigh(a, neig, ad, guess, niter=100, nvec=100, r_thresh=1e-6,
+         print_conv=True):
     """solve for the lowest eigenvalues of a hermitian matrix
 
     :param a: the matrix, as a callable linear operator
     :type a: typing.Callable
-    :param dim: the dimension of `a`
-    :type dim: int
     :param neig: the number of eigenvalues to solve
     :type neig: int
-    :param guess: initial guess vectors
-    :type guess: numpy.ndarray
     :param ad: the diagonal elements of a, or an approximation to them
     :type ad: numpy.ndarray
+    :param guess: initial guess vectors
+    :type guess: numpy.ndarray
     :param niter: the maximum number of iterations
     :type niter: int
-    :param r_thresh: the maximum number of vectors to hold in memory
+    :param nvec: the maximum number of vectors to hold in memory
+    :type nvec: int
+    :param r_thresh: residual convergence threshold
     :type r_thresh: float
 
     :returns: eigenvalues, eigenvectors, convergence info
@@ -52,7 +53,12 @@ def eigh(a, neig, ad, guess, niter=100, nvec=100, r_thresh=1e-6):
         r = ax - x * w
         r_rms = scipy.linalg.norm(r) / numpy.sqrt(numpy.size(r))
 
+        info = {'niter': iteration + 1, 'rdim': rdim, 'r_rms': r_rms}
+
         converged = r_rms < r_thresh
+
+        if print_conv:
+            print(info)
 
         if converged:
             break
@@ -72,34 +78,33 @@ def eigh(a, neig, ad, guess, niter=100, nvec=100, r_thresh=1e-6):
         else:
             v[:, rdim0:rdim] = v1
 
-    info = {'niter': iteration + 1, 'rdim': rdim, 'r_rms': r_rms}
-
     if not converged:
         warnings.warn("Did not converge! (r_rms: {:7.1e})".format(r_rms))
 
     return w, x, info
 
 
-def eighg(a, b, neig, ad, bd, guess, niter=100, nvec=100, r_thresh=1e-6):
+def eighg(a, b, neig, ad, bd, guess, niter=100, nvec=100, r_thresh=1e-6,
+          print_conv=True):
     """solve for the lowest generalized eigenvalues of a hermitian matrix
 
     :param a: the matrix, as a callable linear operator
     :type a: typing.Callable
     :param b: the metric, as a callable linear operator
     :type b: typing.Callable
-    :param dim: the dimension of `a`
-    :type dim: int
     :param neig: the number of eigenvalues to solve
     :type neig: int
-    :param guess: initial guess vectors
-    :type guess: numpy.ndarray
     :param ad: the diagonal elements of a, or an approximation to them
     :type ad: numpy.ndarray
     :param bd: the diagonal elements of b, or an approximation to them
     :type bd: numpy.ndarray
+    :param guess: initial guess vectors
+    :type guess: numpy.ndarray
     :param niter: the maximum number of iterations
     :type niter: int
-    :param r_thresh: the maximum number of vectors to hold in memory
+    :param nvec: the maximum number of vectors to hold in memory
+    :type nvec: int
+    :param r_thresh: residual convergence threshold
     :type r_thresh: float
 
     :returns: eigenvalues, eigenvectors, convergence info
@@ -138,7 +143,9 @@ def eighg(a, b, neig, ad, bd, guess, niter=100, nvec=100, r_thresh=1e-6):
         converged = r_rms < r_thresh
 
         info = {'niter': iteration + 1, 'rdim': rdim, 'r_rms': r_rms}
-        print(info)
+
+        if print_conv:
+            print(info)
 
         if converged:
             break

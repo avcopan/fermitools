@@ -38,20 +38,19 @@ def main():
     r_aso = fermitools.math.spinorb.expand(r_ao, brakets=((0, 2), (1, 3)))
     g_aso = r_aso - numpy.transpose(r_aso, (0, 1, 3, 2))
 
-    # Orbitals
+    # Mean-field guess orbitals
     ac, bc = interface.hf.unrestricted_orbitals(
             BASIS, LABELS, COORDS, CHARGE, SPIN)
     c_unsrt = scipy.linalg.block_diag(ac, bc)
     sortvec = fermitools.math.spinorb.ab2ov(dim=nbf, na=na, nb=nb)
     c_unsrt = scipy.linalg.block_diag(ac, bc)
     c_guess = fermitools.math.spinorb.sort(c_unsrt, order=sortvec, axes=(1,))
+    t2_guess = numpy.zeros((nocc, nocc, norb-nocc, norb-nocc))
 
     # Solve ground state
-    t2_guess = numpy.zeros((nocc, nocc, norb-nocc, norb-nocc))
     en_elec, c, t2, info = fermitools.oo.ocepa0.solve(
             h_aso=h_aso, g_aso=g_aso, c_guess=c_guess, t2_guess=t2_guess,
             niter=200, r_thresh=1e-14)
-    print(info)
     en_nuc = fermitools.chem.nuc.energy(labels=LABELS, coords=COORDS)
     en_tot = en_elec + en_nuc
     print("\nGround state energy:")
@@ -59,7 +58,9 @@ def main():
     assert_almost_equal(en_elec, -82.716887007189214, decimal=13)
 
     # Define LR inputs
-    co, cv = numpy.split(c, (nocc,), axis=1)
+    nroot = 7
+    no, _, nv, _ = t2.shape
+    co, cv = numpy.split(c, (no,), axis=1)
     hoo = fermitools.math.transform(h_aso, {0: co, 1: co})
     hov = fermitools.math.transform(h_aso, {0: co, 1: cv})
     hvv = fermitools.math.transform(h_aso, {0: cv, 1: cv})
@@ -83,6 +84,19 @@ def main():
     b21 = fermitools.lr.ocepa0.b21_sigma(fov, gooov, govvv, t2)
     a22 = fermitools.lr.ocepa0.a22_sigma(foo, fvv, goooo, govov, gvvvv)
 
+    # Solve excitation energies
+    s11_mat = fermitools.lr.ocepa0.s11_matrix(t2)
+    x11_mat = scipy.linalg.inv(s11_mat)
+    x11_arr = fermitools.math.unravel(
+            x11_mat, {0: {0: no, 1: nv}, 1: {2: no, 3: nv}})
+    x11 = fermitools.lr.ocepa0.onebody_transformer(x11_arr)
+    w, u = solvers.lr.ocepa0.solve_spectrum(
+            nroots=nroot, norb=norb, nocc=nocc, a11=a11, b11=b11, a12=a12,
+            b12=b12, a21=a21, b21=b21, a22=a22, x11=x11)
+    print(w)
+    print(u.shape)
+    assert_almost_equal(W[1:nroot], w[1:], decimal=11)
+
     # Solve response properties
     p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
     p_aso = fermitools.math.spinorb.expand(p_ao, brakets=((1, 2),))
@@ -98,22 +112,7 @@ def main():
     print(alpha.round(8))
 
     assert_almost_equal(EN_DF2, numpy.diag(alpha), decimal=8)
-    assert_almost_equal(ALPHA_DIAG, numpy.diag(alpha), decimal=10)
-
-    # Solve excitation energies
-    nroots = 200
-    no, nv = nocc, norb-nocc
-    s11_mat = fermitools.lr.ocepa0.s11_matrix(t2)
-    x11_mat = scipy.linalg.inv(s11_mat)
-    x11_arr = fermitools.math.unravel(
-            x11_mat, {0: {0: no, 1: nv}, 1: {2: no, 3: nv}})
-    x11 = fermitools.lr.ocepa0.onebody_transformer(x11_arr)
-    w, u = solvers.lr.ocepa0.solve_spectrum(
-            nroots=nroots, norb=norb, nocc=nocc, a11=a11, b11=b11, a12=a12,
-            b12=b12, a21=a21, b21=b21, a22=a22, x11=x11)
-    print(w)
-    print(u.shape)
-    assert_almost_equal(W[1:nroots], w[1:], decimal=11)
+    assert_almost_equal(ALPHA_DIAG, numpy.diag(alpha), decimal=9)
 
     # Save stuff
     # m1oo, m1vv = fermitools.oo.ocepa0.onebody_density(t2)

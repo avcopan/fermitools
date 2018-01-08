@@ -1,5 +1,6 @@
 import numpy
 import scipy
+from toolz import functoolz
 from numpy.testing import assert_almost_equal
 
 import fermitools
@@ -86,50 +87,40 @@ def main():
     govov = fermitools.math.transform(g_aso, {0: co, 1: cv, 2: co, 3: cv})
     govvv = fermitools.math.transform(g_aso, {0: co, 1: cv, 2: cv, 3: cv})
     gvvvv = fermitools.math.transform(g_aso, {0: cv, 1: cv, 2: cv, 3: cv})
-    m1oo, m1vv = fermitools.oo.odc12.onebody_density(t2)
 
+    m1oo, m1vv = fermitools.oo.odc12.onebody_density(t2)
     foo = fermitools.oo.odc12.fock_xy(
             hxy=hoo, goxoy=goooo, gxvyv=govov, m1oo=m1oo, m1vv=m1vv)
     fov = fermitools.oo.odc12.fock_xy(
             hxy=hov, goxoy=gooov, gxvyv=govvv, m1oo=m1oo, m1vv=m1vv)
     fvv = fermitools.oo.odc12.fock_xy(
             hxy=hvv, goxoy=govov, gxvyv=gvvvv, m1oo=m1oo, m1vv=m1vv)
-    ffoo = fermitools.oo.odc12.fancy_property(foo, m1oo)
-    ffvv = fermitools.oo.odc12.fancy_property(fvv, m1vv)
 
-    fioo, fivv = fermitools.lr.odc12.fancy_mixed_interaction(
-            fov, gooov, govvv, m1oo, m1vv)
-    fgoooo, fgovov, fgvvvv = fermitools.lr.odc12.fancy_repulsion(
-            ffoo, ffvv, goooo, govov, gvvvv, m1oo, m1vv)
-
-    a11_ = fermitools.lr.odc12.a11_sigma(
-           foo, fvv, goooo, goovv, govov, gvvvv, m1oo, m1vv, t2)
-    b11_ = fermitools.lr.odc12.b11_sigma(
-           goooo, goovv, govov, gvvvv, m1oo, m1vv, t2)
-    a12_ = fermitools.lr.odc12.a12_sigma(gooov, govvv, fioo, fivv, t2)
-    b12_ = fermitools.lr.odc12.b12_sigma(gooov, govvv, fioo, fivv, t2)
-    a21_ = fermitools.lr.odc12.a21_sigma(gooov, govvv, fioo, fivv, t2)
-    b21_ = fermitools.lr.odc12.b21_sigma(gooov, govvv, fioo, fivv, t2)
-    a22_ = fermitools.lr.odc12.a22_sigma(
-           ffoo, ffvv, goooo, govov, gvvvv, fgoooo, fgovov, fgvvvv, t2)
-    b22_ = fermitools.lr.odc12.b22_sigma(fgoooo, fgovov, fgvvvv, t2)
+    a11u, b11u = fermitools.lr.odc12.onebody_hessian(
+            foo, fvv, goooo, goovv, govov, gvvvv, t2)
+    a12u, b12u = fermitools.lr.odc12.mixed_upper_hessian(
+            fov, gooov, govvv, t2)
+    a21u, b21u = fermitools.lr.odc12.mixed_lower_hessian(
+            fov, gooov, govvv, t2)
+    a22u, b22u = fermitools.lr.odc12.twobody_hessian(
+            foo, fvv, goooo, govov, gvvvv, t2)
 
     # Print
-    no, nv = nocc, norb-nocc
+    no, _, nv, _ = t2.shape
     n1 = no * nv
     n2 = no * (no - 1) * nv * (nv - 1) // 4
-    r1_ = fermitools.math.raveler({0: (0, 1)})
-    u1_ = fermitools.math.unraveler({0: {0: no, 1: nv}})
-    r2_ = fermitools.math.asym.megaraveler({0: ((0, 1), (2, 3))})
-    u2_ = fermitools.math.asym.megaunraveler({0: {(0, 1): no, (2, 3): nv}})
-    a11 = r1_(a11_(u1_(numpy.eye(n1))))
-    b11 = r1_(b11_(u1_(numpy.eye(n1))))
-    a12 = r1_(a12_(u2_(numpy.eye(n2))))
-    b12 = r1_(b12_(u2_(numpy.eye(n2))))
-    a21 = r2_(a21_(u1_(numpy.eye(n1))))
-    b21 = r2_(b21_(u1_(numpy.eye(n1))))
-    a22 = r2_(a22_(u2_(numpy.eye(n2))))
-    b22 = r2_(b22_(u2_(numpy.eye(n2))))
+    r1 = fermitools.math.raveler({0: (0, 1)})
+    u1 = fermitools.math.unraveler({0: {0: no, 1: nv}})
+    r2 = fermitools.math.asym.megaraveler({0: ((0, 1), (2, 3))})
+    u2 = fermitools.math.asym.megaunraveler({0: {(0, 1): no, (2, 3): nv}})
+    a11 = functoolz.compose(r1, a11u, u1)(numpy.eye(n1))
+    b11 = functoolz.compose(r1, b11u, u1)(numpy.eye(n1))
+    a12 = functoolz.compose(r1, a12u, u2)(numpy.eye(n2))
+    b12 = functoolz.compose(r1, b12u, u2)(numpy.eye(n2))
+    a21 = functoolz.compose(r2, a21u, u1)(numpy.eye(n1))
+    b21 = functoolz.compose(r2, b21u, u1)(numpy.eye(n1))
+    a22 = functoolz.compose(r2, a22u, u2)(numpy.eye(n2))
+    b22 = functoolz.compose(r2, b22u, u2)(numpy.eye(n2))
     print(a11.shape)
     print(b11.shape)
     print(a12.shape)
@@ -141,7 +132,7 @@ def main():
 
     # Zeroth derivative
     t1r = numpy.zeros(no * nv)
-    t2r = fermitools.math.asym.megaravel(t2, {0: ((0, 1), (2, 3))})
+    t2r = r2(t2)
     en_ = en_functional(no, nv, h_aso, g_aso, c)
     print(en_(t1r, t2r))
 

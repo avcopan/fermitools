@@ -3,6 +3,7 @@ from ..math import einsum
 from ..math.asym import antisymmetrizer_product as asm
 
 
+# OLD
 def s11_matrix(t2):
     dm1oo, cm1oo, cm1vv = onebody_moment(t2)
     m1oo = dm1oo + cm1oo
