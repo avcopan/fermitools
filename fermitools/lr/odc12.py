@@ -19,7 +19,6 @@ from ..oo.odc12 import onebody_density
 
 # Public
 def hessian_zeroth_order_diagonal(foo, fvv, t2):
-    no, _, nv, _ = t2.shape
     r1 = raveler({0: (0, 1)})
     r2 = megaraveler({0: ((0, 1), (2, 3))})
 

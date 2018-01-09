@@ -1,37 +1,98 @@
 import numpy
+from toolz import functoolz
+
 from ..math import einsum
+from ..math import broadcast_sum
+from ..math import raveler, unraveler
 from ..math.asym import antisymmetrizer_product as asm
+from ..math.asym import megaraveler, megaunraveler
+from ..math.linalg.direct import eye
+from ..math.linalg.direct import zero
+from ..math.linalg.direct import bmat
+from ..math.linalg.direct import block_diag
 
 
-# OLD
-def s11_matrix(t2):
-    dm1oo, cm1oo, cm1vv = onebody_moment(t2)
-    m1oo = dm1oo + cm1oo
-    m1vv = cm1vv
-    no, _ = m1oo.shape
-    nv, _ = m1vv.shape
-    io = numpy.eye(no)
-    iv = numpy.eye(nv)
-    s11 = (+ einsum('ij,ab->iajb', m1oo, iv)
-           - einsum('ab,ij->iajb', m1vv, io))
-    return numpy.reshape(s11, (no*nv, no*nv))
+# Public
+def hessian_zeroth_order_diagonal(foo, fvv):
+    r1 = raveler({0: (0, 1)})
+    r2 = megaraveler({0: ((0, 1), (2, 3))})
+
+    ad1u = onebody_hessian_zeroth_order_diagonal(foo, fvv)
+    ad2u = twobody_hessian_zeroth_order_diagonal(foo, fvv)
+    ad1 = r1(ad1u)
+    ad2 = r2(ad2u)
+    return numpy.concatenate((ad1, ad2), axis=0)
 
 
-def onebody_transformer(trans_arr):
+def metric_zeroth_order_diagonal(no, nv):
+    n1 = no * nv
+    n2 = no * (no - 1) * nv * (nv - 1) // 4
+    return numpy.ones(n1+n2)
 
-    def _onebody_transform(r1):
-        return numpy.tensordot(trans_arr, r1, axes=2)
 
-    return _onebody_transform
+def property_gradient(poo, pov, pvv, t2):
+    r1 = raveler({0: (0, 1)})
+    r2 = megaraveler({0: ((0, 1), (2, 3))})
+    pg1 = r1(onebody_property_gradient(pov, t2))
+    pg2 = r2(twobody_property_gradient(poo, pvv, t2))
+    return numpy.concatenate((pg1, pg2), axis=0)
+
+
+def hessian(foo, fov, fvv, goooo, gooov, goovv, govov, govvv, gvvvv, t2):
+    no, _, nv, _ = t2.shape
+    n1 = no * nv
+    r1 = raveler({0: (0, 1)})
+    u1 = unraveler({0: {0: no, 1: nv}})
+    r2 = megaraveler({0: ((0, 1), (2, 3))})
+    u2 = megaunraveler({0: {(0, 1): no, (2, 3): nv}})
+
+    a11u, b11u = onebody_hessian(foo, fvv, goooo, goovv, govov, gvvvv, t2)
+    a12u, b12u = mixed_upper_hessian(fov, gooov, govvv, t2)
+    a21u, b21u = mixed_lower_hessian(fov, gooov, govvv, t2)
+    a22u, b22u = twobody_hessian(foo, fvv, goooo, govov, gvvvv)
+    a11 = functoolz.compose(r1, a11u, u1)
+    b11 = functoolz.compose(r1, b11u, u1)
+    a12 = functoolz.compose(r1, a12u, u2)
+    b12 = functoolz.compose(r1, b12u, u2)
+    a21 = functoolz.compose(r2, a21u, u1)
+    b21 = functoolz.compose(r2, b21u, u1)
+    a22 = functoolz.compose(r2, a22u, u2)
+    b22 = b22u
+    a = bmat([[a11, a12], [a21, a22]], (n1,))
+    b = bmat([[b11, b12], [b21, b22]], (n1,))
+    return a, b
+
+
+def metric(t2):
+    no, _, nv, _ = t2.shape
+    n1 = no * nv
+    r1 = raveler({0: (0, 1)})
+    u1 = unraveler({0: {0: no, 1: nv}})
+
+    s11u = onebody_metric(t2)
+    s11 = functoolz.compose(r1, s11u, u1)
+    s = block_diag((s11, eye), (n1,))
+    d = zero
+    return s, d
+
+
+def onebody_hessian_zeroth_order_diagonal(foo, fvv):
+    eo = numpy.diagonal(foo)
+    ev = numpy.diagonal(fvv)
+    return broadcast_sum({0: -eo, 1: +ev})
+
+
+def twobody_hessian_zeroth_order_diagonal(foo, fvv):
+    eo = numpy.diagonal(foo)
+    ev = numpy.diagonal(fvv)
+    return broadcast_sum({0: -eo, 1: -eo, 2: +ev, 3: +ev})
 
 
 def onebody_property_gradient(pov, t2):
-    dm1oo, cm1oo, cm1vv = onebody_moment(t2)
-    m1oo = dm1oo + cm1oo
-    m1vv = cm1vv
     return (
-        + einsum('...ie,ea->ia...', pov, m1vv)
-        - einsum('im,...ma->ia...', m1oo, pov))
+        - einsum('...ia->ia...', pov)
+        + 1./2 * einsum('...ie,mnec,mnac->ia...', pov, t2, t2)
+        + 1./2 * einsum('...ma,ikef,mkef->ia...', pov, t2, t2))
 
 
 def twobody_property_gradient(poo, pvv, t2):
@@ -42,94 +103,63 @@ def twobody_property_gradient(poo, pvv, t2):
               einsum('...ik,kjab->ijab...', poo, t2)))
 
 
-def a11_sigma(hoo, hvv, goooo, goovv, govov, gvvvv, t2):
-    dm1oo, cm1oo, cm1vv = onebody_moment(t2)
-    m1oo = dm1oo + cm1oo
-    m1vv = cm1vv
-    k2oooo = twobody_cumulant_oooo(t2)
-    k2ovov = twobody_cumulant_ovov(t2)
-    k2vvvv = twobody_cumulant_vvvv(t2)
-    m2oooo = twobody_moment_oooo(dm1oo, cm1oo, k2oooo)
-    m2oovv = t2
-    m2ovov = twobody_moment_ovov(dm1oo, cm1vv, k2ovov)
-    m2vvvv = k2vvvv
-    fcoo = (numpy.dot(hoo, m1oo)
-            + 1./2 * einsum('imno,jmno->ij', goooo, m2oooo)
-            + 1./2 * einsum('imef,jmef->ij', goovv, m2oovv)
-            + einsum('iemf,jemf->ij', govov, m2ovov))
-    fcvv = (numpy.dot(hvv, m1vv)
-            + einsum('nema,nemb->ab', govov, m2ovov)
-            + 1./2 * einsum('mnae,mnbe', goovv, m2oovv)
-            + 1./2 * einsum('aefg,befg', gvvvv, m2vvvv))
+def onebody_hessian(foo, fvv, goooo, goovv, govov, gvvvv, t2):
+    fcoo = (foo
+            + 1./2 * einsum('imef,jmef->ij', goovv, t2)
+            - 1./2 * einsum('im,mkef,jkef->ij', foo, t2, t2)
+            - 1./2 * einsum('imjo,mkef,okef->ij', goooo, t2, t2)
+            + 1./2 * einsum('iejf,mnec,mnfc->ij', govov, t2, t2)
+            + 1./4 * einsum('imno,jmcd,nocd->ij', goooo, t2, t2)
+            - einsum('iemf,mkec,jkfc->ij', govov, t2, t2))
+    fcvv = (+ 1./2 * einsum('mnae,mnbe', goovv, t2)
+            + 1./2 * einsum('ae,mnec,mnbc->ab', fvv, t2, t2)
+            + 1./4 * einsum('aefg,klbe,klfg', gvvvv, t2, t2)
+            - einsum('nema,mkec,nkbc->ab', govov, t2, t2))
     fsoo = (fcoo + numpy.transpose(fcoo)) / 2.
     fsvv = (fcvv + numpy.transpose(fcvv)) / 2.
 
     def _a11(r1):
         return (
-            + einsum('ij,ab,jb...->ia...', hoo, m1vv, r1)
-            + einsum('ij,ab,jb...->ia...', m1oo, hvv, r1)
+            + einsum('ab,ib...->ia...', fvv, r1)
             - einsum('ab,ib...->ia...', fsvv, r1)
             - einsum('ij,ja...->ia...', fsoo, r1)
-            + einsum('minj,manb,jb...->ia...', goooo, m2ovov, r1)
-            + einsum('minj,manb,jb...->ia...', m2oooo, govov, r1)
-            + einsum('iejf,aebf,jb...->ia...', govov, m2vvvv, r1)
-            + einsum('iejf,aebf,jb...->ia...', m2ovov, gvvvv, r1)
-            + einsum('ibme,jame,jb...->ia...', govov, m2ovov, r1)
-            + einsum('ibme,jame,jb...->ia...', m2ovov, govov, r1))
-
-    return _a11
-
-
-def b11_sigma(goooo, goovv, govov, gvvvv, t2):
-    dm1oo, cm1oo, cm1vv = onebody_moment(t2)
-    k2oooo = twobody_cumulant_oooo(t2)
-    k2ovov = twobody_cumulant_ovov(t2)
-    k2vvvv = twobody_cumulant_vvvv(t2)
-    m2oooo = twobody_moment_oooo(dm1oo, cm1oo, k2oooo)
-    m2oovv = t2
-    m2ovov = twobody_moment_ovov(dm1oo, cm1vv, k2ovov)
-    m2vvvv = k2vvvv
+            - einsum('jaib,jb...->ia...', govov, r1)
+            - 1./2 * einsum('ab,ikef,jkef,jb...->ia...', fvv, t2, t2, r1)
+            + 1./2 * einsum('ij,mnac,mnbc,jb...->ia...', foo, t2, t2, r1)
+            + 1./2 * einsum('ibje,mnac,mnec,jb...->ia...', govov, t2, t2, r1)
+            + 1./2 * einsum('jaie,mnbc,mnec,jb...->ia...', govov, t2, t2, r1)
+            + 1./2 * einsum('aebf,mnec,mnfc,ib...->ia...', gvvvv, t2, t2, r1)
+            - 1./2 * einsum('manb,mkef,nkef,ib...->ia...', govov, t2, t2, r1)
+            + 1./2 * einsum('janb,ikef,nkef,jb...->ia...', govov, t2, t2, r1)
+            + 1./2 * einsum('maib,mkef,jkef,jb...->ia...', govov, t2, t2, r1)
+            + 1./2 * einsum('manb,micd,njcd,jb...->ia...', govov, t2, t2, r1)
+            + 1./2 * einsum('iejf,klae,klbf,jb...->ia...', govov, t2, t2, r1)
+            - einsum('minj,nkac,mkbc,jb...->ia...', goooo, t2, t2, r1)
+            - einsum('ibme,mkac,jkec,jb...->ia...', govov, t2, t2, r1)
+            - einsum('jame,mkbc,ikec,jb...->ia...', govov, t2, t2, r1)
+            - einsum('aebf,jkec,ikfc,jb...->ia...', gvvvv, t2, t2, r1))
 
     def _b11(r1):
         return (
-            + einsum('imbe,jema,jb...->ia...', goovv, m2ovov, r1)
-            + einsum('imbe,jema,jb...->ia...', m2oovv, govov, r1)
-            + einsum('iemb,jmae,jb...->ia...', govov, m2oovv, r1)
-            + einsum('iemb,jmae,jb...->ia...', m2ovov, goovv, r1)
-            + 1./2 * einsum('ijmn,mnab,jb...->ia...', goooo, m2oovv, r1)
-            + 1./2 * einsum('ijmn,mnab,jb...->ia...', m2oooo, goovv, r1)
-            + 1./2 * einsum('ijef,efab,jb...->ia...', goovv, m2vvvv, r1)
-            + 1./2 * einsum('ijef,efab,jb...->ia...', m2oovv, gvvvv, r1))
+            + einsum('ijab,jb...->ia...', goovv, r1)
+            + einsum('jema,imbe,jb...->ia...', govov, t2, r1)
+            + einsum('iemb,jmae,jb...->ia...', govov, t2, r1)
+            + 1./2 * einsum('ijmn,mnab,jb...->ia...', goooo, t2, r1)
+            + 1./2 * einsum('efab,ijef,jb...->ia...', gvvvv, t2, r1)
+            + 1./2 * einsum('ijbe,mnec,mnac,jb...->ia...', goovv, t2, t2, r1)
+            + 1./2 * einsum('jiae,mnec,mnbc,jb...->ia...', goovv, t2, t2, r1)
+            - 1./2 * einsum('inab,jkef,nkef,jb...->ia...', goovv, t2, t2, r1)
+            - 1./2 * einsum('mjab,ikef,mkef,jb...->ia...', goovv, t2, t2, r1)
+            + 1./4 * einsum('mnab,ijcd,mncd,jb...->ia...', goovv, t2, t2, r1)
+            + 1./4 * einsum('ijef,klef,klab,jb...->ia...', goovv, t2, t2, r1)
+            - einsum('imbe,mkec,jkac,jb...->ia...', goovv, t2, t2, r1)
+            - einsum('jmae,mkec,ikbc,jb...->ia...', goovv, t2, t2, r1))
 
-    return _b11
-
-
-def s11_sigma(t2):
-    dm1oo, cm1oo, cm1vv = onebody_moment(t2)
-    m1oo = dm1oo + cm1oo
-    m1vv = cm1vv
-
-    def _s11(r1):
-        return (
-            + einsum('ij,ja...->ia...', m1oo, r1)
-            - einsum('ab,ib...->ia...', m1vv, r1))
-
-    return _s11
+    return _a11, _b11
 
 
-def mixed_interaction(fov, gooov, govvv):
-    no, nv = fov.shape
-    io = numpy.eye(no)
-    iv = numpy.eye(nv)
-    ioo = (+ einsum('ik,la->iakl', io, fov)
-           - einsum('ilka->iakl', gooov))
-    ivv = (- einsum('ac,id->iadc', iv, fov)
-           + einsum('icad->iadc', govvv))
-    return ioo, ivv
-
-
-def a12_sigma(fov, gooov, govvv, t2):
-    ioo, ivv = mixed_interaction(fov, gooov, govvv)
+def mixed_upper_hessian(fov, gooov, govvv, t2):
+    ioo, ivv = _mixed_interaction(fov, gooov, govvv)
 
     def _a12(r2):
         return (
@@ -142,12 +172,6 @@ def a12_sigma(fov, gooov, govvv, t2):
             + 1./4 * einsum('mnla,mncd,ilcd...->ia...', gooov, t2, r2)
             + 1./4 * einsum('idef,klef,klad...->ia...', govvv, t2, r2))
 
-    return _a12
-
-
-def b12_sigma(fov, gooov, govvv, t2):
-    ioo, ivv = mixed_interaction(fov, gooov, govvv)
-
     def _b12(r2):
         return (
             + 1./2 * einsum('iamk,mlcd,klcd...->ia...', ioo, t2, r2)
@@ -157,11 +181,11 @@ def b12_sigma(fov, gooov, govvv, t2):
             - 1./4 * einsum('klma,micd,klcd...->ia...', gooov, t2, r2)
             - 1./4 * einsum('iecd,klea,klcd...->ia...', govvv, t2, r2))
 
-    return _b12
+    return _a12, _b12
 
 
-def a21_sigma(fov, gooov, govvv, t2):
-    ioo, ivv = mixed_interaction(fov, gooov, govvv)
+def mixed_lower_hessian(fov, gooov, govvv, t2):
+    ioo, ivv = _mixed_interaction(fov, gooov, govvv)
 
     def _a21(r1):
         return (
@@ -182,12 +206,6 @@ def a21_sigma(fov, gooov, govvv, t2):
             + 1./2 * asm('2/3')(
                 einsum('kbef,ijef,ka...->ijab...', govvv, t2, r1)))
 
-    return _a21
-
-
-def b21_sigma(fov, gooov, govvv, t2):
-    ioo, ivv = mixed_interaction(fov, gooov, govvv)
-
     def _b21(r1):
         return (
             + asm('0/1')(
@@ -201,10 +219,10 @@ def b21_sigma(fov, gooov, govvv, t2):
             - einsum('ijmc,mkab,kc...->ijab...', gooov, t2, r1)
             - einsum('keab,ijec,kc...->ijab...', govvv, t2, r1))
 
-    return _b21
+    return _a21, _b21
 
 
-def a22_sigma(foo, fvv, goooo, govov, gvvvv):
+def twobody_hessian(foo, fvv, goooo, govov, gvvvv):
 
     def _a22(r2):
         return (
@@ -214,46 +232,29 @@ def a22_sigma(foo, fvv, goooo, govov, gvvvv):
             + 1./2 * einsum('ijkl,klab...->ijab...', goooo, r2)
             - asm('0/1|2/3')(einsum('jcla,ilcb...->ijab...', govov, r2)))
 
-    return _a22
+    _b22 = zero
+
+    return _a22, _b22
 
 
-def onebody_moment(t2):
-    """ the one-body correlation density matrix
+def onebody_metric(t2):
 
-    :param t2: two-body amplitudes
-    :type t2: numpy.ndarray
+    def _s11(r1):
+        return (
+            + r1
+            - 1./2 * einsum('ikef,jkef,ja...->ia...', t2, t2, r1)
+            - 1./2 * einsum('mnac,mnbc,ib...->ia...', t2, t2, r1))
 
-    :returns: occupied and virtual blocks of correlation density
-    :rtype: (numpy.ndarray, numpy.ndarray)
-    """
-    cm1oo = - 1./2 * einsum('jkab,ikab->ij', t2, t2)
-    cm1vv = + 1./2 * einsum('ijac,ijbc->ab', t2, t2)
-    dm1oo = numpy.eye(*cm1oo.shape)
-    return dm1oo, cm1oo, cm1vv
+    return _s11
 
 
-def twobody_cumulant_oooo(t2):
-    return 1./2 * einsum('ijcd,klcd->ijkl', t2, t2)
-
-
-def twobody_cumulant_oovv(t2):
-    return t2
-
-
-def twobody_cumulant_ovov(t2):
-    return -einsum('ikac,jkbc->jaib', t2, t2)
-
-
-def twobody_cumulant_vvvv(t2):
-    return 1./2 * einsum('klab,klcd->abcd', t2, t2)
-
-
-def twobody_moment_oooo(dm1oo, cm1oo, k2oooo):
-    return (k2oooo
-            + asm("2/3")(
-                + einsum('ik,jl->ijkl', cm1oo, dm1oo)
-                + einsum('ik,jl->ijkl', dm1oo, dm1oo + cm1oo)))
-
-
-def twobody_moment_ovov(dm1oo, cm1vv, k2ovov):
-    return (k2ovov + einsum('ij,ab->iajb', dm1oo, cm1vv))
+# Private
+def _mixed_interaction(fov, gooov, govvv):
+    no, nv = fov.shape
+    io = numpy.eye(no)
+    iv = numpy.eye(nv)
+    ioo = (+ einsum('ik,la->iakl', io, fov)
+           - einsum('ilka->iakl', gooov))
+    ivv = (- einsum('ac,id->iadc', iv, fov)
+           + einsum('icad->iadc', govvv))
+    return ioo, ivv
