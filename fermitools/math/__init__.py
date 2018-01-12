@@ -2,14 +2,23 @@ from . import linalg
 from . import spinorb
 from . import combinatorics
 from . import asym
-from . import tensoralg
 from .trans import transform, transformer
 from .bcast import broadcast_sum
 from .findif import central_difference
 from .rav import ravel, raveler
 from .urav import unravel, unraveler
-# from .tensoralg import einsum
-from .ctr import einsum
+
+
+# Choose your einsum function:
+
+from .tensoralg import einsum
+
+# def einsum(*args, **kwargs):
+#     """Call optimized einsum
+#     """
+#     import numpy
+#     kwargs['optimize'] = 'optimal'
+#     return numpy.einsum(*args, **kwargs)
 
 
 __all__ = [

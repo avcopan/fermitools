@@ -8,7 +8,8 @@ from ..math import einsum
 from ..math.asym import antisymmetrizer_product as asm
 
 
-def solve(h_aso, g_aso, c_guess, t2_guess, niter=50, r_thresh=1e-8):
+def solve(h_aso, g_aso, c_guess, t2_guess, niter=50, r_thresh=1e-8,
+          print_conv=True):
     no, _, nv, _ = t2_guess.shape
 
     c = c_guess
@@ -46,12 +47,15 @@ def solve(h_aso, g_aso, c_guess, t2_guess, niter=50, r_thresh=1e-8):
         r1_max = numpy.amax(numpy.abs(r1))
         r2_max = numpy.amax(numpy.abs(r2))
 
+        info = {'niter': iteration + 1, 'r1_max': r1_max, 'r2_max': r2_max}
+
         converged = r1_max < r_thresh and r2_max < r_thresh
+
+        if print_conv:
+            print(info)
 
         if converged:
             break
-
-    info = {'niter': iteration + 1, 'r1_max': r1_max, 'r2_max': r2_max}
 
     en_elec = electronic_energy(hoo, hvv, goooo, goovv, govov, gvvvv, t2)
 

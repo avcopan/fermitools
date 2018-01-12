@@ -30,35 +30,35 @@ def cost_function(dds):
 
 def flops(dd1, dd2):
     ret = reduce(mul, dd1.values())
-    ret *= reduce(mul, (dd2[x] for x in dd2 if x == '...' or x not in dd1))
+    ret *= reduce(mul, (dd2[x] for x in dd2 if x == '#' or x not in dd1))
     return ret
 
 
 def contractions(dds):
 
     def _contract(arg1, arg2):
-        dd1, dd2 = (arg1, {'...': 1}) if isinstance(arg1, dict) else arg1
+        dd1, dd2 = (arg1, {'#': 1}) if isinstance(arg1, dict) else arg1
         dd = {**{x: d for x, d in dd1.items() if x not in dd2},
               **{x: d for x, d in dd2.items() if x not in dd1},
-              '...': dd1['...'] * dd2['...']}
+              '#': dd1['#'] * dd2['#']}
         return (dd, arg2)
 
     return drop(1, accumulate(_contract, dds))
 
 
 def dimdict(shp, sub):
-    ssub = str.strip(sub, '...')
+    ssub = str.strip(sub, '#')
     nact = len(ssub)
-    act = shp[-nact:] if str.startswith(sub, '...') else shp[:nact]
-    psv = shp[:-nact] if str.startswith(sub, '...') else shp[nact:]
+    act = shp[-nact:] if str.startswith(sub, '#') else shp[:nact]
+    psv = shp[:-nact] if str.startswith(sub, '#') else shp[nact:]
     dd = dict(zip(ssub, act))
-    dd['...'] = reduce(mul, psv, 1)
+    dd['#'] = reduce(mul, psv, 1)
     return dd
 
 
 if __name__ == '__main__':
     a = numpy.random.random((2, 3))
-    b = numpy.random.random((3, 5, 11))
+    b = numpy.random.random((3, 11, 5))
     c = numpy.random.random((5, 6))
-    D = numpy.einsum('ik,kl...,lj->...ji', a, b, c)
-    print(einsum_argsort('ik,kl...,lj->...ji', a, b, c))
+    D = numpy.einsum('ik,k...l,lj->...ji', a, b, c)
+    print(einsum_argsort('ik,k#l,lj->#ji', a, b, c))
