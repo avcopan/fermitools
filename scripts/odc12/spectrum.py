@@ -7,7 +7,7 @@ import interfaces.psi4 as interface
 
 CHARGE = +0
 SPIN = 0
-BASIS = 'cc-pvdz'
+BASIS = '3-21g'
 LABELS = ('O', 'H', 'H')
 COORDS = ((0.000000000000,  0.000000000000, -0.143225816552),
           (0.000000000000,  1.638036840407,  1.136548822547),
@@ -71,6 +71,17 @@ def main():
             hxy=hov, goxoy=gooov, gxvyv=govvv, m1oo=m1oo, m1vv=m1vv)
     fvv = fermitools.oo.odc12.fock_xy(
             hxy=hvv, goxoy=govov, gxvyv=gvvvv, m1oo=m1oo, m1vv=m1vv)
+
+    foo = foo.copy()
+    fov = fov.copy()
+    fvv = fvv.copy()
+    goooo = goooo.copy()
+    gooov = gooov.copy()
+    goovv = goovv.copy()
+    govov = govov.copy()
+    govvv = govvv.copy()
+    gvvvv = gvvvv.copy()
+    t2 = t2.copy()
 
     sd = fermitools.lr.odc12.metric_zeroth_order_diagonal(no, nv)
     ad = fermitools.lr.odc12.hessian_zeroth_order_diagonal(
