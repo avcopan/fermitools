@@ -12,6 +12,9 @@ def solve(h_aso, g_aso, c_guess, t2_guess, niter=50, r_thresh=1e-8,
           print_conv=True):
     no, _, nv, _ = t2_guess.shape
 
+    h_aso = numpy.ascontiguousarray(h_aso)
+    g_aso = numpy.ascontiguousarray(g_aso)
+
     c = c_guess
     t2 = t2_guess
     zoo = numpy.zeros((no, no))

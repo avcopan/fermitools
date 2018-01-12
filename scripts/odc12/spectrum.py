@@ -43,7 +43,7 @@ def main():
     t = time.time()
     en_elec, c, t2, info = fermitools.oo.odc12.solve(
             h_aso=h_aso, g_aso=g_aso, c_guess=c_guess, t2_guess=t2_guess,
-            niter=200, r_thresh=1e-8)
+            niter=200, r_thresh=1e-7)
     en_nuc = fermitools.chem.nuc.energy(labels=LABELS, coords=COORDS)
     en_tot = en_elec + en_nuc
     print("\nGround state energy:")
@@ -72,17 +72,6 @@ def main():
     fvv = fermitools.oo.odc12.fock_xy(
             hxy=hvv, goxoy=govov, gxvyv=gvvvv, m1oo=m1oo, m1vv=m1vv)
 
-    foo = foo.copy()
-    fov = fov.copy()
-    fvv = fvv.copy()
-    goooo = goooo.copy()
-    gooov = gooov.copy()
-    goovv = goovv.copy()
-    govov = govov.copy()
-    govvv = govvv.copy()
-    gvvvv = gvvvv.copy()
-    t2 = t2.copy()
-
     sd = fermitools.lr.odc12.metric_zeroth_order_diagonal(no, nv)
     ad = fermitools.lr.odc12.hessian_zeroth_order_diagonal(
             foo=foo, fvv=fvv, t2=t2)
@@ -101,4 +90,14 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    # main()
+
+    from pycallgraph import PyCallGraph
+    from pycallgraph import Config
+    from pycallgraph import GlobbingFilter
+    from pycallgraph.output import GraphvizOutput
+    config = Config()
+    config.trace_filter = GlobbingFilter(include=['fermitools.*'])
+    graphviz = GraphvizOutput(output_file='filtered.png')
+    with PyCallGraph(output=graphviz, config=config):
+        main()

@@ -18,26 +18,5 @@ def test__einsum():
     assert_almost_equal(e, E)
 
 
-def test__einsum_argsort():
-    a = numpy.random.random((3, 4))
-    b = numpy.random.random((4, 5))
-    c = numpy.random.random((5,))
-    order = tensoralg.einsum_argsort('ik,kl,l->i', a, b, c)
-    print(order)
-    assert order == (1, 2, 0)
-    a = numpy.random.random((3, 4))
-    b = numpy.random.random((4, 5, 11, 12))
-    c = numpy.random.random((5, 6))
-    order = tensoralg.einsum_argsort('ik,kl...,l', a, b, c)
-    print(order)
-    assert order == (0, 1, 2)
-    a = numpy.random.random((11, 12, 3, 4))
-    b = numpy.random.random((4, 5))
-    c = numpy.random.random((5, 6))
-    order = tensoralg.einsum_argsort('...ik,kl,l', a, b, c)
-    print(order)
-    assert order == (1, 2, 0)
-
-
 if __name__ == '__main__':
     test__einsum()
