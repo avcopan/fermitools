@@ -33,7 +33,7 @@ def test__ab2ov():
     assert spinorb.ab2ov(dim=5, na=3, nb=2) == (0, 1, 2, 5, 6, 3, 4, 7, 8, 9)
 
 
-def test__transform():
+def test__sort():
     a = numpy.array([[1, 1, 0, 0],
                      [1, 1, 0, 0],
                      [0, 0, 1, 1],

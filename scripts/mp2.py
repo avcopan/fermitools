@@ -35,9 +35,9 @@ def correlation_energy(basis, labels, coords, charge, spin):
     d_aso = fermitools.scf.density(co)
     f_aso = fermitools.scf.hf.fock(h=h_aso, g=g_aso, d=d_aso)
 
-    foo = fermitools.math.transform(f_aso, {0: co, 1: co})
-    fvv = fermitools.math.transform(f_aso, {0: cv, 1: cv})
-    goovv = fermitools.math.transform(g_aso, {0: co, 1: co, 2: cv, 3: cv})
+    foo = fermitools.math.transform(f_aso, co, co)
+    fvv = fermitools.math.transform(f_aso, cv, cv)
+    goovv = fermitools.math.transform(g_aso, co, co, cv, cv)
 
     eo = numpy.diagonal(foo)
     ev = numpy.diagonal(fvv)

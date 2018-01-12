@@ -7,7 +7,7 @@ import interfaces.psi4 as interface
 
 CHARGE = +0
 SPIN = 0
-BASIS = '3-21g'
+BASIS = 'cc-pvdz'
 LABELS = ('O', 'H', 'H')
 COORDS = ((0.000000000000,  0.000000000000, -0.143225816552),
           (0.000000000000,  1.638036840407,  1.136548822547),
@@ -54,15 +54,15 @@ def main():
     nroot = 7
     no, _, nv, _ = t2.shape
     co, cv = numpy.split(c, (no,), axis=1)
-    hoo = fermitools.math.transform(h_aso, {0: co, 1: co})
-    hov = fermitools.math.transform(h_aso, {0: co, 1: cv})
-    hvv = fermitools.math.transform(h_aso, {0: cv, 1: cv})
-    goooo = fermitools.math.transform(g_aso, {0: co, 1: co, 2: co, 3: co})
-    gooov = fermitools.math.transform(g_aso, {0: co, 1: co, 2: co, 3: cv})
-    goovv = fermitools.math.transform(g_aso, {0: co, 1: co, 2: cv, 3: cv})
-    govov = fermitools.math.transform(g_aso, {0: co, 1: cv, 2: co, 3: cv})
-    govvv = fermitools.math.transform(g_aso, {0: co, 1: cv, 2: cv, 3: cv})
-    gvvvv = fermitools.math.transform(g_aso, {0: cv, 1: cv, 2: cv, 3: cv})
+    hoo = fermitools.math.transform(h_aso, co, co)
+    hov = fermitools.math.transform(h_aso, co, cv)
+    hvv = fermitools.math.transform(h_aso, cv, cv)
+    goooo = fermitools.math.transform(g_aso, co, co, co, co)
+    gooov = fermitools.math.transform(g_aso, co, co, co, cv)
+    goovv = fermitools.math.transform(g_aso, co, co, cv, cv)
+    govov = fermitools.math.transform(g_aso, co, cv, co, cv)
+    govvv = fermitools.math.transform(g_aso, co, cv, cv, cv)
+    gvvvv = fermitools.math.transform(g_aso, cv, cv, cv, cv)
 
     m1oo, m1vv = fermitools.oo.odc12.onebody_density(t2)
     foo = fermitools.oo.odc12.fock_xy(

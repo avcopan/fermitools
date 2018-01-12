@@ -2,12 +2,11 @@ from . import linalg
 from . import spinorb
 from . import combinatorics
 from . import asym
-from .trans import transform, transformer
 from .bcast import broadcast_sum
 from .findif import central_difference
 from .rav import ravel, raveler
 from .urav import unravel, unraveler
-
+from .trans import transform
 
 # Choose your einsum function:
 
@@ -27,7 +26,7 @@ __all__ = [
         'combinatorics',
         'asym',
         'tensoralg',
-        'transform', 'transformer',
+        'transform',
         'broadcast_sum',
         'central_difference',
         'einsum',

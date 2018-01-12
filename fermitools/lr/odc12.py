@@ -290,10 +290,10 @@ def _fancy_mixed_interaction(fov, gooov, govvv, m1oo, m1vv):
     ivv = (- einsum('ac,id->iadc', iv, fov)
            + einsum('mcad,im->iadc', govvv, m1oo)
            - einsum('iced,ae->iadc', govvv, m1vv))
-    tfioo = transform(ioo, {2: uo, 3: uo}) / n1oo
-    tfivv = transform(ivv, {2: uv, 3: uv}) / n1vv
-    fioo = transform(tfioo, {2: uo.T, 3: uo.T})
-    fivv = transform(tfivv, {2: uv.T, 3: uv.T})
+    tfioo = transform(ioo, uo, uo) / n1oo
+    tfivv = transform(ivv, uv, uv) / n1vv
+    fioo = transform(tfioo, uo.T, uo.T)
+    fivv = transform(tfivv, uv.T, uv.T)
     return fioo, fivv
 
 
@@ -304,11 +304,11 @@ def _fancy_repulsion(ffoo, ffvv, goooo, govov, gvvvv, m1oo, m1vv):
     n1vv = broadcast_sum({0: nv, 1: nv}) - 1
     io = numpy.eye(*uo.shape)
     iv = numpy.eye(*uv.shape)
-    tffoo = transform(ffoo, {0: uo, 1: uo})
-    tffvv = transform(ffvv, {0: uv, 1: uv})
-    tgoooo = transform(goooo, {0: uo, 1: uo, 2: uo, 3: uo})
-    tgovov = transform(govov, {0: uo, 1: uv, 2: uo, 3: uv})
-    tgvvvv = transform(gvvvv, {0: uv, 1: uv, 2: uv, 3: uv})
+    tffoo = transform(ffoo, uo, uo)
+    tffvv = transform(ffvv, uv, uv)
+    tgoooo = transform(goooo, uo, uo, uo, uo)
+    tgovov = transform(govov, uo, uv, uo, uv)
+    tgvvvv = transform(gvvvv, uv, uv, uv, uv)
     tfgoooo = ((tgoooo - einsum('il,jk->ikjl', tffoo, io)
                        - einsum('il,jk->ikjl', io, tffoo))
                / einsum('ij,kl->ikjl', n1oo, n1oo))
@@ -316,7 +316,7 @@ def _fancy_repulsion(ffoo, ffvv, goooo, govov, gvvvv, m1oo, m1vv):
     tfgvvvv = ((tgvvvv - einsum('ad,bc->acbd', tffvv, iv)
                        - einsum('ad,bc->acbd', iv, tffvv))
                / einsum('ab,cd->acbd', n1vv, n1vv))
-    fgoooo = transform(tfgoooo, {0: uo.T, 1: uo.T, 2: uo.T, 3: uo.T})
-    fgovov = transform(tfgovov, {0: uo.T, 1: uv.T, 2: uo.T, 3: uv.T})
-    fgvvvv = transform(tfgvvvv, {0: uv.T, 1: uv.T, 2: uv.T, 3: uv.T})
+    fgoooo = transform(tfgoooo, uo.T, uo.T, uo.T, uo.T)
+    fgovov = transform(tfgovov, uo.T, uv.T, uo.T, uv.T)
+    fgvvvv = transform(tfgvvvv, uv.T, uv.T, uv.T, uv.T)
     return fgoooo, fgovov, fgvvvv

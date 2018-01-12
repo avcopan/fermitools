@@ -1,50 +1,24 @@
 import numpy
-import itertools as it
-import toolz.functoolz as ftz
+from functools import partial
+from functools import reduce
 
 
-# Public
-def transform(a, transd):
-    """transform an array
-
-    :param a: array
-    :type a: numpy.ndarray
-    :param transd: dictionary of transformation matrices, keyed by axis
-    :type transd: dict
-
-    :rtype: numpy.ndarray
-    """
-    transf = transformer(transd)
-    return transf(a)
+def transform(a, *transformers):
+    ax = numpy.ndim(a) - len(transformers)
+    tdot = partial(numpy.tensordot, axes=(ax, 0))
+    return reduce(tdot, transformers, a)
 
 
-def transformer(transd):
-    """transforms arrays
+if __name__ == '__main__':
+    a = numpy.random.random((5, 5, 5, 5))
+    c1 = numpy.random.random((5, 1))
+    c2 = numpy.random.random((5, 2))
+    c3 = numpy.random.random((5, 3))
+    c4 = numpy.random.random((5, 4))
 
-    :param transd: dictionary of transformation matrices, keyed by axis
-    :type transd: dict
+    B = numpy.einsum('ijkl,iI,jJ,kK,lL->IJKL', a, c1, c2, c3, c4)
+    b = transform_(a, c1, c2, c3, c4)
+    print(b.shape)
 
-    :rtype: typing.Callable
-    """
-    transformers = it.starmap(_axis_transformer, transd.items())
-    return ftz.compose(*transformers)
-
-
-# Private
-def _axis_transformer(ax, t):
-    """transforms one axis
-
-    :param ax: axis
-    :type ax: int
-    :param t: transformation matrix
-    :type t: numpy.ndarray
-
-    :rtype: typing.Callable
-    """
-    def transform(a):
-        return numpy.tensordot(a, t, axes=(ax, 0))
-
-    def reorder(a):
-        return numpy.moveaxis(a, -1, ax)
-
-    return ftz.compose(reorder, transform)
+    from numpy.testing import assert_almost_equal
+    assert_almost_equal(b, B, decimal=14)

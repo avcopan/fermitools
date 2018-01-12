@@ -21,15 +21,15 @@ def solve(h_aso, g_aso, c_guess, t2_guess, niter=50, r_thresh=1e-8,
 
     for iteration in range(niter):
         co, cv = numpy.split(c, (no,), axis=1)
-        hoo = transform(h_aso, {0: co, 1: co})
-        hov = transform(h_aso, {0: co, 1: cv})
-        hvv = transform(h_aso, {0: cv, 1: cv})
-        goooo = transform(g_aso, {0: co, 1: co, 2: co, 3: co})
-        gooov = transform(g_aso, {0: co, 1: co, 2: co, 3: cv})
-        goovv = transform(g_aso, {0: co, 1: co, 2: cv, 3: cv})
-        govov = transform(g_aso, {0: co, 1: cv, 2: co, 3: cv})
-        govvv = transform(g_aso, {0: co, 1: cv, 2: cv, 3: cv})
-        gvvvv = transform(g_aso, {0: cv, 1: cv, 2: cv, 3: cv})
+        hoo = transform(h_aso, co, co)
+        hov = transform(h_aso, co, cv)
+        hvv = transform(h_aso, cv, cv)
+        goooo = transform(g_aso, co, co, co, co)
+        gooov = transform(g_aso, co, co, co, cv)
+        goovv = transform(g_aso, co, co, cv, cv)
+        govov = transform(g_aso, co, cv, co, cv)
+        govvv = transform(g_aso, co, cv, cv, cv)
+        gvvvv = transform(g_aso, cv, cv, cv, cv)
         # Orbital step
         m1oo, m1vv = onebody_density(t2)
         foo = fock_xy(hoo, goooo, govov, m1oo, m1vv)
@@ -98,8 +98,8 @@ def fancy_property(pxx, m1xx):
     nx, ux = scipy.linalg.eigh(m1xx)
     ax1, ax2 = pxx.ndim - 2, pxx.ndim - 1
     n1xx = broadcast_sum({ax1: nx, ax2: nx}) - 1
-    tfpxx = transform(pxx, {ax1: ux, ax2: ux}) / n1xx
-    fpxx = transform(tfpxx, {ax1: ux.T, ax2: ux.T})
+    tfpxx = transform(pxx, ux, ux) / n1xx
+    fpxx = transform(tfpxx, ux.T, ux.T)
     return fpxx
 
 

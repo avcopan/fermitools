@@ -27,7 +27,7 @@ def overlap(basis, labels, coords):
     """
     bs = psi4_basis(basis=basis, labels=labels, coords=coords)
     mh = psi4.core.MintsHelper(bs)
-    return numpy.array(mh.ao_overlap())
+    return numpy.ascontiguousarray(mh.ao_overlap())
 
 
 def kinetic(basis, labels, coords):
@@ -45,7 +45,7 @@ def kinetic(basis, labels, coords):
     """
     bs = psi4_basis(basis=basis, labels=labels, coords=coords)
     mh = psi4.core.MintsHelper(bs)
-    return numpy.array(mh.ao_kinetic())
+    return numpy.ascontiguousarray(mh.ao_kinetic())
 
 
 def nuclear(basis, labels, coords):
@@ -63,7 +63,7 @@ def nuclear(basis, labels, coords):
     """
     bs = psi4_basis(basis=basis, labels=labels, coords=coords)
     mh = psi4.core.MintsHelper(bs)
-    return numpy.array(mh.ao_potential())
+    return numpy.ascontiguousarray(mh.ao_potential())
 
 
 def core_hamiltonian(basis, labels, coords):
@@ -101,7 +101,8 @@ def coulomb_metric(basis, labels, coords):
     bs = psi4_basis(basis=basis, labels=labels, coords=coords)
 
     mh = psi4.core.MintsHelper(bs)
-    return numpy.squeeze(mh.ao_eri(bs, bs0, bs, bs0))
+    cm = numpy.squeeze(mh.ao_eri(bs, bs0, bs, bs0))
+    return numpy.ascontiguousarray(cm)
 
 
 def dipole(basis, labels, coords):
@@ -119,7 +120,8 @@ def dipole(basis, labels, coords):
     """
     bs = psi4_basis(basis=basis, labels=labels, coords=coords)
     mh = psi4.core.MintsHelper(bs)
-    return numpy.array(tuple(map(numpy.array, mh.ao_dipole())))
+    d = tuple(map(numpy.ascontiguousarray, mh.ao_dipole()))
+    return numpy.ascontiguousarray(d)
 
 
 def repulsion(basis, labels, coords):
@@ -137,7 +139,8 @@ def repulsion(basis, labels, coords):
     """
     bs = psi4_basis(basis=basis, labels=labels, coords=coords)
     mh = psi4.core.MintsHelper(bs)
-    return numpy.array(mh.ao_eri()).transpose((0, 2, 1, 3))
+    r = numpy.array(mh.ao_eri()).transpose((0, 2, 1, 3))
+    return numpy.ascontiguousarray(r)
 
 
 def threecenter_repulsion(basis1, basis2, basis3, labels, coords):
@@ -162,7 +165,8 @@ def threecenter_repulsion(basis1, basis2, basis3, labels, coords):
     bs2 = psi4_basis(basis=basis2, labels=labels, coords=coords)
     bs3 = psi4_basis(basis=basis3, labels=labels, coords=coords)
     mh = psi4.core.MintsHelper(bs1)
-    return numpy.squeeze(mh.ao_eri(bs1, bs2, bs3, bs0))
+    r3c = numpy.squeeze(mh.ao_eri(bs1, bs2, bs3, bs0))
+    return numpy.ascontiguousarray(r3c)
 
 
 def factorized_repulsion(basis, auxbasis, labels, coords):
@@ -186,4 +190,4 @@ def factorized_repulsion(basis, auxbasis, labels, coords):
             basis1=basis, basis2=basis, basis3=auxbasis, labels=labels,
             coords=coords)
     rijx = numpy.tensordot(rijy, xy, axes=(-1, -1))
-    return rijx
+    return numpy.ascontiguousarray(rijx)
