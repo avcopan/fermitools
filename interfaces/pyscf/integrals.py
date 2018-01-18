@@ -24,7 +24,7 @@ def overlap(basis, labels, coords):
     :rtype: numpy.ndarray
     """
     mol = _pyscf_molecule_object(basis=basis, labels=labels, coords=coords)
-    return mol.intor('cint1e_ovlp_sph')
+    return numpy.ascontiguousarray(mol.intor('cint1e_ovlp_sph'))
 
 
 def kinetic(basis, labels, coords):
@@ -41,7 +41,7 @@ def kinetic(basis, labels, coords):
     :rtype: numpy.ndarray
     """
     mol = _pyscf_molecule_object(basis=basis, labels=labels, coords=coords)
-    return mol.intor('cint1e_kin_sph')
+    return numpy.ascontiguousarray(mol.intor('cint1e_kin_sph'))
 
 
 def nuclear(basis, labels, coords):
@@ -58,7 +58,7 @@ def nuclear(basis, labels, coords):
     :rtype: numpy.ndarray
     """
     mol = _pyscf_molecule_object(basis=basis, labels=labels, coords=coords)
-    return mol.intor('cint1e_nuc_sph')
+    return numpy.ascontiguousarray(mol.intor('cint1e_nuc_sph'))
 
 
 def core_hamiltonian(basis, labels, coords):
@@ -76,7 +76,7 @@ def core_hamiltonian(basis, labels, coords):
     """
     t = kinetic(basis=basis, labels=labels, coords=coords)
     v = nuclear(basis=basis, labels=labels, coords=coords)
-    return t + v
+    return numpy.ascontiguousarray(t + v)
 
 
 def dipole(basis, labels, coords):
@@ -93,7 +93,8 @@ def dipole(basis, labels, coords):
     :rtype: numpy.ndarray
     """
     mol = _pyscf_molecule_object(basis=basis, labels=labels, coords=coords)
-    return -mol.intor('cint1e_r_sph', comp=3)
+    p = -mol.intor('cint1e_r_sph', comp=3)
+    return numpy.ascontiguousarray(p)
 
 
 def repulsion(basis, labels, coords):
@@ -112,7 +113,8 @@ def repulsion(basis, labels, coords):
     mol = _pyscf_molecule_object(basis=basis, labels=labels, coords=coords)
     matrix = mol.intor('cint2e_sph')
     n = int(numpy.sqrt(matrix.shape[0]))
-    return matrix.reshape((n, n, n, n)).transpose((0, 2, 1, 3))
+    r = matrix.reshape((n, n, n, n)).transpose((0, 2, 1, 3))
+    return numpy.ascontiguousarray(r)
 
 
 # Private

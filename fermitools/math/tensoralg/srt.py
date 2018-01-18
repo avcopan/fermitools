@@ -19,7 +19,7 @@ def einsum_argsort(subscripts, *operands):
     dds = tuple(starmap(dimdict, zip(shps, subs)))
     cost = cost_function(dds)
     orderings = contraction_orderings(len(subs))
-    return min(orderings, key=cost)
+    return min(orderings, key=cost) if len(dds) > 1 else (0,)
 
 
 def contraction_orderings(n):

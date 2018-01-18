@@ -4,6 +4,10 @@ import scipy.linalg
 
 from .util import psi4_basis
 
+import multiprocessing
+
+psi4.set_num_threads(multiprocessing.cpu_count())
+
 
 # Public
 def nbf(basis, labels):

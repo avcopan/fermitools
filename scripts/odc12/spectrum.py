@@ -3,17 +3,19 @@ import scipy
 import time
 
 import fermitools
-import interfaces.psi4 as interface
-#import interfaces.pyscf as interface
+# import interfaces.psi4 as interface
+import interfaces.pyscf as interface
 
 CHARGE = +0
 SPIN = 0
-#BASIS = 'cc-pvdz'
+# BASIS = 'cc-pvdz'
 BASIS = 'cc-pvtz'
-LABELS = ('O', 'H', 'H')
-COORDS = ((0.000000000000,  0.000000000000, -0.143225816552),
-          (0.000000000000,  1.638036840407,  1.136548822547),
-          (0.000000000000, -1.638036840407,  1.136548822547))
+# LABELS = ('O', 'H', 'H')
+# COORDS = ((0.000000000000,  0.000000000000, -0.143225816552),
+#           (0.000000000000,  1.638036840407,  1.136548822547),
+#           (0.000000000000, -1.638036840407,  1.136548822547))
+LABELS = ('Be',)
+COORDS = ((0., 0., 0.),)
 
 
 def main():
@@ -93,7 +95,7 @@ def main():
 
 
 if __name__ == '__main__':
-     main()
+    main()
 
 #    from pycallgraph import PyCallGraph
 #    from pycallgraph import Config

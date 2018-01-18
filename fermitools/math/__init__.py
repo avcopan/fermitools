@@ -12,12 +12,12 @@ from .trans import transform
 
 from .tensoralg import einsum
 
-#def einsum(*args, **kwargs):
-#    """Call optimized einsum
-#    """
-#    import numpy
-#    kwargs['optimize'] = 'optimal'
-#    return numpy.einsum(*args, **kwargs)
+# def einsum(*args, **kwargs):
+#     """Call optimized einsum
+#     """
+#     import numpy
+#     kwargs['optimize'] = 'optimal'
+#     return numpy.einsum(*args, **kwargs)
 
 
 __all__ = [

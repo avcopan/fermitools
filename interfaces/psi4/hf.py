@@ -3,6 +3,10 @@ import numpy
 
 from .util import psi4_molecule
 
+import multiprocessing
+
+psi4.set_num_threads(multiprocessing.cpu_count())
+
 
 # Public
 def unrestricted_orbitals(basis, labels, coords, charge=0, spin=0, niter=100,
