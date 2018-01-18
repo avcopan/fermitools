@@ -17,9 +17,18 @@ BASIS = 'cc-pvtz'
 LABELS = ('Be',)
 COORDS = ((0., 0., 0.),)
 
+# Ground state options
+OO_NITER = 200      # number of iterations
+OO_RTHRESH = 1e-8   # convergence threshold
+
+# Excited state options
+LR_NROOT = 7        # number of roots
+LR_NVEC = 2         # number of subspace vectors per root
+LR_NITER = 200      # number of iterations
+LR_RTHRESH = 1e-6   # convergence threshold
+
 
 def main():
-
     # Spaces
     na = fermitools.chem.elec.count_alpha(LABELS, CHARGE, SPIN)
     nb = fermitools.chem.elec.count_beta(LABELS, CHARGE, SPIN)
@@ -48,7 +57,7 @@ def main():
     t = time.time()
     en_elec, c, t2, info = fermitools.oo.odc12.solve(
             h_aso=h_aso, g_aso=g_aso, c_guess=c_guess, t2_guess=t2_guess,
-            niter=200, r_thresh=1e-7)
+            niter=OO_NITER, r_thresh=OO_RTHRESH)
     en_nuc = fermitools.chem.nuc.energy(labels=LABELS, coords=COORDS)
     en_tot = en_elec + en_nuc
     print("\nGround state energy:")
@@ -56,7 +65,6 @@ def main():
     print('time: {:8.1f}s'.format(time.time() - t))
 
     # Solve spectrum
-    nroot = 7
     no, _, nv, _ = t2.shape
     co, cv = numpy.split(c, (no,), axis=1)
     hoo = fermitools.math.transform(h_aso, co, co)
@@ -88,8 +96,8 @@ def main():
 
     t = time.time()
     w, u, info = fermitools.lr.solve.spectrum(
-            a=a, b=b, s=s, d=d, ad=ad, sd=sd, nroot=nroot, niter=300,
-            r_thresh=1e-7)
+            a=a, b=b, s=s, d=d, ad=ad, sd=sd, nroot=LR_NROOT, nvec=LR_NVEC,
+            niter=LR_NITER, r_thresh=LR_RTHRESH)
     print(w)
     print('time: {:8.1f}s'.format(time.time() - t))
 
