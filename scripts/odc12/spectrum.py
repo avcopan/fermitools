@@ -4,10 +4,12 @@ import time
 
 import fermitools
 import interfaces.psi4 as interface
+#import interfaces.pyscf as interface
 
 CHARGE = +0
 SPIN = 0
-BASIS = 'cc-pvdz'
+#BASIS = 'cc-pvdz'
+BASIS = 'cc-pvtz'
 LABELS = ('O', 'H', 'H')
 COORDS = ((0.000000000000,  0.000000000000, -0.143225816552),
           (0.000000000000,  1.638036840407,  1.136548822547),
@@ -15,6 +17,7 @@ COORDS = ((0.000000000000,  0.000000000000, -0.143225816552),
 
 
 def main():
+
     # Spaces
     na = fermitools.chem.elec.count_alpha(LABELS, CHARGE, SPIN)
     nb = fermitools.chem.elec.count_beta(LABELS, CHARGE, SPIN)
@@ -90,14 +93,14 @@ def main():
 
 
 if __name__ == '__main__':
-    # main()
+     main()
 
-    from pycallgraph import PyCallGraph
-    from pycallgraph import Config
-    from pycallgraph import GlobbingFilter
-    from pycallgraph.output import GraphvizOutput
-    config = Config()
-    config.trace_filter = GlobbingFilter(include=['fermitools.*'])
-    graphviz = GraphvizOutput(output_file='filtered.png')
-    with PyCallGraph(output=graphviz, config=config):
-        main()
+#    from pycallgraph import PyCallGraph
+#    from pycallgraph import Config
+#    from pycallgraph import GlobbingFilter
+#    from pycallgraph.output import GraphvizOutput
+#    config = Config()
+#    config.trace_filter = GlobbingFilter(include=['fermitools.*'])
+#    graphviz = GraphvizOutput(output_file='filtered.png')
+#    with PyCallGraph(output=graphviz, config=config):
+#        main()

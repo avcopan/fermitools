@@ -1,4 +1,5 @@
 import psi4
+import os
 
 
 def psi4_basis(basis, labels, coords):
@@ -11,6 +12,7 @@ def psi4_basis(basis, labels, coords):
     :type coords: numpy.ndarray
     """
     psi4.core.clean()
+    psi4.set_num_threads(int(os.environ.get('OMP_NUM_THREADS')))
     mol = psi4_molecule(labels=labels, coords=coords)
     bs = psi4.core.BasisSet.build(mol, '', basis)
     return bs
