@@ -17,7 +17,7 @@ if __name__ == '__main__':
     c4 = numpy.random.random((5, 4))
 
     B = numpy.einsum('ijkl,iI,jJ,kK,lL->IJKL', a, c1, c2, c3, c4)
-    b = transform_(a, c1, c2, c3, c4)
+    b = transform(a, c1, c2, c3, c4)
     print(b.shape)
 
     from numpy.testing import assert_almost_equal

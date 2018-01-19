@@ -8,8 +8,7 @@ import interfaces.psi4 as interface
 
 CHARGE = +0
 SPIN = 0
-BASIS = 'sto-3g'
-# BASIS = 'cc-pvtz'
+BASIS = 'cc-pvtz'
 LABELS = ('O', 'H', 'H')
 COORDS = ((0.000000000000,  0.000000000000, -0.143225816552),
           (0.000000000000,  1.638036840407,  1.136548822547),
