@@ -1,9 +1,9 @@
 import numpy
 import scipy
-from ..math.linalg.direct import bmat
-from ..math.linalg.direct import negative
-from ..math.linalg.direct import evec_guess
-from ..math.linalg.direct import eighg
+from ..math.sigma import bmat
+from ..math.sigma import negative
+from ..math.sigma import evec_guess
+from ..math.sigma import eighg
 
 
 def static_response(a, b, pg):
@@ -15,7 +15,9 @@ def static_response(a, b, pg):
     return r
 
 
-def spectrum(a, b, s, d, ad, sd, nroot=1, nvec=None, niter=50, r_thresh=1e-6):
+def spectrum(a, b, s, d, ad, sd, nroot=1, nguess=None, nvec=None, niter=50,
+             r_thresh=1e-6):
+    nguess = 2 if nguess is None else nguess
     nvec = 2 if nvec is None else nvec
 
     e = bmat([[a, b], [b, a]], 2)
@@ -23,7 +25,7 @@ def spectrum(a, b, s, d, ad, sd, nroot=1, nvec=None, niter=50, r_thresh=1e-6):
     ed = numpy.concatenate((+ad, +ad))
     md = numpy.concatenate((+sd, -sd))
 
-    guess = evec_guess(md, nvec*nroot, bd=ed)
+    guess = evec_guess(md, nguess*nroot, bd=ed)
     v, u, info = eighg(
             a=m, b=e, neig=nroot, ad=md, bd=ed, guess=guess,
             r_thresh=r_thresh, nvec=nvec*nroot, niter=niter)

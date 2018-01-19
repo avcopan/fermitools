@@ -1,4 +1,4 @@
-import fermitools.math.linalg.ot as ot
+import fermitools.math.ot as ot
 
 import numpy
 

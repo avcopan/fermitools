@@ -1,4 +1,4 @@
-import fermitools.math.linalg.direct.eh as eh
+import fermitools.math.sigma as sigma
 
 import numpy
 import scipy
@@ -43,6 +43,7 @@ def test__eigh():
     nvec = 20
     r_thresh = 1e-11
     a_ = m_sigma(dim)
+    b_ = fermitools.math.sigma.eye
 
     T0 = time.time()
     a = a_(numpy.eye(dim))
@@ -53,9 +54,11 @@ def test__eigh():
     print(vals)
     print(DT)
 
-    ad = fermitools.math.linalg.direct.diag(a_, dim)
-    w, u, info = eh.eigh(
-            a=a_, neig=neig, ad=ad, guess=U, r_thresh=r_thresh, nvec=nvec)
+    ad = fermitools.math.sigma.diag(a_, dim)
+    bd = fermitools.math.sigma.diag(b_, dim)
+    w, u, info = sigma.eighg(
+            a=a_, b=b_, neig=neig, ad=ad, bd=bd, guess=U, r_thresh=r_thresh,
+            nvec=nvec)
     print(info)
     assert_almost_equal(w, W, decimal=10)
     assert_almost_equal(numpy.abs(u), numpy.abs(U), decimal=10)
@@ -65,9 +68,10 @@ def test__eigh():
     print(U[:neig+5, :neig].round(1))
 
     t0 = time.time()
-    guess = fermitools.math.linalg.direct.evec_guess(ad, nguess)
-    w, u, info = eh.eigh(
-            a=a_, neig=neig, ad=ad, guess=guess, r_thresh=r_thresh, nvec=nvec)
+    guess = fermitools.math.sigma.evec_guess(ad, nguess)
+    w, u, info = sigma.eighg(
+            a=a_, b=b_, neig=neig, ad=ad, bd=bd, guess=guess,
+            r_thresh=r_thresh, nvec=nvec)
     dt = time.time() - t0
     print(info)
     print(dt)
@@ -101,9 +105,9 @@ def test__eighg():
     print(vals)
     print(DT)
 
-    bd = fermitools.math.linalg.direct.diag(b_, dim)
+    bd = fermitools.math.sigma.diag(b_, dim)
     sd = -numpy.ones(dim)
-    w, u, info = eh.eighg(
+    w, u, info = sigma.eighg(
             a=s_, b=b_, neig=neig, ad=sd, bd=bd, guess=U, r_thresh=r_thresh,
             nvec=nvec)
     print(info)
@@ -115,8 +119,8 @@ def test__eighg():
     print(U[:neig+5, :neig].round(1))
 
     t0 = time.time()
-    guess = fermitools.math.linalg.direct.evec_guess(sd, nguess, bd=bd)
-    w, u, info = eh.eighg(
+    guess = fermitools.math.sigma.evec_guess(sd, nguess, bd=bd)
+    w, u, info = sigma.eighg(
             a=s_, b=b_, neig=neig, ad=sd, bd=bd, guess=guess,
             r_thresh=r_thresh, nvec=nvec)
     dt = time.time() - t0

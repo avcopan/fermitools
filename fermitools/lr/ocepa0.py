@@ -6,10 +6,10 @@ from ..math import broadcast_sum
 from ..math import raveler, unraveler
 from ..math.asym import antisymmetrizer_product as asm
 from ..math.asym import megaraveler, megaunraveler
-from ..math.linalg.direct import eye
-from ..math.linalg.direct import zero
-from ..math.linalg.direct import bmat
-from ..math.linalg.direct import block_diag
+from ..math.sigma import eye
+from ..math.sigma import zero
+from ..math.sigma import bmat
+from ..math.sigma import block_diag
 
 
 # Public
