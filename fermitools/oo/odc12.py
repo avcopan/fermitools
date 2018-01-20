@@ -5,34 +5,36 @@ import warnings
 from ..math import broadcast_sum
 from ..math import transform
 from ..math import einsum
+from ..math.spinorb import decompose_onebody
+from ..math.spinorb import transform_onebody, transform_twobody
 
 from .ocepa0 import twobody_amplitude_gradient
 
 
-def solve(h_aso, g_aso, c_guess, t2_guess, niter=50, r_thresh=1e-8,
+def solve(na, nb, h_ao, r_ao, c_guess, t2_guess, niter=50, r_thresh=1e-8,
           print_conv=True):
     no, _, nv, _ = t2_guess.shape
 
-    h_aso = numpy.ascontiguousarray(h_aso)
-    g_aso = numpy.ascontiguousarray(g_aso)
-
-    c = c_guess
+    ac, bc = c_guess
     t2 = t2_guess
     zoo = numpy.zeros((no, no))
     zvv = numpy.zeros((nv, nv))
     m1oo, m1vv = onebody_density(t2)
 
     for iteration in range(niter):
-        co, cv = numpy.split(c, (no,), axis=1)
-        hoo = transform(h_aso, (co, co))
-        hov = transform(h_aso, (co, cv))
-        hvv = transform(h_aso, (cv, cv))
-        goooo = transform(g_aso, (co, co, co, co))
-        gooov = transform(g_aso, (co, co, co, cv))
-        goovv = transform(g_aso, (co, co, cv, cv))
-        govov = transform(g_aso, (co, cv, co, cv))
-        govvv = transform(g_aso, (co, cv, cv, cv))
-        gvvvv = transform(g_aso, (cv, cv, cv, cv))
+        aco, acv = numpy.split(ac, (na,), axis=1)
+        bco, bcv = numpy.split(bc, (nb,), axis=1)
+        co = (aco, bco)
+        cv = (acv, bcv)
+        hoo = transform_onebody(h_ao, (co, co))
+        hov = transform_onebody(h_ao, (co, cv))
+        hvv = transform_onebody(h_ao, (cv, cv))
+        goooo = transform_twobody(r_ao, (co, co, co, co))
+        gooov = transform_twobody(r_ao, (co, co, co, cv))
+        goovv = transform_twobody(r_ao, (co, co, cv, cv))
+        govov = transform_twobody(r_ao, (co, cv, co, cv))
+        govvv = transform_twobody(r_ao, (co, cv, cv, cv))
+        gvvvv = transform_twobody(r_ao, (cv, cv, cv, cv))
         # Orbital step
         m1oo, m1vv = onebody_density(t2)
         foo = fock_xy(hoo, goooo, govov, m1oo, m1vv)
@@ -45,7 +47,10 @@ def solve(h_aso, g_aso, c_guess, t2_guess, niter=50, r_thresh=1e-8,
         t1 = r1 / e1
         a = numpy.bmat([[zoo, -t1], [+t1.T, zvv]])
         u = scipy.linalg.expm(a)
-        c = numpy.dot(c, u)
+        au, bu = decompose_onebody(u, na=na, nb=nb)
+        ac = numpy.dot(ac, au)
+        bc = numpy.dot(bc, bu)
+        c = (ac, bc)
         # Amplitude step
         ffoo = fancy_property(foo, m1oo)
         ffvv = fancy_property(fvv, m1vv)

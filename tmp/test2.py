@@ -63,37 +63,40 @@ def main():
     bco, bcv = numpy.split(bc, (nb,), axis=1)
     co = (aco, bco)
     cv = (acv, bcv)
-    hoo = fermitools.math.spinorb.transform(h_ao, (co, co), brakets=((0, 1),))
-    hov = fermitools.math.spinorb.transform(h_ao, (co, cv), brakets=((0, 1),))
-    hvv = fermitools.math.spinorb.transform(h_ao, (cv, cv), brakets=((0, 1),))
-    roooo = fermitools.math.spinorb.transform(
-            r_ao, (co, co, co, co), brakets=((0, 2), (1, 3)))
-    rooov = fermitools.math.spinorb.transform(
-            r_ao, (co, co, co, cv), brakets=((0, 2), (1, 3)))
-    roovv = fermitools.math.spinorb.transform(
-            r_ao, (co, co, cv, cv), brakets=((0, 2), (1, 3)))
-    rovov = fermitools.math.spinorb.transform(
-            r_ao, (co, cv, co, cv), brakets=((0, 2), (1, 3)))
-    rovvv = fermitools.math.spinorb.transform(
-            r_ao, (co, cv, cv, cv), brakets=((0, 2), (1, 3)))
-    rvvvv = fermitools.math.spinorb.transform(
-            r_ao, (cv, cv, cv, cv), brakets=((0, 2), (1, 3)))
-    goooo = roooo - numpy.transpose(roooo, (0, 1, 3, 2))
+    hoo = fermitools.math.spinorb.transform_onebody(h_ao, (co, co))
+    hov = fermitools.math.spinorb.transform_onebody(h_ao, (co, cv))
+    hvv = fermitools.math.spinorb.transform_onebody(h_ao, (cv, cv))
+    goooo = fermitools.math.spinorb.transform_twobody(r_ao, (co, co, co, co))
+    gooov = fermitools.math.spinorb.transform_twobody(r_ao, (co, co, co, cv))
+    goovv = fermitools.math.spinorb.transform_twobody(r_ao, (co, co, cv, cv))
+    govov = fermitools.math.spinorb.transform_twobody(r_ao, (co, cv, co, cv))
+    govvv = fermitools.math.spinorb.transform_twobody(r_ao, (co, cv, cv, cv))
+    gvvvv = fermitools.math.spinorb.transform_twobody(r_ao, (cv, cv, cv, cv))
     print(hoo.shape)
     print(hov.shape)
     print(hvv.shape)
-    print(roooo.shape)
-    print(rooov.shape)
-    print(roovv.shape)
-    print(rovov.shape)
-    print(rovvv.shape)
-    print(rvvvv.shape)
     print(goooo.shape)
+    print(gooov.shape)
+    print(goovv.shape)
+    print(govov.shape)
+    print(govvv.shape)
+    print(gvvvv.shape)
+
     from numpy.testing import assert_almost_equal
     assert_almost_equal(hoo, hoo_, decimal=14)
     assert_almost_equal(hov, hov_, decimal=14)
     assert_almost_equal(hvv, hvv_, decimal=14)
     assert_almost_equal(goooo, goooo_, decimal=14)
+    assert_almost_equal(gooov, gooov_, decimal=14)
+    assert_almost_equal(goovv, goovv_, decimal=14)
+    assert_almost_equal(govov, govov_, decimal=14)
+    assert_almost_equal(govvv, govvv_, decimal=14)
+    assert_almost_equal(gvvvv, gvvvv_, decimal=14)
+
+    h = numpy.bmat([[hoo, hov], [hov.T, hvv]])
+    ah, bh = fermitools.math.spinorb.decompose_onebody(h, na, nb)
+    print(ah.round(0))
+    print(bh.round(0))
 
 
 if __name__ == '__main__':

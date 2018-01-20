@@ -1,5 +1,4 @@
 import numpy
-import scipy
 
 import fermitools
 import interfaces.psi4 as interface
@@ -35,49 +34,44 @@ def test_main():
     # Spaces
     na = fermitools.chem.elec.count_alpha(LABELS, CHARGE, SPIN)
     nb = fermitools.chem.elec.count_beta(LABELS, CHARGE, SPIN)
-    nocc = na + nb
+    nbf = interface.integrals.nbf(BASIS, LABELS)
+    no = na + nb
+    nv = 2*nbf - no
 
     # Integrals
-    nbf = interface.integrals.nbf(BASIS, LABELS)
-    norb = 2 * nbf
     h_ao = interface.integrals.core_hamiltonian(BASIS, LABELS, COORDS)
     r_ao = interface.integrals.repulsion(BASIS, LABELS, COORDS)
 
-    h_aso = fermitools.math.spinorb.expand(h_ao, brakets=((0, 1),))
-    r_aso = fermitools.math.spinorb.expand(r_ao, brakets=((0, 2), (1, 3)))
-    g_aso = r_aso - numpy.transpose(r_aso, (0, 1, 3, 2))
-
     # Mean-field guess orbitals
-    ac, bc = interface.hf.unrestricted_orbitals(
+    c_guess = interface.hf.unrestricted_orbitals(
             BASIS, LABELS, COORDS, CHARGE, SPIN)
-    c_unsrt = scipy.linalg.block_diag(ac, bc)
-    sortvec = fermitools.math.spinorb.ab2ov(dim=nbf, na=na, nb=nb)
-    c_unsrt = scipy.linalg.block_diag(ac, bc)
-    c_guess = fermitools.math.spinorb.sort(c_unsrt, order=sortvec, axes=(1,))
-    t2_guess = numpy.zeros((nocc, nocc, norb-nocc, norb-nocc))
+    t2_guess = numpy.zeros((no, no, nv, nv))
 
     # Solve ground state
     en_elec, c, t2, info = fermitools.oo.odc12.solve(
-            h_aso=h_aso, g_aso=g_aso, c_guess=c_guess, t2_guess=t2_guess,
-            niter=OO_NITER, r_thresh=OO_RTHRESH)
+            na=na, nb=nb, h_ao=h_ao, r_ao=r_ao, c_guess=c_guess,
+            t2_guess=t2_guess, niter=OO_NITER, r_thresh=OO_RTHRESH)
     en_nuc = fermitools.chem.nuc.energy(labels=LABELS, coords=COORDS)
     en_tot = en_elec + en_nuc
     print("\nGround state energy:")
     print('{:20.15f}'.format(en_tot))
     assert_almost_equal(en_tot, -75.013041342026796, decimal=10)
 
-    # Solve spectrum
-    no, _, nv, _ = t2.shape
-    co, cv = numpy.split(c, (no,), axis=1)
-    hoo = fermitools.math.transform(h_aso, (co, co))
-    hov = fermitools.math.transform(h_aso, (co, cv))
-    hvv = fermitools.math.transform(h_aso, (cv, cv))
-    goooo = fermitools.math.transform(g_aso, (co, co, co, co))
-    gooov = fermitools.math.transform(g_aso, (co, co, co, cv))
-    goovv = fermitools.math.transform(g_aso, (co, co, cv, cv))
-    govov = fermitools.math.transform(g_aso, (co, cv, co, cv))
-    govvv = fermitools.math.transform(g_aso, (co, cv, cv, cv))
-    gvvvv = fermitools.math.transform(g_aso, (cv, cv, cv, cv))
+    # LR inputs
+    ac, bc = c
+    aco, acv = numpy.split(ac, (na,), axis=1)
+    bco, bcv = numpy.split(bc, (nb,), axis=1)
+    co = (aco, bco)
+    cv = (acv, bcv)
+    hoo = fermitools.math.spinorb.transform_onebody(h_ao, (co, co))
+    hov = fermitools.math.spinorb.transform_onebody(h_ao, (co, cv))
+    hvv = fermitools.math.spinorb.transform_onebody(h_ao, (cv, cv))
+    goooo = fermitools.math.spinorb.transform_twobody(r_ao, (co, co, co, co))
+    gooov = fermitools.math.spinorb.transform_twobody(r_ao, (co, co, co, cv))
+    goovv = fermitools.math.spinorb.transform_twobody(r_ao, (co, co, cv, cv))
+    govov = fermitools.math.spinorb.transform_twobody(r_ao, (co, cv, co, cv))
+    govvv = fermitools.math.spinorb.transform_twobody(r_ao, (co, cv, cv, cv))
+    gvvvv = fermitools.math.spinorb.transform_twobody(r_ao, (cv, cv, cv, cv))
 
     m1oo, m1vv = fermitools.oo.odc12.onebody_density(t2)
     foo = fermitools.oo.odc12.fock_xy(
@@ -105,13 +99,3 @@ def test_main():
 
 if __name__ == '__main__':
     test_main()
-
-#    from pycallgraph import PyCallGraph
-#    from pycallgraph import Config
-#    from pycallgraph import GlobbingFilter
-#    from pycallgraph.output import GraphvizOutput
-#    config = Config()
-#    config.trace_filter = GlobbingFilter(include=['fermitools.*'])
-#    graphviz = GraphvizOutput(output_file='filtered.png')
-#    with PyCallGraph(output=graphviz, config=config):
-#        test_main()
