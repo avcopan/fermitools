@@ -3,6 +3,7 @@ import scipy
 import itertools
 from toolz import functoolz
 from . import antisymmetrizer
+from .util import split_iter
 from ..urav import unraveler as ordinary_unraveler
 from .._ravhelper import presorter
 from .._ravhelper import resorter
@@ -10,7 +11,6 @@ from .._ravhelper import reverse_starmap
 from .._ravhelper import dict_values
 from .._ravhelper import dict_keys
 from .._ravhelper import dict_items
-from ...iter import split
 
 
 # Public
@@ -43,7 +43,7 @@ def megaunraveler(d):
     iter_udims1 = map(int, itertools.starmap(scipy.special.binom,
                                              zip(iter_udims2, iter_nuaxes2)))
     iter_uaxes1 = map(dict,
-                      split(i=enumerate(iter_udims1), sizes=iter_nuaxes1))
+                      split_iter(i=enumerate(iter_udims1), sizes=iter_nuaxes1))
 
     d2 = dict(enumerate(zip(iter_uaxes2, iter_udims2)))
     uravf1 = ordinary_unraveler(dict(zip(raxes1, iter_uaxes1)))

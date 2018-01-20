@@ -1,13 +1,13 @@
 import numpy
 import itertools
 from toolz import functoolz
+from .util import split_iter
 from ..rav import raveler as ordinary_raveler
 from .._ravhelper import presorter
 from .._ravhelper import resorter
 from .._ravhelper import reverse_map
 from .._ravhelper import dict_values
 from .._ravhelper import dict_keys
-from ...iter import split
 
 
 # Public
@@ -40,7 +40,7 @@ def megaraveler(d):
     # Ordinary ravel
     raxes2 = dict_keys(d)
     iter_nuaxes2 = map(len, dict_values(d))
-    iter_uaxes2 = split(i=raxes1, sizes=iter_nuaxes2)
+    iter_uaxes2 = split_iter(i=raxes1, sizes=iter_nuaxes2)
     ravf2 = ordinary_raveler(dict(zip(raxes2, iter_uaxes2)))
 
     return functoolz.compose(ravf2, ravf1)

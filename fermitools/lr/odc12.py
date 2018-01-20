@@ -290,10 +290,10 @@ def _fancy_mixed_interaction(fov, gooov, govvv, m1oo, m1vv):
     ivv = (- einsum('ac,id->iadc', iv, fov)
            + einsum('mcad,im->iadc', govvv, m1oo)
            - einsum('iced,ae->iadc', govvv, m1vv))
-    tfioo = transform(ioo, uo, uo) / n1oo
-    tfivv = transform(ivv, uv, uv) / n1vv
-    fioo = transform(tfioo, uo.T, uo.T)
-    fivv = transform(tfivv, uv.T, uv.T)
+    tfioo = transform(ioo, (uo, uo)) / n1oo
+    tfivv = transform(ivv, (uv, uv)) / n1vv
+    fioo = transform(tfioo, (uo.T, uo.T))
+    fivv = transform(tfivv, (uv.T, uv.T))
     return fioo, fivv
 
 
@@ -304,11 +304,11 @@ def _fancy_repulsion(ffoo, ffvv, goooo, govov, gvvvv, m1oo, m1vv):
     n1vv = broadcast_sum({0: nv, 1: nv}) - 1
     io = numpy.eye(*uo.shape)
     iv = numpy.eye(*uv.shape)
-    tffoo = transform(ffoo, uo, uo)
-    tffvv = transform(ffvv, uv, uv)
-    tgoooo = transform(goooo, uo, uo, uo, uo)
-    tgovov = transform(govov, uo, uv, uo, uv)
-    tgvvvv = transform(gvvvv, uv, uv, uv, uv)
+    tffoo = transform(ffoo, (uo, uo))
+    tffvv = transform(ffvv, (uv, uv))
+    tgoooo = transform(goooo, (uo, uo, uo, uo))
+    tgovov = transform(govov, (uo, uv, uo, uv))
+    tgvvvv = transform(gvvvv, (uv, uv, uv, uv))
     tfgoooo = ((tgoooo - einsum('il,jk->ikjl', tffoo, io)
                        - einsum('il,jk->ikjl', io, tffoo))
                / einsum('ij,kl->ikjl', n1oo, n1oo))
@@ -316,7 +316,7 @@ def _fancy_repulsion(ffoo, ffvv, goooo, govov, gvvvv, m1oo, m1vv):
     tfgvvvv = ((tgvvvv - einsum('ad,bc->acbd', tffvv, iv)
                        - einsum('ad,bc->acbd', iv, tffvv))
                / einsum('ab,cd->acbd', n1vv, n1vv))
-    fgoooo = transform(tfgoooo, uo.T, uo.T, uo.T, uo.T)
-    fgovov = transform(tfgovov, uo.T, uv.T, uo.T, uv.T)
-    fgvvvv = transform(tfgvvvv, uv.T, uv.T, uv.T, uv.T)
+    fgoooo = transform(tfgoooo, (uo.T, uo.T, uo.T, uo.T))
+    fgovov = transform(tfgovov, (uo.T, uv.T, uo.T, uv.T))
+    fgvvvv = transform(tfgvvvv, (uv.T, uv.T, uv.T, uv.T))
     return fgoooo, fgovov, fgvvvv

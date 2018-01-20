@@ -67,15 +67,15 @@ def main():
     # Solve spectrum
     no, _, nv, _ = t2.shape
     co, cv = numpy.split(c, (no,), axis=1)
-    hoo = fermitools.math.transform(h_aso, co, co)
-    hov = fermitools.math.transform(h_aso, co, cv)
-    hvv = fermitools.math.transform(h_aso, cv, cv)
-    goooo = fermitools.math.transform(g_aso, co, co, co, co)
-    gooov = fermitools.math.transform(g_aso, co, co, co, cv)
-    goovv = fermitools.math.transform(g_aso, co, co, cv, cv)
-    govov = fermitools.math.transform(g_aso, co, cv, co, cv)
-    govvv = fermitools.math.transform(g_aso, co, cv, cv, cv)
-    gvvvv = fermitools.math.transform(g_aso, cv, cv, cv, cv)
+    hoo = fermitools.math.transform(h_aso, (co, co))
+    hov = fermitools.math.transform(h_aso, (co, cv))
+    hvv = fermitools.math.transform(h_aso, (cv, cv))
+    goooo = fermitools.math.transform(g_aso, (co, co, co, co))
+    gooov = fermitools.math.transform(g_aso, (co, co, co, cv))
+    goovv = fermitools.math.transform(g_aso, (co, co, cv, cv))
+    govov = fermitools.math.transform(g_aso, (co, cv, co, cv))
+    govvv = fermitools.math.transform(g_aso, (co, cv, cv, cv))
+    gvvvv = fermitools.math.transform(g_aso, (cv, cv, cv, cv))
 
     m1oo, m1vv = fermitools.oo.odc12.onebody_density(t2)
     foo = fermitools.oo.odc12.fock_xy(
