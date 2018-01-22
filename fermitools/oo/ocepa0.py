@@ -1,10 +1,9 @@
 import numpy
-import scipy.linalg
 import warnings
 
-from ..math import broadcast_sum
-from ..math import transform
+from ..math import expm
 from ..math import einsum
+from ..math import broadcast_sum
 from ..math.asym import antisymmetrizer_product as asm
 from ..math.spinorb import decompose_onebody
 from ..math.spinorb import transform_onebody, transform_twobody
@@ -43,7 +42,7 @@ def solve(na, nb, h_ao, r_ao, c_guess, t2_guess, niter=50, r_thresh=1e-8,
         r1 = orbital_gradient(fov, gooov, govvv, t2)
         t1 = r1 / e1
         a = numpy.bmat([[zoo, -t1], [+t1.T, zvv]])
-        u = scipy.linalg.expm(a)
+        u = expm(a)
         au, bu = decompose_onebody(u, na=na, nb=nb)
         ac = numpy.dot(ac, au)
         bc = numpy.dot(bc, bu)

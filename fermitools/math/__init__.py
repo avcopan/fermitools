@@ -8,6 +8,7 @@ from .rav import ravel, raveler
 from .urav import unravel, unraveler
 from .trans import transform
 from .ot import orth
+from .ex import expm
 
 # Choose your einsum function:
 
@@ -34,4 +35,5 @@ __all__ = [
         'ravel', 'raveler',
         'unravel', 'unraveler',
         'einsum',
-        'orth']
+        'orth',
+        'expm']
