@@ -7,7 +7,6 @@ import os
 from numpy.testing import assert_almost_equal
 
 data_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data')
-
 W_REF = numpy.load(os.path.join(data_path, 'neutral/w.npy'))
 
 CHARGE = +0

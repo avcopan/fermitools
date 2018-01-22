@@ -8,8 +8,10 @@ data_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data')
 
 NITER = 200
 R_THRESH = 1e-13
-H_ASO = numpy.load(os.path.join(data_path, 'h_aso.npy'))
-G_ASO = numpy.load(os.path.join(data_path, 'g_aso.npy'))
+NA = numpy.load(os.path.join(data_path, 'na.npy'))
+NB = numpy.load(os.path.join(data_path, 'nb.npy'))
+H_AO = numpy.load(os.path.join(data_path, 'h_ao.npy'))
+R_AO = numpy.load(os.path.join(data_path, 'r_ao.npy'))
 C_GUESS = numpy.load(os.path.join(data_path, 'c_guess.npy'))
 T2_GUESS = numpy.load(os.path.join(data_path, 't2_guess.npy'))
 HOO = numpy.load(os.path.join(data_path, 'ocepa0/hoo.npy'))
@@ -37,8 +39,7 @@ MU_ELEC = numpy.load(os.path.join(data_path, 'ocepa0/mu_elec.npy'))
 def test__solve():
     # test approximate guess
     en_elec, c, t2, info = ocepa0.solve(
-            h_aso=H_ASO, g_aso=G_ASO, c_guess=C_GUESS, t2_guess=T2_GUESS,
-            niter=NITER, r_thresh=R_THRESH)
+            NA, NB, H_AO, R_AO, C_GUESS, T2_GUESS, NITER, R_THRESH, True)
     assert_almost_equal(en_elec, EN_ELEC, decimal=10)
     assert_almost_equal(c, C, decimal=10)
     assert_almost_equal(t2, T2, decimal=10)
@@ -47,8 +48,7 @@ def test__solve():
     assert info['r2_max'] < R_THRESH
     # test perfect guess
     en_elec, c, t2, info = ocepa0.solve(
-            h_aso=H_ASO, g_aso=G_ASO, c_guess=C, t2_guess=T2, niter=NITER,
-            r_thresh=R_THRESH)
+            NA, NB, H_AO, R_AO, C, T2, NITER, R_THRESH, True)
     assert_almost_equal(en_elec, EN_ELEC, decimal=10)
     assert_almost_equal(c, C, decimal=10)
     assert_almost_equal(t2, T2, decimal=8)
@@ -88,3 +88,7 @@ def test__onebody_density():
     m1oo, m1vv = ocepa0.onebody_density(T2)
     assert_almost_equal(m1oo, M1OO, decimal=10)
     assert_almost_equal(m1vv, M1VV, decimal=10)
+
+
+if __name__ == '__main__':
+    test__solve()

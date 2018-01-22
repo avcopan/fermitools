@@ -24,7 +24,9 @@ def en_f_function(na, nb, h_ao, p_ao, r_ao, c_guess, t2_guess, niter=200,
         hp_ao = h_ao - numpy.tensordot(f, p_ao, axes=(0, 0))
         en_elec, c, t2, info = fermitools.oo.odc12.solve(
                 na=na, nb=nb, h_ao=hp_ao, r_ao=r_ao, c_guess=c_guess,
-                t2_guess=t2_guess, niter=niter, r_thresh=r_thresh)
+                t2_guess=t2_guess, niter=niter, r_thresh=r_thresh,
+                print_conv=False)
+        print(info)
         return en_elec
 
     return _en
@@ -88,6 +90,8 @@ def test_main():
     m1oo, m1vv = fermitools.oo.odc12.onebody_density(t2)
     mu = numpy.array([numpy.vdot(pxoo, m1oo) + numpy.vdot(pxvv, m1vv)
                       for pxoo, pxvv in zip(poo, pvv)])
+    print("<Psi|mu|Psi>:")
+    print(mu)
 
     # Evaluate dipole polarizability by linear response
     pg = fermitools.lr.odc12.property_gradient(
@@ -97,6 +101,8 @@ def test_main():
             govov=govov, govvv=govvv, gvvvv=gvvvv, t2=t2)
     r = fermitools.lr.solve.static_response(a=a, b=b, pg=pg)
     alpha = numpy.dot(r.T, pg)
+    print("<<mu; mu>>_0:")
+    print(alpha)
 
     # Differentiate
     en_f_ = en_f_function(
