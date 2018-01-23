@@ -16,6 +16,11 @@ COORDS = ((0., 0., 0.),
 OO_NITER = 200      # number of iterations
 OO_RTHRESH = 1e-10  # convergence threshold
 
+# Excited state options
+LR_NVEC = 20       # number of subspace vectors per root
+LR_NITER = 200     # number of iterations
+LR_RTHRESH = 1e-6  # convergence threshold
+
 
 def en_f_function(na, nb, h_ao, p_ao, r_ao, c_guess, t2_guess, niter=200,
                   r_thresh=1e-9):
@@ -93,9 +98,13 @@ def test_main():
     a, b = fermitools.lr.ocepa0.hessian(
             foo=foo, fov=fov, fvv=fvv, goooo=goooo, gooov=gooov, goovv=goovv,
             govov=govov, govvv=govvv, gvvvv=gvvvv, t2=t2)
-    r = fermitools.lr.solve.static_response(a=a, b=b, pg=pg)
+    ad = fermitools.lr.ocepa0.hessian_zeroth_order_diagonal(foo=foo, fvv=fvv)
+    r, info = fermitools.lr.solve.static_response(
+            a=a, b=b, pg=pg, ad=ad, nvec=LR_NVEC, niter=LR_NITER,
+            r_thresh=LR_RTHRESH)
     alpha = numpy.dot(r.T, pg)
-    print(alpha)
+    print("<<mu; mu>>_0:")
+    print(alpha.round(10))
 
     # Differentiate
     en_f_ = en_f_function(

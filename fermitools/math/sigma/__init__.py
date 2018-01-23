@@ -1,7 +1,10 @@
 from .eh import eighg
+from .cg import solve
 from .util import evec_guess
-from .np import eye, zero, negative, diag, diagonal, bmat, block_diag
+from .np import eye, zero, negative, add, diagonal, bmat, block_diag
 
 __all__ = [
-        'eighg', 'evec_guess', 'eye', 'zero', 'negative', 'diag', 'diagonal',
-        'bmat', 'block_diag']
+        'eighg',
+        'solve',
+        'evec_guess',
+        'eye', 'zero', 'negative', 'add', 'diagonal', 'bmat', 'block_diag']

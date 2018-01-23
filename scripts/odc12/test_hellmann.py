@@ -1,20 +1,7 @@
 import numpy
-
 import fermitools
-import interfaces.psi4 as interface
 
 from numpy.testing import assert_almost_equal
-
-CHARGE = +1
-SPIN = 1
-BASIS = 'sto-3g'
-LABELS = ('H', 'F')
-COORDS = ((0., 0., 0.),
-          (0., 0., 1.))
-
-# Ground state options
-OO_NITER = 200      # number of iterations
-OO_RTHRESH = 1e-10  # convergence threshold
 
 
 def en_f_function(na, nb, h_ao, p_ao, r_ao, c_guess, t2_guess, niter=200,
@@ -32,82 +19,44 @@ def en_f_function(na, nb, h_ao, p_ao, r_ao, c_guess, t2_guess, niter=200,
     return _en
 
 
-def test_main():
-    # Spaces
-    na = fermitools.chem.elec.count_alpha(LABELS, CHARGE, SPIN)
-    nb = fermitools.chem.elec.count_beta(LABELS, CHARGE, SPIN)
-    nbf = interface.integrals.nbf(BASIS, LABELS)
-    no = na + nb
-    nv = 2*nbf - no
+def test__main():
+    import drivers.odc12
+    import interfaces.psi4 as interface
+
+    charge = +1
+    spin = 1
+    labels = ('H', 'F')
+    coords = ((0., 0., 0.),
+              (0., 0., 1.))
+    basis = 'sto-3g'
+
+    mu, alpha, info, oo_info = drivers.odc12.dipole_polarizability(
+            labels=labels,
+            coords=coords,
+            charge=charge,
+            spin=spin,
+            basis=basis,
+            angstrom=False,
+            nvec=100,               # max number of subspace vectors per root
+            niter=50,               # number of iterations
+            rthresh=1e-6,           # convergence threshold
+            oo_niter=200,           # number of iterations for ground state
+            oo_rthresh=1e-10,       # convergence threshold for ground state
+            interface=interface)    # interface for computing integrals
+
+    na = fermitools.chem.elec.count_alpha(labels, charge, spin)
+    nb = fermitools.chem.elec.count_beta(labels, charge, spin)
 
     # Integrals
-    h_ao = interface.integrals.core_hamiltonian(BASIS, LABELS, COORDS)
-    p_ao = interface.integrals.dipole(BASIS, LABELS, COORDS)
-    r_ao = interface.integrals.repulsion(BASIS, LABELS, COORDS)
-
-    # Orbitals
-    c_guess = interface.hf.unrestricted_orbitals(
-            BASIS, LABELS, COORDS, CHARGE, SPIN)
-    t2_guess = numpy.zeros((no, no, nv, nv))
-
-    # Solve ground state
-    en_elec, c, t2, info = fermitools.oo.odc12.solve(
-            na=na, nb=nb, h_ao=h_ao, r_ao=r_ao, c_guess=c_guess,
-            t2_guess=t2_guess, niter=OO_NITER, r_thresh=OO_RTHRESH)
-    en_nuc = fermitools.chem.nuc.energy(labels=LABELS, coords=COORDS)
-    en_tot = en_elec + en_nuc
-    print("\nGround state energy:")
-    print('{:20.15f}'.format(en_tot))
-
-    # LR inputs
-    ac, bc = c
-    aco, acv = numpy.split(ac, (na,), axis=1)
-    bco, bcv = numpy.split(bc, (nb,), axis=1)
-    co = (aco, bco)
-    cv = (acv, bcv)
-    hoo = fermitools.math.spinorb.transform_onebody(h_ao, (co, co))
-    hov = fermitools.math.spinorb.transform_onebody(h_ao, (co, cv))
-    hvv = fermitools.math.spinorb.transform_onebody(h_ao, (cv, cv))
-    poo = fermitools.math.spinorb.transform_onebody(p_ao, (co, co))
-    pov = fermitools.math.spinorb.transform_onebody(p_ao, (co, cv))
-    pvv = fermitools.math.spinorb.transform_onebody(p_ao, (cv, cv))
-    goooo = fermitools.math.spinorb.transform_twobody(r_ao, (co, co, co, co))
-    gooov = fermitools.math.spinorb.transform_twobody(r_ao, (co, co, co, cv))
-    goovv = fermitools.math.spinorb.transform_twobody(r_ao, (co, co, cv, cv))
-    govov = fermitools.math.spinorb.transform_twobody(r_ao, (co, cv, co, cv))
-    govvv = fermitools.math.spinorb.transform_twobody(r_ao, (co, cv, cv, cv))
-    gvvvv = fermitools.math.spinorb.transform_twobody(r_ao, (cv, cv, cv, cv))
-
-    m1oo, m1vv = fermitools.oo.odc12.onebody_density(t2)
-    foo = fermitools.oo.odc12.fock_xy(
-            hxy=hoo, goxoy=goooo, gxvyv=govov, m1oo=m1oo, m1vv=m1vv)
-    fov = fermitools.oo.odc12.fock_xy(
-            hxy=hov, goxoy=gooov, gxvyv=govvv, m1oo=m1oo, m1vv=m1vv)
-    fvv = fermitools.oo.odc12.fock_xy(
-            hxy=hvv, goxoy=govov, gxvyv=gvvvv, m1oo=m1oo, m1vv=m1vv)
-
-    # Evaluate dipole moment as expectation value
-    m1oo, m1vv = fermitools.oo.odc12.onebody_density(t2)
-    mu = numpy.array([numpy.vdot(pxoo, m1oo) + numpy.vdot(pxvv, m1vv)
-                      for pxoo, pxvv in zip(poo, pvv)])
-    print("<Psi|mu|Psi>:")
-    print(mu)
-
-    # Evaluate dipole polarizability by linear response
-    pg = fermitools.lr.odc12.property_gradient(
-            poo=poo, pov=pov, pvv=pvv, t2=t2)
-    a, b = fermitools.lr.odc12.hessian(
-            foo=foo, fov=fov, fvv=fvv, goooo=goooo, gooov=gooov, goovv=goovv,
-            govov=govov, govvv=govvv, gvvvv=gvvvv, t2=t2)
-    r = fermitools.lr.solve.static_response(a=a, b=b, pg=pg)
-    alpha = numpy.dot(r.T, pg)
-    print("<<mu; mu>>_0:")
-    print(alpha)
+    h_ao = interface.integrals.core_hamiltonian(basis, labels, coords)
+    p_ao = interface.integrals.dipole(basis, labels, coords)
+    r_ao = interface.integrals.repulsion(basis, labels, coords)
 
     # Differentiate
     en_f_ = en_f_function(
-            na=na, nb=nb, h_ao=h_ao, p_ao=p_ao, r_ao=r_ao, c_guess=c_guess,
-            t2_guess=t2, niter=200, r_thresh=1e-11)
+            na=na, nb=nb, h_ao=h_ao, p_ao=p_ao, r_ao=r_ao,
+            c_guess=oo_info['c'], t2_guess=oo_info['t2'], niter=200,
+            r_thresh=1e-11)
     en_elec = en_f_((0., 0., 0.))
     print(en_elec)
 
@@ -136,4 +85,4 @@ def test_main():
 
 
 if __name__ == '__main__':
-    test_main()
+    test__main()

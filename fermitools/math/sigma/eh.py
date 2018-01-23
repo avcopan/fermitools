@@ -6,7 +6,7 @@ import sys
 from ..ot import orth
 
 
-def eighg(a, b, neig, ad, bd, guess, niter=100, nvec=100, r_thresh=1e-6,
+def eighg(a, b, neig, ad, bd, guess, niter=100, nvec=100, r_thresh=1e-5,
           print_conv=True, highest=False):
     """solve for the lowest generalized eigenvalues of a hermitian matrix
 

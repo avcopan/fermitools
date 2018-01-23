@@ -11,20 +11,18 @@ def zero(x):
 
 def negative(f):
 
-    def _neg(x):
+    def _minus_f(x):
         return numpy.negative(f(x))
 
-    return _neg
+    return _minus_f
 
 
-def diag(ad):
+def add(f, g):
 
-    def _ad(x):
-        shp = numpy.shape(x)
-        x = x if numpy.ndim(x) == 2 else x[:, None]
-        return numpy.reshape(ad[:, None] * x, shp)
+    def _f_plus_g(x):
+        return numpy.add(f(x), g(x))
 
-    return _ad
+    return _f_plus_g
 
 
 def diagonal(a, dim):
