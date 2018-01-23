@@ -4,8 +4,8 @@ import fermitools
 
 
 def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
-             nguess=10, nvec=100, niter=50, rthresh=1e-7, oo_niter=200,
-             oo_rthresh=1e-10, interface=None):
+             nguess=10, nvec=100, niter=50, rthresh=1e-7, guess_random=False,
+             oo_niter=200, oo_rthresh=1e-10, interface=None):
     '''
     :param labels: nuclear labels
     :type labels: tuple
@@ -29,6 +29,8 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     :type niter: int
     :param rthresh: maximum residual for linear response
     :type rthresh: float
+    :param guess_random: use a random guess?
+    :type guess_random: bool
     :param oo_niter: number of iterations for orbital optimization
     :type oo_niter: int
     :param oo_rthresh: maximum residual for orbital optimization
@@ -103,7 +105,8 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     t = time.time()
     w, x, info = fermitools.lr.solve.spectrum(
             a=a, b=b, s=s, d=d, ad=ad, sd=sd, nroot=nroot, nguess=nguess,
-            nvec=nvec, niter=niter, r_thresh=rthresh)
+            nvec=nvec, niter=niter, r_thresh=rthresh,
+            guess_random=guess_random)
     print("\nExcitation energies:")
     print(w)
     print('time: {:8.1f}s'.format(time.time() - t))

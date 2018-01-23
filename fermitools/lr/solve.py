@@ -1,4 +1,5 @@
 import numpy
+from ..math import orth
 from ..math.sigma import add
 from ..math.sigma import bmat
 from ..math.sigma import negative
@@ -18,17 +19,16 @@ def static_response(a, b, pg, ad, nvec=100, niter=50, r_thresh=1e-5):
     return r, info
 
 
-def spectrum(a, b, s, d, ad, sd, nroot=1, nguess=None, nvec=None, niter=50,
-             r_thresh=1e-6):
-    nguess = 2 if nguess is None else nguess
-    nvec = 2 if nvec is None else nvec
-
+def spectrum(a, b, s, d, ad, sd, nroot=1, nguess=10, nvec=100, niter=50,
+             r_thresh=1e-7, guess_random=False):
     e = bmat([[a, b], [b, a]], 2)
     m = bmat([[s, d], [negative(d), negative(s)]], 2)
     ed = numpy.concatenate((+ad, +ad))
     md = numpy.concatenate((+sd, -sd))
+    dim = len(ed)
 
-    guess = evec_guess(md, nguess*nroot, bd=ed, highest=True)
+    guess = (orth(numpy.random.random((dim, nguess*nroot))) if guess_random
+             else evec_guess(md, nguess*nroot, bd=ed, highest=True))
     v, u, info = eighg(
             a=m, b=e, neig=nroot, ad=md, bd=ed, guess=guess,
             r_thresh=r_thresh, nvec=nvec*nroot, niter=niter, highest=True)

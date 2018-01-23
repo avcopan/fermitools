@@ -24,10 +24,11 @@ def test__main():
             basis='sto-3g',
             angstrom=False,
             nroot=nroot,
-            nguess=10,              # number of guess vectors per root
+            nguess=1,               # number of guess vectors per root
             nvec=100,               # max number of subspace vectors per root
             niter=50,               # number of iterations
             rthresh=1e-6,           # convergence threshold
+            guess_random=True,      # use a random guess?
             oo_niter=200,           # number of iterations for ground state
             oo_rthresh=1e-10,       # convergence threshold for ground state
             interface=interface)    # interface for computing integrals
