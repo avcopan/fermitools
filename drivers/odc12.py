@@ -49,6 +49,7 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
 
     # Integrals
     h_ao = interface.integrals.core_hamiltonian(basis, labels, coords)
+    p_ao = interface.integrals.dipole(basis, labels, coords)
     r_ao = interface.integrals.repulsion(basis, labels, coords)
 
     # Mean-field guess orbitals
@@ -78,6 +79,9 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     hoo = fermitools.math.spinorb.transform_onebody(h_ao, (co, co))
     hov = fermitools.math.spinorb.transform_onebody(h_ao, (co, cv))
     hvv = fermitools.math.spinorb.transform_onebody(h_ao, (cv, cv))
+    poo = fermitools.math.spinorb.transform_onebody(p_ao, (co, co))
+    pov = fermitools.math.spinorb.transform_onebody(p_ao, (co, cv))
+    pvv = fermitools.math.spinorb.transform_onebody(p_ao, (cv, cv))
     goooo = fermitools.math.spinorb.transform_twobody(r_ao, (co, co, co, co))
     gooov = fermitools.math.spinorb.transform_twobody(r_ao, (co, co, co, cv))
     goovv = fermitools.math.spinorb.transform_twobody(r_ao, (co, co, cv, cv))
@@ -93,6 +97,7 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     fvv = fermitools.oo.odc12.fock_xy(
             hxy=hvv, goxoy=govov, gxvyv=gvvvv, m1oo=m1oo, m1vv=m1vv)
 
+    # Compute spectrum by linear response
     sd = fermitools.lr.odc12.metric_zeroth_order_diagonal(no, nv)
     ad = fermitools.lr.odc12.hessian_zeroth_order_diagonal(
             foo=foo, fvv=fvv, t2=t2)
@@ -103,7 +108,7 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
             govov=govov, govvv=govvv, gvvvv=gvvvv, t2=t2)
 
     t = time.time()
-    w, x, info = fermitools.lr.solve.spectrum(
+    w, x, osc_norms, info = fermitools.lr.solve.spectrum(
             a=a, b=b, s=s, d=d, ad=ad, sd=sd, nroot=nroot, nguess=nguess,
             nvec=nvec, niter=niter, r_thresh=rthresh,
             guess_random=guess_random)
@@ -111,7 +116,17 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     print(w)
     print('time: {:8.1f}s'.format(time.time() - t))
 
-    return w, x, info, oo_info
+    # Copmute the transition dipoles
+    pg = fermitools.lr.odc12.property_gradient(
+            poo=poo, pov=pov, pvv=pvv, t2=t2)
+    v = numpy.concatenate((pg, pg))
+    t = numpy.dot(x.T, v)
+    mu_trans = osc_norms[:, None] * t * t
+
+    print("\nTransition dipoles")
+    print(mu_trans.round(12))
+
+    return w, x, mu_trans, info, oo_info
 
 
 def dipole_polarizability(labels, coords, charge, spin, basis, angstrom=False,

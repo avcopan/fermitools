@@ -83,7 +83,7 @@ def test_main():
             foo=foo, fov=fov, fvv=fvv, goooo=goooo, gooov=gooov, goovv=goovv,
             govov=govov, govvv=govvv, gvvvv=gvvvv, t2=t2)
 
-    w, u, info = fermitools.lr.solve.spectrum(
+    w, x, mu_trans, info = fermitools.lr.solve.spectrum(
             a=a, b=b, s=s, d=d, ad=ad, sd=sd, nroot=LR_NROOT, nguess=LR_NGUESS,
             nvec=LR_NVEC, niter=LR_NITER, r_thresh=LR_RTHRESH)
     print(w)
