@@ -6,7 +6,7 @@ from ..ot import orth
 
 
 def eighg(a, b, neig, ad, bd, guess, niter=100, nvec=100, r_thresh=1e-6,
-          print_conv=True):
+          print_conv=True, highest=False):
     """solve for the lowest generalized eigenvalues of a hermitian matrix
 
     :param a: the matrix, as a callable linear operator
@@ -27,6 +27,10 @@ def eighg(a, b, neig, ad, bd, guess, niter=100, nvec=100, r_thresh=1e-6,
     :type nvec: int
     :param r_thresh: residual convergence threshold
     :type r_thresh: float
+    :param print_conv: print convergence info?
+    :type print_conv: bool
+    :param highest: compute the highest roots, instead of the lowest ones?
+    :type highest: bool
 
     :returns: eigenvalues, eigenvectors, convergence info
     :rtype: (numpy.ndarray, numpy.ndarray, dict)
@@ -35,6 +39,8 @@ def eighg(a, b, neig, ad, bd, guess, niter=100, nvec=100, r_thresh=1e-6,
 
     v1 = guess
     av = bv = v = numpy.zeros((dim, 0))
+
+    slc = slice(None, neig) if not highest else slice(None, -neig-1, -1)
 
     for iteration in range(niter):
         v = numpy.concatenate((v, v1), axis=1)
@@ -47,8 +53,8 @@ def eighg(a, b, neig, ad, bd, guess, niter=100, nvec=100, r_thresh=1e-6,
 
         vals, vecs = scipy.linalg.eigh(a=a_red, b=b_red)
 
-        w = vals[:neig]
-        u = vecs[:, :neig]
+        w = vals[slc]
+        u = vecs[:, slc]
 
         x = numpy.dot(v, u)
         ax = numpy.dot(av, u)
@@ -63,6 +69,8 @@ def eighg(a, b, neig, ad, bd, guess, niter=100, nvec=100, r_thresh=1e-6,
 
         if print_conv:
             print(info)
+            # (TEMPORARY HACK -- DELETE THIS LATER)
+            print(1/w)
 
         if converged:
             break

@@ -25,10 +25,10 @@ def spectrum(a, b, s, d, ad, sd, nroot=1, nguess=None, nvec=None, niter=50,
     ed = numpy.concatenate((+ad, +ad))
     md = numpy.concatenate((+sd, -sd))
 
-    guess = evec_guess(md, nguess*nroot, bd=ed)
+    guess = evec_guess(md, nguess*nroot, bd=ed, highest=True)
     v, u, info = eighg(
             a=m, b=e, neig=nroot, ad=md, bd=ed, guess=guess,
-            r_thresh=r_thresh, nvec=nvec*nroot, niter=niter)
-    w = -1. / v
+            r_thresh=r_thresh, nvec=nvec*nroot, niter=niter, highest=True)
+    w = 1. / v
 
     return w, u, info
