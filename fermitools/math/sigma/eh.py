@@ -68,9 +68,9 @@ def eighg(a, b, neig, ad, bd, guess, niter=100, nvec=100, r_thresh=1e-6,
         converged = r_max < r_thresh
 
         if print_conv:
-            print(info)
+            print(info, flush=True)
             # (TEMPORARY HACK -- DELETE THIS LATER)
-            print(1/w)
+            print(1/w, flush=True)
 
         if converged:
             break
