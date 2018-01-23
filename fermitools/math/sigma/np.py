@@ -17,7 +17,17 @@ def negative(f):
     return _neg
 
 
-def diag(a, dim):
+def diag(ad):
+
+    def _ad(x):
+        shp = numpy.shape(x)
+        x = x if numpy.ndim(x) == 2 else x[:, None]
+        return numpy.reshape(ad[:, None] * x, shp)
+
+    return _ad
+
+
+def diagonal(a, dim):
     """diagonal matrix elements of a linear operator
 
     :param a: linear operator

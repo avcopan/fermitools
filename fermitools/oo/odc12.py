@@ -1,6 +1,7 @@
 import numpy
 import scipy.linalg
 import warnings
+import sys
 
 from ..math import expm
 from ..math import einsum
@@ -70,7 +71,8 @@ def solve(na, nb, h_ao, r_ao, c_guess, t2_guess, niter=50, r_thresh=1e-8,
         converged = r1_max < r_thresh and r2_max < r_thresh
 
         if print_conv:
-            print(info, flush=True)
+            print(info)
+            sys.stdout.flush()
 
         if converged:
             break

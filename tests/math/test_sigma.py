@@ -54,8 +54,8 @@ def test__eigh():
     print(vals)
     print(DT)
 
-    ad = fermitools.math.sigma.diag(a_, dim)
-    bd = fermitools.math.sigma.diag(b_, dim)
+    ad = fermitools.math.sigma.diagonal(a_, dim)
+    bd = fermitools.math.sigma.diagonal(b_, dim)
     w, u, info = sigma.eighg(
             a=a_, b=b_, neig=neig, ad=ad, bd=bd, guess=U, r_thresh=r_thresh,
             nvec=nvec)
@@ -105,7 +105,7 @@ def test__eighg():
     print(vals)
     print(DT)
 
-    bd = fermitools.math.sigma.diag(b_, dim)
+    bd = fermitools.math.sigma.diagonal(b_, dim)
     sd = -numpy.ones(dim)
     w, u, info = sigma.eighg(
             a=s_, b=b_, neig=neig, ad=sd, bd=bd, guess=U, r_thresh=r_thresh,
