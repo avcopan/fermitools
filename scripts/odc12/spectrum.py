@@ -4,9 +4,10 @@ import interfaces.psi4 as interface
 # import interfaces.pyscf as interface
 
 LABELS = ('O', 'H', 'H')
-COORDS = ((0.000000000000,  0.000000000000, -0.143225816552),
-          (0.000000000000,  1.638036840407,  1.136548822547),
-          (0.000000000000, -1.638036840407,  1.136548822547))
+COORDS = ((0.0000000000,  0.0000000000, -0.0678898741),
+          (0.0000000000, -0.7507081111,  0.5387307840),
+          (0.0000000000,  0.7507081111,  0.5387307840))
+
 
 w, x, info, oo_info = drivers.odc12.spectrum(
         labels=LABELS,
@@ -14,7 +15,7 @@ w, x, info, oo_info = drivers.odc12.spectrum(
         charge=0,
         spin=0,
         basis='cc-pvdz',
-        angstrom=False,
+        angstrom=True,
         nroot=7,
         nguess=10,              # number of guess vectors per root
         nvec=100,               # max number of subspace vectors per root

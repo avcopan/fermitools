@@ -55,11 +55,11 @@ def eighg(a, b, neig, ad, bd, guess, niter=100, nvec=100, r_thresh=1e-5,
         vals, vecs = scipy.linalg.eigh(a=a_red, b=b_red)
 
         w = vals[slc]
-        u = vecs[:, slc]
+        x_red = vecs[:, slc]
 
-        x = numpy.dot(v, u)
-        ax = numpy.dot(av, u)
-        bx = numpy.dot(bv, u)
+        x = numpy.dot(v, x_red)
+        ax = numpy.dot(av, x_red)
+        bx = numpy.dot(bv, x_red)
 
         r = ax - bx * w
         r_max = numpy.amax(numpy.abs(r))
