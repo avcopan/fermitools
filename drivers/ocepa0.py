@@ -59,7 +59,7 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
 
     # Solve ground state
     t = time.time()
-    en_elec, c, t2, info = fermitools.oo.odc12.solve(
+    en_elec, c, t2, info = fermitools.oo.ocepa0.solve(
             na=na, nb=nb, h_ao=h_ao, r_ao=r_ao, c_guess=c_guess,
             t2_guess=t2_guess, niter=oo_niter, r_thresh=oo_rthresh,
             print_conv=True)
@@ -89,21 +89,16 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     govvv = fermitools.math.spinorb.transform_twobody(r_ao, (co, cv, cv, cv))
     gvvvv = fermitools.math.spinorb.transform_twobody(r_ao, (cv, cv, cv, cv))
 
-    m1oo, m1vv = fermitools.oo.odc12.onebody_density(t2)
-    foo = fermitools.oo.odc12.fock_xy(
-            hxy=hoo, goxoy=goooo, gxvyv=govov, m1oo=m1oo, m1vv=m1vv)
-    fov = fermitools.oo.odc12.fock_xy(
-            hxy=hov, goxoy=gooov, gxvyv=govvv, m1oo=m1oo, m1vv=m1vv)
-    fvv = fermitools.oo.odc12.fock_xy(
-            hxy=hvv, goxoy=govov, gxvyv=gvvvv, m1oo=m1oo, m1vv=m1vv)
+    foo = fermitools.oo.ocepa0.fock_xy(hxy=hoo, goxoy=goooo)
+    fov = fermitools.oo.ocepa0.fock_xy(hxy=hov, goxoy=gooov)
+    fvv = fermitools.oo.ocepa0.fock_xy(hxy=hvv, goxoy=govov)
 
     # Compute spectrum by linear response
-    sd = fermitools.lr.odc12.metric_zeroth_order_diagonal(no, nv)
-    ad = fermitools.lr.odc12.hessian_zeroth_order_diagonal(
-            foo=foo, fvv=fvv, t2=t2)
+    sd = fermitools.lr.ocepa0.metric_zeroth_order_diagonal(no, nv)
+    ad = fermitools.lr.ocepa0.hessian_zeroth_order_diagonal(foo=foo, fvv=fvv)
 
-    s, d = fermitools.lr.odc12.metric(t2=t2)
-    a, b = fermitools.lr.odc12.hessian(
+    s, d = fermitools.lr.ocepa0.metric(t2=t2)
+    a, b = fermitools.lr.ocepa0.hessian(
             foo=foo, fov=fov, fvv=fvv, goooo=goooo, gooov=gooov, goovv=goovv,
             govov=govov, govvv=govvv, gvvvv=gvvvv, t2=t2)
 
@@ -117,7 +112,7 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     print('time: {:8.1f}s'.format(time.time() - t))
 
     # Copmute the transition dipoles
-    pg = fermitools.lr.odc12.property_gradient(
+    pg = fermitools.lr.ocepa0.property_gradient(
             poo=poo, pov=pov, pvv=pvv, t2=t2)
     mu_trans = fermitools.lr.transition_dipole(
             s=s, d=d, pg=pg, x=x, y=y)
@@ -182,7 +177,7 @@ def dipole_polarizability(labels, coords, charge, spin, basis, angstrom=False,
 
     # Solve ground state
     t = time.time()
-    en_elec, c, t2, info = fermitools.oo.odc12.solve(
+    en_elec, c, t2, info = fermitools.oo.ocepa0.solve(
             na=na, nb=nb, h_ao=h_ao, r_ao=r_ao, c_guess=c_guess,
             t2_guess=t2_guess, niter=oo_niter, r_thresh=oo_rthresh,
             print_conv=True)
@@ -212,28 +207,24 @@ def dipole_polarizability(labels, coords, charge, spin, basis, angstrom=False,
     govvv = fermitools.math.spinorb.transform_twobody(r_ao, (co, cv, cv, cv))
     gvvvv = fermitools.math.spinorb.transform_twobody(r_ao, (cv, cv, cv, cv))
 
-    m1oo, m1vv = fermitools.oo.odc12.onebody_density(t2)
-    foo = fermitools.oo.odc12.fock_xy(
-            hxy=hoo, goxoy=goooo, gxvyv=govov, m1oo=m1oo, m1vv=m1vv)
-    fov = fermitools.oo.odc12.fock_xy(
-            hxy=hov, goxoy=gooov, gxvyv=govvv, m1oo=m1oo, m1vv=m1vv)
-    fvv = fermitools.oo.odc12.fock_xy(
-            hxy=hvv, goxoy=govov, gxvyv=gvvvv, m1oo=m1oo, m1vv=m1vv)
+    foo = fermitools.oo.ocepa0.fock_xy(hxy=hoo, goxoy=goooo)
+    fov = fermitools.oo.ocepa0.fock_xy(hxy=hov, goxoy=gooov)
+    fvv = fermitools.oo.ocepa0.fock_xy(hxy=hvv, goxoy=govov)
 
     # Evaluate dipole moment as expectation value
+    m1oo, m1vv = fermitools.oo.ocepa0.onebody_density(t2)
     mu = numpy.array([numpy.vdot(pxoo, m1oo) + numpy.vdot(pxvv, m1vv)
                       for pxoo, pxvv in zip(poo, pvv)])
     print("Electric dipole:")
     print(mu.round(12))
 
     # Evaluate dipole polarizability by linear response
-    pg = fermitools.lr.odc12.property_gradient(
+    pg = fermitools.lr.ocepa0.property_gradient(
             poo=poo, pov=pov, pvv=pvv, t2=t2)
-    a, b = fermitools.lr.odc12.hessian(
+    a, b = fermitools.lr.ocepa0.hessian(
             foo=foo, fov=fov, fvv=fvv, goooo=goooo, gooov=gooov, goovv=goovv,
             govov=govov, govvv=govvv, gvvvv=gvvvv, t2=t2)
-    ad = fermitools.lr.odc12.hessian_zeroth_order_diagonal(
-            foo=foo, fvv=fvv, t2=t2)
+    ad = fermitools.lr.ocepa0.hessian_zeroth_order_diagonal(foo=foo, fvv=fvv)
     t = time.time()
     r, info = fermitools.lr.solve.static_response(
             a=a, b=b, pg=pg, ad=ad, nvec=nvec, niter=niter, r_thresh=rthresh)

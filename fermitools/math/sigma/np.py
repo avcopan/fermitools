@@ -25,6 +25,14 @@ def add(f, g):
     return _f_plus_g
 
 
+def subtract(f, g):
+
+    def _f_minus_g(x):
+        return numpy.subtract(f(x), g(x))
+
+    return _f_minus_g
+
+
 def diagonal(a, dim):
     """diagonal matrix elements of a linear operator
 
@@ -47,11 +55,11 @@ def bmat(fmatrix, indices_or_sections):
     return _bmat
 
 
-def block_diag(fvec, indices_or_sections):
+def block_diag(fs, indices_or_sections):
 
     def _bdiag(x):
         xs = numpy.split(x, indices_or_sections, axis=0)
-        fxs = [f(x) for f, x in zip(fvec, xs)]
+        fxs = [f(x) for f, x in zip(fs, xs)]
         return numpy.concatenate(fxs, axis=0)
 
     return _bdiag
