@@ -29,11 +29,9 @@ def spectrum(a, b, s, d, ad, sd, nroot=1, nguess=10, nvec=100, niter=50,
 
     guess = (orth(numpy.random.random((dim, nguess*nroot))) if guess_random
              else evec_guess(md, nguess*nroot, bd=ed, highest=True))
-    v, x, info = eighg(
+    w_inv, z, info = eighg(
             a=m, b=e, neig=nroot, ad=md, bd=ed, guess=guess,
             r_thresh=r_thresh, nvec=nvec*nroot, niter=niter, highest=True)
-    w = 1. / v
-
-    osc_norms = numpy.diag(numpy.dot(x.T, m(x)))
-
-    return w, x, osc_norms, info
+    w = 1. / w_inv
+    x, y = numpy.split(z, 2)
+    return w, x, y, info
