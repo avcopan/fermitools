@@ -1,6 +1,7 @@
 import time
 import numpy
 import fermitools
+import sys
 
 
 def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
@@ -57,6 +58,8 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
             basis, labels, coords, charge, spin)
     t2_guess = numpy.zeros((no, no, nv, nv))
 
+    print("Running ODC-12 ground-state and linear response computation...\n")
+
     # Solve ground state
     t = time.time()
     en_elec, c, t2, info = fermitools.oo.odc12.solve(
@@ -66,11 +69,15 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     en_nuc = fermitools.chem.nuc.energy(labels=labels, coords=coords)
     en_tot = en_elec + en_nuc
     oo_info = {'en_tot': en_tot, 't2': t2, 'c': c, **info}
-    print("\nGround state energy:")
-    print('{:20.15f}'.format(en_tot))
-    print('time: {:8.1f}s'.format(time.time() - t))
+    print("\nODC-12 ground state energy: {:20.15f}".format(en_tot))
+    print('ODC-12 ground state time: {:8.1f}s'.format(time.time() - t))
+    sys.stdout.flush()
 
     # LR inputs
+    print("\nTransforming the integrals and computing the density matrices...")
+    sys.stdout.flush()
+    t = time.time()
+
     ac, bc = c
     aco, acv = numpy.split(ac, (na,), axis=1)
     bco, bcv = numpy.split(bc, (nb,), axis=1)
@@ -107,14 +114,20 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
             foo=foo, fov=fov, fvv=fvv, goooo=goooo, gooov=gooov, goovv=goovv,
             govov=govov, govvv=govvv, gvvvv=gvvvv, t2=t2)
 
+    print('Integrals and density matrices time: {:8.1f}s\n'.format(time.time() - t))
+    sys.stdout.flush()
+
     t = time.time()
     w, x, osc_norms, info = fermitools.lr.solve.spectrum(
             a=a, b=b, s=s, d=d, ad=ad, sd=sd, nroot=nroot, nguess=nguess,
             nvec=nvec, niter=niter, r_thresh=rthresh,
             guess_random=guess_random)
-    print("\nExcitation energies:")
-    print(w)
-    print('time: {:8.1f}s'.format(time.time() - t))
+    print("\nODC-12 excitation energies (in a.u.):")
+    print(w.reshape(-1, 1))
+    print("\nODC-12 excitation energies (in eV):")
+    print(w.reshape(-1, 1)*27.2114)
+    print('\nODC-12 linear response total time: {:8.1f}s'.format(time.time() - t))
+    sys.stdout.flush()
 
     # Copmute the transition dipoles
     pg = fermitools.lr.odc12.property_gradient(
@@ -123,8 +136,11 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     t = numpy.dot(x.T, v)
     mu_trans = osc_norms[:, None] * t * t
 
-    print("\nTransition dipoles")
+    print("\nODC-12 transition dipoles (a.u.):")
     print(mu_trans.round(12))
+    print("\nODC-12 norm of transition dipoles (a.u.):")
+    print(numpy.sqrt(numpy.diag(numpy.dot(mu_trans,mu_trans.T)).reshape(-1, 1)).round(12))
+    sys.stdout.flush()
 
     return w, x, mu_trans, info, oo_info
 
