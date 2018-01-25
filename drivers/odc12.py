@@ -114,7 +114,8 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
             foo=foo, fov=fov, fvv=fvv, goooo=goooo, gooov=gooov, goovv=goovv,
             govov=govov, govvv=govvv, gvvvv=gvvvv, t2=t2)
 
-    print('Integrals and density matrices time: {:8.1f}s\n'.format(time.time() - t))
+    print('Integrals and density matrices time: {:8.1f}s\n'
+          .format(time.time() - t))
     sys.stdout.flush()
 
     t = time.time()
@@ -126,7 +127,8 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     print(w.reshape(-1, 1))
     print("\nODC-12 excitation energies (in eV):")
     print(w.reshape(-1, 1)*27.2114)
-    print('\nODC-12 linear response total time: {:8.1f}s'.format(time.time() - t))
+    print('\nODC-12 linear response total time: {:8.1f}s'
+          .format(time.time() - t))
     sys.stdout.flush()
 
     # Copmute the transition dipoles
@@ -138,7 +140,8 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     print("\nODC-12 transition dipoles (a.u.):")
     print(mu_trans.round(12))
     print("\nODC-12 norm of transition dipoles (a.u.):")
-    print(numpy.sqrt(numpy.diag(numpy.dot(mu_trans,mu_trans.T)).reshape(-1, 1)).round(12))
+    print(numpy.sqrt(numpy.diag(numpy.dot(mu_trans, mu_trans.T))
+          .reshape(-1, 1)).round(12))
     sys.stdout.flush()
 
     return w, x, y, mu_trans, info, oo_info

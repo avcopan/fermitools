@@ -48,7 +48,7 @@ def megaunraveler(d):
     d2 = dict(enumerate(zip(iter_uaxes2, iter_udims2)))
     uravf1 = ordinary_unraveler(dict(zip(raxes1, iter_uaxes1)))
     uravf2 = unraveler(d2)
-    return functoolz.compose(uravf2, uravf1)
+    return functoolz.compose(numpy.ascontiguousarray, uravf2, uravf1)
 
 
 def unravel(a, d):

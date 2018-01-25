@@ -47,8 +47,7 @@ def hessian(foo, fov, fvv, goooo, gooov, goovv, govov, govvv, gvvvv, t2):
     u2 = megaunraveler({0: {(0, 1): no, (2, 3): nv}})
 
     a11u, b11u = onebody_hessian(foo, fvv, goooo, goovv, govov, gvvvv, t2)
-    a12u, b12u = mixed_upper_hessian(fov, gooov, govvv, t2)
-    a21u, b21u = mixed_lower_hessian(fov, gooov, govvv, t2)
+    a12u, b12u, a21u, b21u = mixed_hessian(fov, gooov, govvv, t2)
     a22u, b22u = twobody_hessian(foo, fvv, goooo, govov, gvvvv)
     a11 = functoolz.compose(r1, a11u, u1)
     b11 = functoolz.compose(r1, b11u, u1)
@@ -119,7 +118,7 @@ def onebody_hessian(foo, fvv, goooo, goovv, govov, gvvvv, t2):
     fsvv = (fcvv + numpy.transpose(fcvv)) / 2.
 
     def _a11(r1):
-        return (
+        a11 = (
             + einsum('ab,ib...->ia...', fvv, r1)
             - einsum('ab,ib...->ia...', fsvv, r1)
             - einsum('ij,ja...->ia...', fsoo, r1)
@@ -138,9 +137,10 @@ def onebody_hessian(foo, fvv, goooo, goovv, govov, gvvvv, t2):
             - einsum('ibme,mkac,jkec,jb...->ia...', govov, t2, t2, r1)
             - einsum('jame,mkbc,ikec,jb...->ia...', govov, t2, t2, r1)
             - einsum('aebf,jkec,ikfc,jb...->ia...', gvvvv, t2, t2, r1))
+        return a11
 
     def _b11(r1):
-        return (
+        b11 = (
             + einsum('ijab,jb...->ia...', goovv, r1)
             + einsum('jema,imbe,jb...->ia...', govov, t2, r1)
             + einsum('iemb,jmae,jb...->ia...', govov, t2, r1)
@@ -154,15 +154,16 @@ def onebody_hessian(foo, fvv, goooo, goovv, govov, gvvvv, t2):
             + 1./4 * einsum('ijef,klef,klab,jb...->ia...', goovv, t2, t2, r1)
             - einsum('imbe,mkec,jkac,jb...->ia...', goovv, t2, t2, r1)
             - einsum('jmae,mkec,ikbc,jb...->ia...', goovv, t2, t2, r1))
+        return b11
 
     return _a11, _b11
 
 
-def mixed_upper_hessian(fov, gooov, govvv, t2):
+def mixed_hessian(fov, gooov, govvv, t2):
     ioo, ivv = _mixed_interaction(fov, gooov, govvv)
 
     def _a12(r2):
-        return (
+        a12 = (
             + 1./2 * einsum('lacd,ilcd...->ia...', govvv, r2)
             + 1./2 * einsum('klid,klad...->ia...', gooov, r2)
             + 1./2 * einsum('iakm,mlcd,klcd...->ia...', ioo, t2, r2)
@@ -171,66 +172,53 @@ def mixed_upper_hessian(fov, gooov, govvv, t2):
             + einsum('imke,mled,klad...->ia...', gooov, t2, r2)
             + 1./4 * einsum('mnla,mncd,ilcd...->ia...', gooov, t2, r2)
             + 1./4 * einsum('idef,klef,klad...->ia...', govvv, t2, r2))
+        return a12
 
     def _b12(r2):
-        return (
+        b12 = (
             + 1./2 * einsum('iamk,mlcd,klcd...->ia...', ioo, t2, r2)
             - 1./2 * einsum('iace,kled,klcd...->ia...', ivv, t2, r2)
             + einsum('lead,kice,klcd...->ia...', govvv, t2, r2)
             + einsum('ilmd,kmca,klcd...->ia...', gooov, t2, r2)
             - 1./4 * einsum('klma,micd,klcd...->ia...', gooov, t2, r2)
             - 1./4 * einsum('iecd,klea,klcd...->ia...', govvv, t2, r2))
-
-    return _a12, _b12
-
-
-def mixed_lower_hessian(fov, gooov, govvv, t2):
-    ioo, ivv = _mixed_interaction(fov, gooov, govvv)
+        return b12
 
     def _a21(r1):
-        return (
-            + asm('0/1')(
-                einsum('jcab,ic...->ijab...', govvv, r1))
-            + asm('2/3')(
-                einsum('ijkb,ka...->ijab...', gooov, r1))
-            + asm('0/1')(
-                einsum('kcim,mjab,kc...->ijab...', ioo, t2, r1))
-            - asm('2/3')(
-                einsum('kcea,ijeb,kc...->ijab...', ivv, t2, r1))
-            + asm('0/1|2/3')(
-                einsum('mace,mjeb,ic...->ijab...', govvv, t2, r1))
-            + asm('0/1|2/3')(
-                einsum('kmie,mjeb,ka...->ijab...', gooov, t2, r1))
-            + 1./2 * asm('0/1')(
-                einsum('mnjc,mnab,ic...->ijab...', gooov, t2, r1))
-            + 1./2 * asm('2/3')(
-                einsum('kbef,ijef,ka...->ijab...', govvv, t2, r1)))
+        a21 = asm('0/1|2/3')(
+            + 1./2 * einsum('jcab,ic...->ijab...', govvv, r1)
+            + 1./2 * einsum('ijkb,ka...->ijab...', gooov, r1)
+            + 1./2 * einsum('kcim,mjab,kc...->ijab...', ioo, t2, r1)
+            - 1./2 * einsum('kcea,ijeb,kc...->ijab...', ivv, t2, r1)
+            + einsum('mace,mjeb,ic...->ijab...', govvv, t2, r1)
+            + einsum('kmie,mjeb,ka...->ijab...', gooov, t2, r1)
+            + 1./4 * einsum('mnjc,mnab,ic...->ijab...', gooov, t2, r1)
+            + 1./4 * einsum('kbef,ijef,ka...->ijab...', govvv, t2, r1))
+        return a21
 
     def _b21(r1):
-        return (
-            + asm('0/1')(
-                einsum('kcmi,mjab,kc...->ijab...', ioo, t2, r1))
-            - asm('2/3')(
-                einsum('kcae,ijeb,kc...->ijab...', ivv, t2, r1))
-            + asm('0/1|2/3')(
-                einsum('jecb,ikae,kc...->ijab...', govvv, t2, r1))
-            + asm('0/1|2/3')(
-                einsum('kjmb,imac,kc...->ijab...', gooov, t2, r1))
-            - einsum('ijmc,mkab,kc...->ijab...', gooov, t2, r1)
-            - einsum('keab,ijec,kc...->ijab...', govvv, t2, r1))
+        b21 = asm('0/1|2/3')(
+            + 1./2 * einsum('kcmi,mjab,kc...->ijab...', ioo, t2, r1)
+            - 1./2 * einsum('kcae,ijeb,kc...->ijab...', ivv, t2, r1)
+            + einsum('jecb,ikae,kc...->ijab...', govvv, t2, r1)
+            + einsum('kjmb,imac,kc...->ijab...', gooov, t2, r1)
+            - 1./4 * einsum('ijmc,mkab,kc...->ijab...', gooov, t2, r1)
+            - 1./4 * einsum('keab,ijec,kc...->ijab...', govvv, t2, r1))
+        return b21
 
-    return _a21, _b21
+    return _a12, _b12, _a21, _b21
 
 
 def twobody_hessian(foo, fvv, goooo, govov, gvvvv):
 
     def _a22(r2):
-        return (
-            + asm('2/3')(einsum('ac,ijcb...->ijab...', fvv, r2))
-            - asm('0/1')(einsum('ik,kjab...->ijab...', foo, r2))
-            + 1./2 * einsum('abcd,ijcd...->ijab...', gvvvv, r2)
-            + 1./2 * einsum('ijkl,klab...->ijab...', goooo, r2)
-            - asm('0/1|2/3')(einsum('jcla,ilcb...->ijab...', govov, r2)))
+        a22 = asm('0/1|2/3')(
+            + 1./2 * einsum('ac,ijcb...->ijab...', fvv, r2)
+            - 1./2 * einsum('ik,kjab...->ijab...', foo, r2)
+            + 1./8 * einsum('abcd,ijcd...->ijab...', gvvvv, r2)
+            + 1./8 * einsum('ijkl,klab...->ijab...', goooo, r2)
+            - einsum('jcla,ilcb...->ijab...', govov, r2))
+        return a22
 
     _b22 = zero
 
@@ -253,8 +241,10 @@ def _mixed_interaction(fov, gooov, govvv):
     no, nv = fov.shape
     io = numpy.eye(no)
     iv = numpy.eye(nv)
-    ioo = (+ einsum('ik,la->iakl', io, fov)
-           - einsum('ilka->iakl', gooov))
-    ivv = (- einsum('ac,id->iadc', iv, fov)
-           + einsum('icad->iadc', govvv))
+    ioo = numpy.ascontiguousarray(
+            + einsum('ik,la->iakl', io, fov)
+            - einsum('ilka->iakl', gooov))
+    ivv = numpy.ascontiguousarray(
+            - einsum('ac,id->iadc', iv, fov)
+            + einsum('icad->iadc', govvv))
     return ioo, ivv

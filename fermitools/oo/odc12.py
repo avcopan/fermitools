@@ -110,7 +110,8 @@ def fancy_property(pxx, m1xx):
     ax1, ax2 = pxx.ndim - 2, pxx.ndim - 1
     n1xx = broadcast_sum({ax1: nx, ax2: nx}) - 1
     tfpxx = transform(pxx, (ux, ux)) / n1xx
-    fpxx = transform(tfpxx, (ux.T, ux.T))
+    uxt = numpy.ascontiguousarray(numpy.transpose(ux))
+    fpxx = transform(tfpxx, (uxt, uxt))
     return fpxx
 
 

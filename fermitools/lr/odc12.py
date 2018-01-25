@@ -56,8 +56,7 @@ def hessian(foo, fov, fvv, goooo, gooov, goovv, govov, govvv, gvvvv, t2):
     u2 = megaunraveler({0: {(0, 1): no, (2, 3): nv}})
 
     a11u, b11u = onebody_hessian(foo, fvv, goooo, goovv, govov, gvvvv, t2)
-    a12u, b12u = mixed_upper_hessian(fov, gooov, govvv, t2)
-    a21u, b21u = mixed_lower_hessian(fov, gooov, govvv, t2)
+    a12u, b12u, a21u, b21u = mixed_hessian(fov, gooov, govvv, t2)
     a22u, b22u = twobody_hessian(foo, fvv, goooo, govov, gvvvv, t2)
     a11 = functoolz.compose(r1, a11u, u1)
     b11 = functoolz.compose(r1, b11u, u1)
@@ -128,7 +127,7 @@ def onebody_hessian(foo, fvv, goooo, goovv, govov, gvvvv, t2):
     fsvv = (fcvv + numpy.transpose(fcvv)) / 2.
 
     def _a11(r1):
-        return (
+        a11 = (
             - einsum('ab,ib...->ia...', fsvv, r1)
             - einsum('ij,ja...->ia...', fsoo, r1)
             + einsum('ij,ab,jb...->ia...', foo, m1vv, r1)
@@ -143,9 +142,10 @@ def onebody_hessian(foo, fvv, goooo, goovv, govov, gvvvv, t2):
             - einsum('aebf,jkec,ikfc,jb...->ia...', gvvvv, t2, t2, r1)
             - einsum('ibme,mkac,jkec,jb...->ia...', govov, t2, t2, r1)
             - einsum('jame,mkbc,ikec,jb...->ia...', govov, t2, t2, r1))
+        return a11
 
     def _b11(r1):
-        return (
+        b11 = (
             + einsum('jema,imbe,jb...->ia...', govov, t2, r1)
             + einsum('iemb,jmae,jb...->ia...', govov, t2, r1)
             + 1./2 * einsum('ijmn,mnab,jb...->ia...', goooo, t2, r1)
@@ -158,16 +158,17 @@ def onebody_hessian(foo, fvv, goooo, goovv, govov, gvvvv, t2):
             - einsum('imbe,mkec,jkac,jb...->ia...', goovv, t2, t2, r1)
             - einsum('jmae,mkec,ikbc,jb...->ia...', goovv, t2, t2, r1)
             + 1./4 * einsum('ijef,klef,klab,jb...->ia...', goovv, t2, t2, r1))
+        return b11
 
     return _a11, _b11
 
 
-def mixed_upper_hessian(fov, gooov, govvv, t2):
+def mixed_hessian(fov, gooov, govvv, t2):
     m1oo, m1vv = onebody_density(t2)
     fioo, fivv = _fancy_mixed_interaction(fov, gooov, govvv, m1oo, m1vv)
 
     def _a12(r2):
-        return (
+        a12 = (
             + 1./2 * einsum('lacd,ilcd...->ia...', govvv, r2)
             + 1./2 * einsum('klid,klad...->ia...', gooov, r2)
             + 1./2 * einsum('iakm,mlcd,klcd...->ia...', fioo, t2, r2)
@@ -176,56 +177,41 @@ def mixed_upper_hessian(fov, gooov, govvv, t2):
             + einsum('imke,mled,klad...->ia...', gooov, t2, r2)
             + 1./4 * einsum('mnla,mncd,ilcd...->ia...', gooov, t2, r2)
             + 1./4 * einsum('idef,klef,klad...->ia...', govvv, t2, r2))
+        return a12
 
     def _b12(r2):
-        return (
+        b12 = (
             + 1./2 * einsum('iamk,mlcd,klcd...->ia...', fioo, t2, r2)
             + 1./2 * einsum('iace,kled,klcd...->ia...', fivv, t2, r2)
             + einsum('lead,kice,klcd...->ia...', govvv, t2, r2)
             + einsum('ilmd,kmca,klcd...->ia...', gooov, t2, r2)
             - 1./4 * einsum('klma,micd,klcd...->ia...', gooov, t2, r2)
             - 1./4 * einsum('iecd,klea,klcd...->ia...', govvv, t2, r2))
-
-    return _a12, _b12
-
-
-def mixed_lower_hessian(fov, gooov, govvv, t2):
-    m1oo, m1vv = onebody_density(t2)
-    fioo, fivv = _fancy_mixed_interaction(fov, gooov, govvv, m1oo, m1vv)
+        return b12
 
     def _a21(r1):
-        return (
-            + asm('0/1')(
-                   einsum('jcab,ic...->ijab...', govvv, r1))
-            + asm('2/3')(
-                   einsum('ijkb,ka...->ijab...', gooov, r1))
-            + asm('0/1')(
-                   einsum('kcim,mjab,kc...->ijab...', fioo, t2, r1))
-            + asm('2/3')(
-                   einsum('kcea,ijeb,kc...->ijab...', fivv, t2, r1))
-            + asm('0/1|2/3')(
-                   einsum('mace,mjeb,ic...->ijab...', govvv, t2, r1))
-            + asm('0/1|2/3')(
-                   einsum('kmie,mjeb,ka...->ijab...', gooov, t2, r1))
-            + 1./2 * asm('0/1')(
-                   einsum('mnjc,mnab,ic...->ijab...', gooov, t2, r1))
-            + 1./2 * asm('2/3')(
-                   einsum('kbef,ijef,ka...->ijab...', govvv, t2, r1)))
+        a21 = asm('0/1|2/3')(
+            + 1./2 * einsum('jcab,ic...->ijab...', govvv, r1)
+            + 1./2 * einsum('ijkb,ka...->ijab...', gooov, r1)
+            + 1./2 * einsum('kcim,mjab,kc...->ijab...', fioo, t2, r1)
+            + 1./2 * einsum('kcea,ijeb,kc...->ijab...', fivv, t2, r1)
+            + einsum('mace,mjeb,ic...->ijab...', govvv, t2, r1)
+            + einsum('kmie,mjeb,ka...->ijab...', gooov, t2, r1)
+            + 1./4 * einsum('mnjc,mnab,ic...->ijab...', gooov, t2, r1)
+            + 1./4 * einsum('kbef,ijef,ka...->ijab...', govvv, t2, r1))
+        return a21
 
     def _b21(r1):
-        return (
-            + asm('0/1')(
-                   einsum('kcmi,mjab,kc...->ijab...', fioo, t2, r1))
-            + asm('2/3')(
-                   einsum('kcae,ijeb,kc...->ijab...', fivv, t2, r1))
-            + asm('0/1|2/3')(
-                   einsum('jecb,ikae,kc...->ijab...', govvv, t2, r1))
-            + asm('0/1|2/3')(
-                   einsum('kjmb,imac,kc...->ijab...', gooov, t2, r1))
-            - einsum('ijmc,mkab,kc...->ijab...', gooov, t2, r1)
-            - einsum('keab,ijec,kc...->ijab...', govvv, t2, r1))
+        b21 = asm('0/1|2/3')(
+            + 1./2 * einsum('kcmi,mjab,kc...->ijab...', fioo, t2, r1)
+            + 1./2 * einsum('kcae,ijeb,kc...->ijab...', fivv, t2, r1)
+            + einsum('jecb,ikae,kc...->ijab...', govvv, t2, r1)
+            + einsum('kjmb,imac,kc...->ijab...', gooov, t2, r1)
+            - 1./4 * einsum('ijmc,mkab,kc...->ijab...', gooov, t2, r1)
+            - 1./4 * einsum('keab,ijec,kc...->ijab...', govvv, t2, r1))
+        return b21
 
-    return _a21, _b21
+    return _a12, _b12, _a21, _b21
 
 
 def twobody_hessian(foo, fvv, goooo, govov, gvvvv, t2):
@@ -236,31 +222,33 @@ def twobody_hessian(foo, fvv, goooo, govov, gvvvv, t2):
             ffoo, ffvv, goooo, govov, gvvvv, m1oo, m1vv)
 
     def _a22(r2):
-        return (
-            - asm('2/3')(einsum('ac,ijcb...->ijab...', ffvv, r2))
-            - asm('0/1')(einsum('ik,kjab...->ijab...', ffoo, r2))
-            + 1./2 * einsum('abcd,ijcd...->ijab...', gvvvv, r2)
-            + 1./2 * einsum('ijkl,klab...->ijab...', goooo, r2)
-            - asm('0/1|2/3')(einsum('jcla,ilcb...->ijab...', govov, r2))
-            + 1./2 * asm('2/3')(
-                einsum('afec,ijeb,klfd,klcd...->ijab...', fgvvvv, t2, t2, r2))
-            + 1./2 * asm('2/3')(
-                einsum('kame,ijeb,mlcd,klcd...->ijab...', fgovov, t2, t2, r2))
-            + 1./2 * asm('0/1')(
-                einsum('meic,mjab,kled,klcd...->ijab...', fgovov, t2, t2, r2))
-            + 1./2 * asm('0/1')(
-                einsum('mkin,mjab,nlcd,klcd...->ijab...', fgoooo, t2, t2, r2)))
+        a22 = asm('0/1|2/3')(
+            - 1./2 * einsum('ac,ijcb...->ijab...', ffvv, r2)
+            - 1./2 * einsum('ik,kjab...->ijab...', ffoo, r2)
+            + 1./8 * einsum('abcd,ijcd...->ijab...', gvvvv, r2)
+            + 1./8 * einsum('ijkl,klab...->ijab...', goooo, r2)
+            - einsum('jcla,ilcb...->ijab...', govov, r2)
+            + 1./4 * einsum('afec,ijeb,klfd,klcd...->ijab...',
+                            fgvvvv, t2, t2, r2)
+            + 1./4 * einsum('kame,ijeb,mlcd,klcd...->ijab...',
+                            fgovov, t2, t2, r2)
+            + 1./4 * einsum('meic,mjab,kled,klcd...->ijab...',
+                            fgovov, t2, t2, r2)
+            + 1./4 * einsum('mkin,mjab,nlcd,klcd...->ijab...',
+                            fgoooo, t2, t2, r2))
+        return a22
 
     def _b22(r2):
-        return (
-            + 1./2 * asm('2/3')(
-                einsum('acef,ijeb,klfd,klcd...->ijab...', fgvvvv, t2, t2, r2))
-            + 1./2 * asm('2/3')(
-                einsum('nake,ijeb,nlcd,klcd...->ijab...', fgovov, t2, t2, r2))
-            + 1./2 * asm('0/1')(
-                einsum('mcif,mjab,klfd,klcd...->ijab...', fgovov, t2, t2, r2))
-            + 1./2 * asm('0/1')(
-                einsum('mnik,mjab,nlcd,klcd...->ijab...', fgoooo, t2, t2, r2)))
+        b22 = asm('0/1|2/3')(
+            + 1./4 * einsum('acef,ijeb,klfd,klcd...->ijab...',
+                            fgvvvv, t2, t2, r2)
+            + 1./4 * einsum('nake,ijeb,nlcd,klcd...->ijab...',
+                            fgovov, t2, t2, r2)
+            + 1./4 * einsum('mcif,mjab,klfd,klcd...->ijab...',
+                            fgovov, t2, t2, r2)
+            + 1./4 * einsum('mnik,mjab,nlcd,klcd...->ijab...',
+                            fgoooo, t2, t2, r2))
+        return b22
 
     return _a22, _b22
 
@@ -284,16 +272,20 @@ def _fancy_mixed_interaction(fov, gooov, govvv, m1oo, m1vv):
     n1vv = broadcast_sum({2: nv, 3: nv}) - 1
     io = numpy.eye(*uo.shape)
     iv = numpy.eye(*uv.shape)
-    ioo = (+ einsum('ik,la->iakl', io, fov)
+    ioo = numpy.ascontiguousarray(
+           + einsum('ik,la->iakl', io, fov)
            - einsum('mlka,im->iakl', gooov, m1oo)
            + einsum('ilke,ae->iakl', gooov, m1vv))
-    ivv = (- einsum('ac,id->iadc', iv, fov)
+    ivv = numpy.ascontiguousarray(
+           - einsum('ac,id->iadc', iv, fov)
            + einsum('mcad,im->iadc', govvv, m1oo)
            - einsum('iced,ae->iadc', govvv, m1vv))
     tfioo = transform(ioo, (uo, uo)) / n1oo
     tfivv = transform(ivv, (uv, uv)) / n1vv
-    fioo = transform(tfioo, (uo.T, uo.T))
-    fivv = transform(tfivv, (uv.T, uv.T))
+    uot = numpy.ascontiguousarray(numpy.transpose(uo))
+    uvt = numpy.ascontiguousarray(numpy.transpose(uv))
+    fioo = transform(tfioo, (uot, uot))
+    fivv = transform(tfivv, (uvt, uvt))
     return fioo, fivv
 
 
@@ -316,7 +308,9 @@ def _fancy_repulsion(ffoo, ffvv, goooo, govov, gvvvv, m1oo, m1vv):
     tfgvvvv = ((tgvvvv - einsum('ad,bc->acbd', tffvv, iv)
                        - einsum('ad,bc->acbd', iv, tffvv))
                / einsum('ab,cd->acbd', n1vv, n1vv))
-    fgoooo = transform(tfgoooo, (uo.T, uo.T, uo.T, uo.T))
-    fgovov = transform(tfgovov, (uo.T, uv.T, uo.T, uv.T))
-    fgvvvv = transform(tfgvvvv, (uv.T, uv.T, uv.T, uv.T))
+    uot = numpy.ascontiguousarray(numpy.transpose(uo))
+    uvt = numpy.ascontiguousarray(numpy.transpose(uv))
+    fgoooo = transform(tfgoooo, (uot, uot, uot, uot))
+    fgovov = transform(tfgovov, (uot, uvt, uot, uvt))
+    fgvvvv = transform(tfgvvvv, (uvt, uvt, uvt, uvt))
     return fgoooo, fgovov, fgvvvv

@@ -105,14 +105,10 @@ def test__onebody_hessian():
     assert_almost_equal(b11(I1U), B11, decimal=10)
 
 
-def test__mixed_upper_hessian():
-    a12, b12 = odc12.mixed_upper_hessian(FOV, GOOOV, GOVVV, T2)
+def test__mixed_hessian():
+    a12, b12, a21, b21 = odc12.mixed_hessian(FOV, GOOOV, GOVVV, T2)
     assert_almost_equal(a12(I2U), A12, decimal=10)
     assert_almost_equal(b12(I2U), B12, decimal=10)
-
-
-def test__mixed_lower_hessian():
-    a21, b21 = odc12.mixed_lower_hessian(FOV, GOOOV, GOVVV, T2)
     assert_almost_equal(a21(I1U), A21, decimal=10)
     assert_almost_equal(b21(I1U), B21, decimal=10)
 
