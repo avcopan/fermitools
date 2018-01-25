@@ -2,6 +2,7 @@ from . import spinorb
 from . import combinatorics
 from . import asym
 from . import sigma
+from . import diis
 from .bcast import broadcast_sum
 from .findif import central_difference
 from .rav import ravel, raveler
@@ -27,6 +28,7 @@ __all__ = [
         'combinatorics',
         'asym',
         'sigma',
+        'diis',
         'tensoralg',
         'transform',
         'broadcast_sum',
