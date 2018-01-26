@@ -6,7 +6,7 @@ from itertools import starmap
 
 
 def energy(labels, coords, charge, spin, basis, angstrom=False, niter=100,
-           rthresh=1e-10, interface=None):
+           rthresh=1e-10, diis_start=3, diis_nvec=20, interface=None):
     '''
     :param labels: nuclear labels
     :type labels: tuple
@@ -24,6 +24,10 @@ def energy(labels, coords, charge, spin, basis, angstrom=False, niter=100,
     :type niter: int
     :param rthresh: maximum residual
     :type rthresh: float
+    :param diis_start: when to start DIIS extrapolations
+    :type diis_start: int
+    :param diis_nvec: maximum number of DIIS vectors
+    :type diis_start: int
     :param interface: interface for computing integrals and SCF orbitals
     :type interface: module
     '''
@@ -55,7 +59,8 @@ def energy(labels, coords, charge, spin, basis, angstrom=False, niter=100,
     t = time.time()
     en_elec, co, cv, t2, info = fermitools.oo.ocepa0.solve(
             h_ao=h_ao, r_ao=r_ao, co_guess=co_guess, cv_guess=cv_guess,
-            t2_guess=t2_guess, niter=niter, rthresh=rthresh, print_conv=True)
+            t2_guess=t2_guess, niter=niter, rthresh=rthresh,
+            diis_start=diis_start, diis_nvec=diis_nvec, print_conv=True)
     en_nuc = fermitools.chem.nuc.energy(labels=labels, coords=coords)
     en_tot = en_elec + en_nuc
     print("\nOCEPA0 ground state energy: {:20.15f}".format(en_tot))
@@ -83,7 +88,8 @@ def energy(labels, coords, charge, spin, basis, angstrom=False, niter=100,
 
 def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
              nguess=10, nvec=100, niter=50, rthresh=1e-7, guess_random=False,
-             oo_niter=200, oo_rthresh=1e-10, interface=None):
+             oo_niter=200, oo_rthresh=1e-10, diis_start=3, diis_nvec=20,
+             interface=None):
     '''
     :param labels: nuclear labels
     :type labels: tuple
@@ -113,13 +119,18 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     :type oo_niter: int
     :param oo_rthresh: maximum residual for orbital optimization
     :type oo_rthresh: float
+    :param diis_start: when to start DIIS extrapolations
+    :type diis_start: int
+    :param diis_nvec: maximum number of DIIS vectors
+    :type diis_start: int
     :param interface: interface for computing integrals and SCF orbitals
     :type interface: module
     '''
     en_elec, oo_info = energy(
             labels=labels, coords=coords, charge=charge, spin=spin,
             basis=basis, angstrom=angstrom, niter=oo_niter,
-            rthresh=oo_rthresh, interface=interface)
+            rthresh=oo_rthresh, diis_start=diis_start, diis_nvec=diis_nvec,
+            interface=interface)
 
     info = {k: v for k, v in oo_info.items()
             if k not in ('niter', 'r1max', 'r2max')}
@@ -207,7 +218,8 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
 
 def polarizability(labels, coords, charge, spin, basis, angstrom=False,
                    nvec=100, niter=50, rthresh=1e-7, oo_niter=200,
-                   oo_rthresh=1e-10, interface=None):
+                   oo_rthresh=1e-10, diis_start=3, diis_nvec=20,
+                   interface=None):
     '''
     :param labels: nuclear labels
     :type labels: tuple
@@ -235,13 +247,18 @@ def polarizability(labels, coords, charge, spin, basis, angstrom=False,
     :type oo_niter: int
     :param oo_rthresh: maximum residual for orbital optimization
     :type oo_rthresh: float
+    :param diis_start: when to start DIIS extrapolations
+    :type diis_start: int
+    :param diis_nvec: maximum number of DIIS vectors
+    :type diis_start: int
     :param interface: interface for computing integrals and SCF orbitals
     :type interface: module
     '''
     en_elec, oo_info = energy(
             labels=labels, coords=coords, charge=charge, spin=spin,
             basis=basis, angstrom=angstrom, niter=oo_niter,
-            rthresh=oo_rthresh, interface=interface)
+            rthresh=oo_rthresh, diis_start=diis_start, diis_nvec=diis_nvec,
+            interface=interface)
 
     info = {k: v for k, v in oo_info.items()
             if k not in ('niter', 'r1max', 'r2max')}

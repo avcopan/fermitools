@@ -24,4 +24,6 @@ w, info = drivers.odc12.spectrum(
         guess_random=False,     # use a random guess?
         oo_niter=200,           # number of iterations for ground state
         oo_rthresh=1e-8,        # convergence threshold for ground state
+        diis_start=3,           # when to start DIIS extrapolations
+        diis_nvec=20,           # maximum number of DIIS vectors
         interface=interface)    # interface for computing integrals

@@ -4,6 +4,7 @@ import numpy
 import scipy.linalg
 
 from .util import orbital_rotation
+from .util import diis_extrapolator
 from ..math import einsum
 from ..math import transform
 from ..math import broadcast_sum
@@ -13,11 +14,14 @@ from .ocepa0 import twobody_amplitude_gradient
 
 
 def solve(h_ao, r_ao, co_guess, cv_guess, t2_guess, niter=50, rthresh=1e-8,
-          print_conv=True):
+          diis_start=3, diis_nvec=20, print_conv=True):
     no, _, nv, _ = t2_guess.shape
     t1 = numpy.zeros((no, nv))
     t2 = t2_guess
     m1oo, m1vv = onebody_density(t2)
+
+    trs = ()
+    extrapolate = diis_extrapolator(start=diis_start, nvec=diis_nvec)
 
     for iteration in range(niter):
         co, cv = orbital_rotation(co_guess, cv_guess, t1)
@@ -63,6 +67,8 @@ def solve(h_ao, r_ao, co_guess, cv_guess, t2_guess, niter=50, rthresh=1e-8,
 
         if converged:
             break
+
+        (t1, t2), trs = extrapolate(t=(t1, t2), r=(r1, r2), trs=trs)
 
     en_elec = electronic_energy(
             hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv, t2)

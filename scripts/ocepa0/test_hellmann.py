@@ -5,18 +5,16 @@ from numpy.testing import assert_almost_equal
 
 
 def en_f_function(h_ao, p_ao, r_ao, co_guess, cv_guess, t2_guess, niter=200,
-                  rthresh=1e-9):
+                  diis_start=3, diis_nvec=20, rthresh=1e-9):
 
     def _en(f):
         hp_ao = h_ao - numpy.tensordot(f, p_ao, axes=(0, 0))
         en_elec, co, cv, t2, info = fermitools.oo.ocepa0.solve(
                 h_ao=hp_ao, r_ao=r_ao, co_guess=co_guess, cv_guess=cv_guess,
                 t2_guess=t2_guess, niter=niter, rthresh=rthresh,
-                print_conv=False)
+                diis_start=diis_start, diis_nvec=diis_nvec, print_conv=False)
         print(info)
         return en_elec
-
-    return _en
 
     return _en
 
@@ -44,6 +42,8 @@ def test_main():
             rthresh=1e-6,           # convergence threshold
             oo_niter=200,           # number of iterations for ground state
             oo_rthresh=1e-10,       # convergence threshold for ground state
+            diis_start=3,           # when to start DIIS extrapolations
+            diis_nvec=20,           # maximum number of DIIS vectors
             interface=interface)    # interface for computing integrals
 
     mu = info['mu']

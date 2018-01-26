@@ -31,6 +31,8 @@ def test__main():
             guess_random=True,      # use a random guess?
             oo_niter=200,           # number of iterations for ground state
             oo_rthresh=1e-10,       # convergence threshold for ground state
+            diis_start=3,           # when to start DIIS extrapolations
+            diis_nvec=20,           # maximum number of DIIS vectors
             interface=interface)    # interface for computing integrals
 
     assert_almost_equal(w[:nroot], W[:nroot], decimal=10)
