@@ -9,7 +9,7 @@ COORDS = ((0.0000000000,  0.0000000000, -0.0678898741),
           (0.0000000000,  0.7507081111,  0.5387307840))
 
 
-w, x, y, mu_trans, info, oo_info = drivers.ocepa0.spectrum(
+w, info = drivers.ocepa0.spectrum(
         labels=LABELS,
         coords=COORDS,
         charge=0,

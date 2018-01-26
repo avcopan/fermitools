@@ -49,7 +49,7 @@ def energy(labels, coords, charge, spin, basis, angstrom=False, niter=100,
     n = ((na,), (nb,))
     co_guess, cv_guess = zip(*starmap(numpy.hsplit, zip(c_guess, n)))
 
-    print("Running ODC-12 ground-state and linear response computation...\n")
+    print("Running OCEPA0 ground-state and linear response computation...\n")
 
     # Solve ground state
     t = time.time()
@@ -58,8 +58,8 @@ def energy(labels, coords, charge, spin, basis, angstrom=False, niter=100,
             t2_guess=t2_guess, niter=niter, rthresh=rthresh, print_conv=True)
     en_nuc = fermitools.chem.nuc.energy(labels=labels, coords=coords)
     en_tot = en_elec + en_nuc
-    print("\nODC-12 ground state energy: {:20.15f}".format(en_tot))
-    print('ODC-12 ground state time: {:8.1f}s'.format(time.time() - t))
+    print("\nOCEPA0 ground state energy: {:20.15f}".format(en_tot))
+    print('OCEPA0 ground state time: {:8.1f}s'.format(time.time() - t))
     sys.stdout.flush()
 
     # Evaluate dipole moment as expectation value

@@ -9,7 +9,7 @@ COORDS = ((0.0000000000,  0.0000000000, -0.0678898741),
           (0.0000000000,  0.7507081111,  0.5387307840))
 
 
-w, x, y, mu_trans, info, oo_info = drivers.odc12.spectrum(
+w, info = drivers.odc12.spectrum(
         labels=LABELS,
         coords=COORDS,
         charge=0,
