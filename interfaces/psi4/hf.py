@@ -10,7 +10,7 @@ psi4.set_num_threads(multiprocessing.cpu_count())
 
 # Public
 def unrestricted_orbitals(basis, labels, coords, charge=0, spin=0, niter=100,
-                          e_thresh=1e-12, r_thresh=1e-9, guess='gwh'):
+                          ethresh=1e-12, rthresh=1e-9, guess='gwh'):
     """urestricted alpha and beta Hartree-Fock orbital coefficients
 
     :param basis: basis set name
@@ -25,17 +25,17 @@ def unrestricted_orbitals(basis, labels, coords, charge=0, spin=0, niter=100,
     :type spin: int
     :param niter: maximum number of iterations
     :type niter: int
-    :param e_thresh: energy convergence threshold
-    :type e_thresh: float
-    :param r_thresh: residual convergence threshold
-    :type r_thresh: float
+    :param ethresh: energy convergence threshold
+    :type ethresh: float
+    :param rthresh: residual convergence threshold
+    :type rthresh: float
     :param guess: hartree-fock starting guess
     :type guess: str
 
     :return: an array of two square matrices
     :rtype: numpy.ndarray
     """
-    psi4.set_options({'e_convergence': e_thresh, 'd_convergence': r_thresh,
+    psi4.set_options({'e_convergence': ethresh, 'd_convergence': rthresh,
                       'maxiter': niter, 'guess': guess, 'reference': 'RHF'})
     mol = psi4_molecule(labels=labels, coords=coords, charge=charge, spin=spin)
     wfn = psi4.core.Wavefunction.build(mol, basis)
@@ -48,7 +48,7 @@ def unrestricted_orbitals(basis, labels, coords, charge=0, spin=0, niter=100,
 
 
 def restricted_orbitals(basis, labels, coords, charge=0, spin=0, niter=100,
-                        e_thresh=1e-12, r_thresh=1e-9, guess='gwh'):
+                        ethresh=1e-12, rthresh=1e-9, guess='gwh'):
     """restricted Hartree-Fock orbital coefficients
 
     :param basis: basis set name
@@ -63,16 +63,16 @@ def restricted_orbitals(basis, labels, coords, charge=0, spin=0, niter=100,
     :type spin: int
     :param niter: maximum number of iterations
     :type niter: int
-    :param e_thresh: energy convergence threshold
-    :type e_thresh: float
-    :param r_thresh: residual convergence threshold
+    :param ethresh: energy convergence threshold
+    :type ethresh: float
+    :param rthresh: residual convergence threshold
     :param guess: hartree-fock starting guess
     :type guess: str
 
     :return: a square matrix
     :rtype: numpy.ndarray
     """
-    psi4.set_options({'e_convergence': e_thresh, 'd_convergence': r_thresh,
+    psi4.set_options({'e_convergence': ethresh, 'd_convergence': rthresh,
                       'maxiter': niter, 'guess': guess, 'reference': 'RHF'})
     mol = psi4_molecule(labels=labels, coords=coords, charge=charge, spin=spin)
     wfn = psi4.core.Wavefunction.build(mol, basis)

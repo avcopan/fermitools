@@ -6,7 +6,7 @@ import sys
 from ..ot import orth
 
 
-def eighg(a, b, neig, ad, bd, guess, niter=100, nvec=100, r_thresh=1e-5,
+def eighg(a, b, neig, ad, bd, guess, niter=100, nvec=100, rthresh=1e-5,
           print_conv=True, highest=False):
     """solve for the lowest generalized eigenvalues of a hermitian matrix
 
@@ -26,8 +26,8 @@ def eighg(a, b, neig, ad, bd, guess, niter=100, nvec=100, r_thresh=1e-5,
     :type niter: int
     :param nvec: the maximum number of vectors to hold in memory
     :type nvec: int
-    :param r_thresh: residual convergence threshold
-    :type r_thresh: float
+    :param rthresh: residual convergence threshold
+    :type rthresh: float
     :param print_conv: print convergence info?
     :type print_conv: bool
     :param highest: compute the highest roots, instead of the lowest ones?
@@ -62,11 +62,11 @@ def eighg(a, b, neig, ad, bd, guess, niter=100, nvec=100, r_thresh=1e-5,
         bx = numpy.dot(bv, x_red)
 
         r = ax - bx * w
-        r_max = numpy.amax(numpy.abs(r))
+        rmax = numpy.amax(numpy.abs(r))
 
-        info = {'niter': iteration + 1, 'rdim': rdim, 'r_max': r_max}
+        info = {'niter': iteration + 1, 'rdim': rdim, 'rmax': rmax}
 
-        converged = r_max < r_thresh
+        converged = rmax < rthresh
 
         if print_conv:
             print(info)
@@ -87,6 +87,6 @@ def eighg(a, b, neig, ad, bd, guess, niter=100, nvec=100, r_thresh=1e-5,
             v1 = x
 
     if not converged:
-        warnings.warn("Did not converge! (r_max: {:7.1e})".format(r_max))
+        warnings.warn("Did not converge! (rmax: {:7.1e})".format(rmax))
 
     return w, x, info

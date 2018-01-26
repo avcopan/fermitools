@@ -6,7 +6,7 @@ import fermitools
 import interfaces.psi4 as interface
 
 
-def solve(naocc, nbocc, s, h, r, d_guess=None, niter=50, e_thresh=1e-10):
+def solve(naocc, nbocc, s, h, r, d_guess=None, niter=50, ethresh=1e-10):
     if d_guess is None:
         ad = bd = numpy.zeros_like(s)
     else:
@@ -29,7 +29,7 @@ def solve(naocc, nbocc, s, h, r, d_guess=None, niter=50, e_thresh=1e-10):
         # print('@UHF {:<3d} {:20.15f} {:20.15f}'.format(iter_, en_elec,
         #                                                en_change))
 
-        converged = (numpy.fabs(en_change) < e_thresh)
+        converged = (numpy.fabs(en_change) < ethresh)
 
         if converged:
             break
@@ -38,7 +38,7 @@ def solve(naocc, nbocc, s, h, r, d_guess=None, niter=50, e_thresh=1e-10):
 
 
 def energy_routine(basis, labels, coords, charge, spin,
-                   niter=50, e_thresh=1e-12, return_coeffs=False):
+                   niter=50, ethresh=1e-12, return_coeffs=False):
     # Spaces
     na = fermitools.chem.elec.count_alpha(labels, charge, spin)
     nb = fermitools.chem.elec.count_beta(labels, charge, spin)
@@ -49,13 +49,13 @@ def energy_routine(basis, labels, coords, charge, spin,
     r = interface.integrals.repulsion(basis, labels, coords)
 
     # Call the solver
-    en_elec, c = solve(na, nb, s, h, r, e_thresh=1e-14)
+    en_elec, c = solve(na, nb, s, h, r, ethresh=1e-14)
 
     return en_elec if not return_coeffs else (en_elec, c)
 
 
 def perturbed_energy_function(basis, labels, coords, charge, spin,
-                              niter=50, e_thresh=1e-12):
+                              niter=50, ethresh=1e-12):
     # Spaces
     na = fermitools.chem.elec.count_alpha(labels, charge, spin)
     nb = fermitools.chem.elec.count_beta(labels, charge, spin)
@@ -68,7 +68,7 @@ def perturbed_energy_function(basis, labels, coords, charge, spin,
 
     def _energy(f=(0., 0., 0.)):
         h_pert = h - numpy.tensordot(f, p, axes=(0, 0))
-        en_elec, (ac, bc) = solve(na, nb, s, h_pert, r, e_thresh=e_thresh)
+        en_elec, (ac, bc) = solve(na, nb, s, h_pert, r, ethresh=ethresh)
         return en_elec
 
     return _energy
@@ -85,7 +85,7 @@ def main():
 
     en_nuc = fermitools.chem.nuc.energy(labels=LABELS, coords=COORDS)
     en_elec, (ac, bc) = energy_routine(BASIS, LABELS, COORDS, CHARGE, SPIN,
-                                       return_coeffs=True, e_thresh=1e-15)
+                                       return_coeffs=True, ethresh=1e-15)
     en_tot = en_elec + en_nuc
 
     print('{:20.15f}'.format(en_tot))
@@ -100,7 +100,7 @@ def main():
 
     # Evaluate dipole moment as energy derivative
     en_f = perturbed_energy_function(BASIS, LABELS, COORDS, CHARGE, SPIN,
-                                     e_thresh=1e-15)
+                                     ethresh=1e-15)
     en_df = fermitools.math.central_difference(en_f, (0., 0., 0.),
                                                step=0.0025, npts=13)
 

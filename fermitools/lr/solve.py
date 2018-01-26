@@ -8,19 +8,19 @@ from ..math.sigma import eighg
 from ..math.sigma import solve
 
 
-def static_response(a, b, pg, ad, nvec=100, niter=50, r_thresh=1e-5):
+def static_response(a, b, pg, ad, nvec=100, niter=50, rthresh=1e-5):
     e = add(a, b)
     v = -2*pg
     guess = v / ad[:, None]
 
     r, info = solve(a=e, b=v, ad=ad, guess=guess, niter=niter, nvec=nvec,
-                    r_thresh=r_thresh)
+                    rthresh=rthresh)
 
     return r, info
 
 
 def spectrum(a, b, s, d, ad, sd, nroot=1, nguess=10, nvec=100, niter=50,
-             r_thresh=1e-7, guess_random=False):
+             rthresh=1e-7, guess_random=False):
     e = bmat([[a, b], [b, a]], 2)
     m = bmat([[s, d], [negative(d), negative(s)]], 2)
     ed = numpy.concatenate((+ad, +ad))
@@ -31,7 +31,7 @@ def spectrum(a, b, s, d, ad, sd, nroot=1, nguess=10, nvec=100, niter=50,
              else evec_guess(md, nguess*nroot, bd=ed, highest=True))
     w_inv, z, info = eighg(
             a=m, b=e, neig=nroot, ad=md, bd=ed, guess=guess,
-            r_thresh=r_thresh, nvec=nvec*nroot, niter=niter, highest=True)
+            rthresh=rthresh, nvec=nvec*nroot, niter=niter, highest=True)
     w = 1. / w_inv
     x, y = numpy.split(z, 2)
     return w, x, y, info

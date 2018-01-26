@@ -2,28 +2,21 @@ import numpy
 import warnings
 import sys
 
-from ..math import expm
+from .util import orbital_rotation
 from ..math import einsum
 from ..math import broadcast_sum
 from ..math.asym import antisymmetrizer_product as asm
-from ..math.spinorb import decompose_onebody
 from ..math.spinorb import transform_onebody, transform_twobody
 
 
-def solve(na, nb, h_ao, r_ao, c_guess, t2_guess, niter=50, r_thresh=1e-8,
+def solve(h_ao, r_ao, co_guess, cv_guess, t2_guess, niter=50, rthresh=1e-8,
           print_conv=True):
     no, _, nv, _ = t2_guess.shape
-
-    ac, bc = c_guess
+    t1 = numpy.zeros((no, nv))
     t2 = t2_guess
-    zoo = numpy.zeros((no, no))
-    zvv = numpy.zeros((nv, nv))
 
     for iteration in range(niter):
-        aco, acv = numpy.split(ac, (na,), axis=1)
-        bco, bcv = numpy.split(bc, (nb,), axis=1)
-        co = (aco, bco)
-        cv = (acv, bcv)
+        co, cv = orbital_rotation(co_guess, cv_guess, t1)
         hoo = transform_onebody(h_ao, (co, co))
         hov = transform_onebody(h_ao, (co, cv))
         hvv = transform_onebody(h_ao, (cv, cv))
@@ -41,25 +34,19 @@ def solve(na, nb, h_ao, r_ao, c_guess, t2_guess, niter=50, r_thresh=1e-8,
         ev = numpy.diagonal(fvv)
         e1 = broadcast_sum({0: +eo, 1: -ev})
         r1 = orbital_gradient(fov, gooov, govvv, t2)
-        t1 = r1 / e1
-        a = numpy.bmat([[zoo, -t1], [+t1.T, zvv]])
-        u = expm(a)
-        au, bu = decompose_onebody(u, na=na, nb=nb)
-        ac = numpy.dot(ac, au)
-        bc = numpy.dot(bc, bu)
-        c = (ac, bc)
+        t1 = t1 + r1 / e1
         # Amplitude step
         e2 = broadcast_sum({0: +eo, 1: +eo, 2: -ev, 3: -ev})
         r2 = twobody_amplitude_gradient(
                 goooo, goovv, govov, gvvvv, foo, fvv, t2)
         t2 += r2 / e2
 
-        r1_max = numpy.amax(numpy.abs(r1))
-        r2_max = numpy.amax(numpy.abs(r2))
+        r1max = numpy.amax(numpy.abs(r1))
+        r2max = numpy.amax(numpy.abs(r2))
 
-        info = {'niter': iteration + 1, 'r1_max': r1_max, 'r2_max': r2_max}
+        info = {'niter': iteration + 1, 'r1max': r1max, 'r2max': r2max}
 
-        converged = r1_max < r_thresh and r2_max < r_thresh
+        converged = r1max < rthresh and r2max < rthresh
 
         if print_conv:
             print(info)
@@ -73,7 +60,7 @@ def solve(na, nb, h_ao, r_ao, c_guess, t2_guess, niter=50, r_thresh=1e-8,
     if not converged:
         warnings.warn("Did not converge!")
 
-    return en_elec, c, t2, info
+    return en_elec, co, cv, t2, info
 
 
 def fock_xy(hxy, goxoy):

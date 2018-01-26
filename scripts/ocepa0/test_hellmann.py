@@ -4,17 +4,19 @@ import fermitools
 from numpy.testing import assert_almost_equal
 
 
-def en_f_function(na, nb, h_ao, p_ao, r_ao, c_guess, t2_guess, niter=200,
-                  r_thresh=1e-9):
+def en_f_function(h_ao, p_ao, r_ao, co_guess, cv_guess, t2_guess, niter=200,
+                  rthresh=1e-9):
 
     def _en(f):
         hp_ao = h_ao - numpy.tensordot(f, p_ao, axes=(0, 0))
-        en_elec, c, t2, info = fermitools.oo.ocepa0.solve(
-                na=na, nb=nb, h_ao=hp_ao, r_ao=r_ao, c_guess=c_guess,
-                t2_guess=t2_guess, niter=niter, r_thresh=r_thresh,
+        en_elec, co, cv, t2, info = fermitools.oo.ocepa0.solve(
+                h_ao=hp_ao, r_ao=r_ao, co_guess=co_guess, cv_guess=cv_guess,
+                t2_guess=t2_guess, niter=niter, rthresh=rthresh,
                 print_conv=False)
         print(info)
         return en_elec
+
+    return _en
 
     return _en
 
@@ -30,7 +32,7 @@ def test_main():
               (0., 0., 1.))
     basis = 'sto-3g'
 
-    mu, alpha, info, oo_info = drivers.ocepa0.dipole_polarizability(
+    alpha, info = drivers.ocepa0.polarizability(
             labels=labels,
             coords=coords,
             charge=charge,
@@ -44,8 +46,7 @@ def test_main():
             oo_rthresh=1e-10,       # convergence threshold for ground state
             interface=interface)    # interface for computing integrals
 
-    na = fermitools.chem.elec.count_alpha(labels, charge, spin)
-    nb = fermitools.chem.elec.count_beta(labels, charge, spin)
+    mu = info['mu']
 
     # Integrals
     h_ao = interface.integrals.core_hamiltonian(basis, labels, coords)
@@ -54,9 +55,8 @@ def test_main():
 
     # Differentiate
     en_f_ = en_f_function(
-            na=na, nb=nb, h_ao=h_ao, p_ao=p_ao, r_ao=r_ao,
-            c_guess=oo_info['c'], t2_guess=oo_info['t2'], niter=200,
-            r_thresh=1e-14)
+            h_ao=h_ao, p_ao=p_ao, r_ao=r_ao, co_guess=info['co'],
+            cv_guess=info['cv'], t2_guess=info['t2'], niter=200, rthresh=1e-11)
     en_elec = en_f_((0., 0., 0.))
     print(en_elec)
 

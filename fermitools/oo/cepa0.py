@@ -8,7 +8,7 @@ from ..math.asym import antisymmetrizer_product as asm
 
 
 def solve_diis(foo, fvv, goooo, goovv, govov, gvvvv, t2_guess, niter=50,
-               r_thresh=1e-8, print_conv=True):
+               rthresh=1e-8, print_conv=True):
     from ..math.diis import extrapolate
 
     eo = numpy.diagonal(foo)
@@ -24,11 +24,11 @@ def solve_diis(foo, fvv, goooo, goovv, govov, gvvvv, t2_guess, niter=50,
                 goooo, goovv, govov, gvvvv, foo, fvv, t2)
         t2 += r2 / e2
 
-        r2_max = numpy.amax(numpy.abs(r2))
+        r2max = numpy.amax(numpy.abs(r2))
 
-        info = {'niter': iteration + 1, 'r2_max': r2_max}
+        info = {'niter': iteration + 1, 'r2max': r2max}
 
-        converged = r2_max < r_thresh
+        converged = r2max < rthresh
 
         if print_conv:
             print(info)
@@ -50,7 +50,7 @@ def solve_diis(foo, fvv, goooo, goovv, govov, gvvvv, t2_guess, niter=50,
 
 
 def solve(foo, fvv, goooo, goovv, govov, gvvvv, t2_guess, niter=50,
-          r_thresh=1e-8, print_conv=True):
+          rthresh=1e-8, print_conv=True):
 
     eo = numpy.diagonal(foo)
     ev = numpy.diagonal(fvv)
@@ -62,11 +62,11 @@ def solve(foo, fvv, goooo, goovv, govov, gvvvv, t2_guess, niter=50,
                 goooo, goovv, govov, gvvvv, foo, fvv, t2)
         t2 += r2 / e2
 
-        r2_max = numpy.amax(numpy.abs(r2))
+        r2max = numpy.amax(numpy.abs(r2))
 
-        info = {'niter': iteration + 1, 'r2_max': r2_max}
+        info = {'niter': iteration + 1, 'r2max': r2max}
 
-        converged = r2_max < r_thresh
+        converged = r2max < rthresh
 
         if print_conv:
             print(info)

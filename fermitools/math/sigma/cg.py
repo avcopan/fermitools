@@ -6,8 +6,7 @@ import sys
 from ..ot import orth
 
 
-def solve(a, b, ad, guess, niter=100, nvec=100, r_thresh=1e-5,
-          print_conv=True):
+def solve(a, b, ad, guess, niter=100, nvec=100, rthresh=1e-5, print_conv=True):
     dim, _ = guess.shape
 
     v1 = guess
@@ -25,11 +24,11 @@ def solve(a, b, ad, guess, niter=100, nvec=100, r_thresh=1e-5,
         x = numpy.dot(v, x_red)
         ax = numpy.dot(av, x_red)
         r = ax - b
-        r_max = numpy.amax(numpy.abs(r))
+        rmax = numpy.amax(numpy.abs(r))
 
-        info = {'niter': iteration + 1, 'rdim': rdim, 'r_max': r_max}
+        info = {'niter': iteration + 1, 'rdim': rdim, 'rmax': rmax}
 
-        converged = r_max < r_thresh
+        converged = rmax < rthresh
 
         if print_conv:
             print(info)
@@ -48,6 +47,6 @@ def solve(a, b, ad, guess, niter=100, nvec=100, r_thresh=1e-5,
             v1 = x
 
     if not converged:
-        warnings.warn("Did not converge! (r_max: {:7.1e})".format(r_max))
+        warnings.warn("Did not converge! (rmax: {:7.1e})".format(rmax))
 
     return x, info

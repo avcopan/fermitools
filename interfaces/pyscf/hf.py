@@ -5,7 +5,7 @@ import numpy
 
 # Public
 def unrestricted_orbitals(basis, labels, coords, charge=0, spin=0, niter=100,
-                          e_thresh=1e-12, r_thresh=1e-9):
+                          ethresh=1e-12, rthresh=1e-9):
     """urestricted alpha and beta Hartree-Fock orbital coefficients
 
     :param basis: basis set name
@@ -20,10 +20,10 @@ def unrestricted_orbitals(basis, labels, coords, charge=0, spin=0, niter=100,
     :type spin: int
     :param niter: maximum number of iterations
     :type niter: int
-    :param e_thresh: energy convergence threshold
-    :type e_thresh: float
-    :param r_thresh: residual convergence threshold
-    :type r_thresh: float
+    :param ethresh: energy convergence threshold
+    :type ethresh: float
+    :param rthresh: residual convergence threshold
+    :type rthresh: float
 
     :return: an array of two square matrices
     :rtype: numpy.ndarray
@@ -36,14 +36,14 @@ def unrestricted_orbitals(basis, labels, coords, charge=0, spin=0, niter=100,
     molecule.build()
     uhf = pyscf.scf.UHF(molecule)
     uhf.max_cycle = niter
-    uhf.conv_tol = e_thresh
-    uhf.conv_tol_grad = r_thresh
+    uhf.conv_tol = ethresh
+    uhf.conv_tol_grad = rthresh
     uhf.kernel()
     return uhf.mo_coeff
 
 
 def restricted_orbitals(basis, labels, coords, charge=0, spin=0, niter=100,
-                        e_thresh=1e-12, r_thresh=1e-9):
+                        ethresh=1e-12, rthresh=1e-9):
     """restricted Hartree-Fock orbital coefficients
 
     :param basis: basis set name
@@ -58,10 +58,10 @@ def restricted_orbitals(basis, labels, coords, charge=0, spin=0, niter=100,
     :type spin: int
     :param niter: maximum number of iterations
     :type niter: int
-    :param e_thresh: energy convergence threshold
-    :type e_thresh: float
-    :param r_thresh: residual convergence threshold
-    :type r_thresh: float
+    :param ethresh: energy convergence threshold
+    :type ethresh: float
+    :param rthresh: residual convergence threshold
+    :type rthresh: float
 
     :return: a square matrix
     :rtype: numpy.ndarray
@@ -74,8 +74,8 @@ def restricted_orbitals(basis, labels, coords, charge=0, spin=0, niter=100,
     molecule.build()
     rhf = pyscf.scf.RHF(molecule)
     rhf.max_cycle = niter
-    rhf.conv_tol = e_thresh
-    rhf.conv_tol_grad = r_thresh
+    rhf.conv_tol = ethresh
+    rhf.conv_tol_grad = rthresh
     rhf.kernel()
     return rhf.mo_coeff
 

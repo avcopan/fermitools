@@ -16,7 +16,7 @@ def test__main():
               (0.000000000000,  1.638036840407,  1.136548822547),
               (0.000000000000, -1.638036840407,  1.136548822547))
 
-    w, x, y, mu_trans, info, oo_info = drivers.ocepa0.spectrum(
+    w, info = drivers.ocepa0.spectrum(
             labels=labels,
             coords=coords,
             charge=0,

@@ -60,7 +60,7 @@ def energy(labels, coords, charge, spin, basis, angstrom=False, niter=200,
     t = time.time()
     en_corr, t2, info = fermitools.oo.cepa0.solve_diis(
             foo=foo, fvv=fvv, goooo=goooo, goovv=goovv, govov=govov,
-            gvvvv=gvvvv, t2_guess=t2_guess, niter=niter, r_thresh=rthresh,
+            gvvvv=gvvvv, t2_guess=t2_guess, niter=niter, rthresh=rthresh,
             print_conv=True)
     print("\nCEPA0 correlation energy:")
     print('{:20.15f}'.format(en_corr))

@@ -1,7 +1,84 @@
+import sys
 import time
 import numpy
 import fermitools
-import sys
+from itertools import starmap
+
+
+def energy(labels, coords, charge, spin, basis, angstrom=False, niter=100,
+           rthresh=1e-10, interface=None):
+    '''
+    :param labels: nuclear labels
+    :type labels: tuple
+    :param coords: nuclear coordinates
+    :type coords: numpy.ndarray
+    :param charge: total charge of the system
+    :type charge: int
+    :param spin: number of unpaired electrons
+    :type spin: int
+    :param basis: basis set name
+    :type basis: str
+    :param angstrom: coordinates are in angstroms?
+    :type angstrom: bool
+    :param niter: number of iterations
+    :type niter: int
+    :param rthresh: maximum residual
+    :type rthresh: float
+    :param interface: interface for computing integrals and SCF orbitals
+    :type interface: module
+    '''
+    coords = numpy.divide(coords, 0.52917720859) if angstrom else coords
+
+    # Spaces
+    na = fermitools.chem.elec.count_alpha(labels, charge, spin)
+    nb = fermitools.chem.elec.count_beta(labels, charge, spin)
+    nbf = interface.integrals.nbf(basis, labels)
+    no = na + nb
+    nv = 2*nbf - no
+
+    # Integrals
+    h_ao = interface.integrals.core_hamiltonian(basis, labels, coords)
+    p_ao = interface.integrals.dipole(basis, labels, coords)
+    r_ao = interface.integrals.repulsion(basis, labels, coords)
+
+    # Mean-field guess orbitals
+    c_guess = interface.hf.unrestricted_orbitals(
+            basis, labels, coords, charge, spin)
+    t2_guess = numpy.zeros((no, no, nv, nv))
+
+    n = ((na,), (nb,))
+    co_guess, cv_guess = zip(*starmap(numpy.hsplit, zip(c_guess, n)))
+
+    print("Running ODC-12 ground-state and linear response computation...\n")
+
+    # Solve ground state
+    t = time.time()
+    en_elec, co, cv, t2, info = fermitools.oo.odc12.solve(
+            h_ao=h_ao, r_ao=r_ao, co_guess=co_guess, cv_guess=cv_guess,
+            t2_guess=t2_guess, niter=niter, rthresh=rthresh, print_conv=True)
+    en_nuc = fermitools.chem.nuc.energy(labels=labels, coords=coords)
+    en_tot = en_elec + en_nuc
+    print("\nODC-12 ground state energy: {:20.15f}".format(en_tot))
+    print('ODC-12 ground state time: {:8.1f}s'.format(time.time() - t))
+    sys.stdout.flush()
+
+    # Evaluate dipole moment as expectation value
+    poo = fermitools.math.spinorb.transform_onebody(p_ao, (co, co))
+    pvv = fermitools.math.spinorb.transform_onebody(p_ao, (cv, cv))
+    m1oo, m1vv = fermitools.oo.odc12.onebody_density(t2)
+    mu = numpy.array([numpy.vdot(pxoo, m1oo) + numpy.vdot(pxvv, m1vv)
+                      for pxoo, pxvv in zip(poo, pvv)])
+    print("Electric dipole:")
+    print(mu.round(12))
+
+    info['h_ao'] = h_ao
+    info['p_ao'] = p_ao
+    info['r_ao'] = r_ao
+    info['co'] = co
+    info['cv'] = cv
+    info['t2'] = t2
+    info['mu'] = mu
+    return en_elec, info
 
 
 def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
@@ -39,50 +116,28 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     :param interface: interface for computing integrals and SCF orbitals
     :type interface: module
     '''
-    coords = numpy.divide(coords, 0.52917720859) if angstrom else coords
+    en_elec, oo_info = energy(
+            labels=labels, coords=coords, charge=charge, spin=spin,
+            basis=basis, angstrom=angstrom, niter=oo_niter,
+            rthresh=oo_rthresh, interface=interface)
 
-    # Spaces
-    na = fermitools.chem.elec.count_alpha(labels, charge, spin)
-    nb = fermitools.chem.elec.count_beta(labels, charge, spin)
-    nbf = interface.integrals.nbf(basis, labels)
-    no = na + nb
-    nv = 2*nbf - no
+    info = {k: v for k, v in oo_info.items()
+            if k not in ('niter', 'r1max', 'r2max')}
 
-    # Integrals
-    h_ao = interface.integrals.core_hamiltonian(basis, labels, coords)
-    p_ao = interface.integrals.dipole(basis, labels, coords)
-    r_ao = interface.integrals.repulsion(basis, labels, coords)
-
-    # Mean-field guess orbitals
-    c_guess = interface.hf.unrestricted_orbitals(
-            basis, labels, coords, charge, spin)
-    t2_guess = numpy.zeros((no, no, nv, nv))
-
-    print("Running ODC-12 ground-state and linear response computation...\n")
-
-    # Solve ground state
-    t = time.time()
-    en_elec, c, t2, info = fermitools.oo.odc12.solve(
-            na=na, nb=nb, h_ao=h_ao, r_ao=r_ao, c_guess=c_guess,
-            t2_guess=t2_guess, niter=oo_niter, r_thresh=oo_rthresh,
-            print_conv=True)
-    en_nuc = fermitools.chem.nuc.energy(labels=labels, coords=coords)
-    en_tot = en_elec + en_nuc
-    oo_info = {'en_tot': en_tot, 't2': t2, 'c': c, **info}
-    print("\nODC-12 ground state energy: {:20.15f}".format(en_tot))
-    print('ODC-12 ground state time: {:8.1f}s'.format(time.time() - t))
-    sys.stdout.flush()
+    info['oo_niter'] = oo_info['niter']
+    info['oo_r1max'] = oo_info['r1max']
+    info['oo_r2max'] = oo_info['r2max']
 
     # LR inputs
     print("\nTransforming the integrals and computing the density matrices...")
     sys.stdout.flush()
     t = time.time()
 
-    ac, bc = c
-    aco, acv = numpy.split(ac, (na,), axis=1)
-    bco, bcv = numpy.split(bc, (nb,), axis=1)
-    co = (aco, bco)
-    cv = (acv, bcv)
+    co = oo_info['co']
+    cv = oo_info['cv']
+    h_ao = info['h_ao']
+    p_ao = info['p_ao']
+    r_ao = info['r_ao']
     hoo = fermitools.math.spinorb.transform_onebody(h_ao, (co, co))
     hov = fermitools.math.spinorb.transform_onebody(h_ao, (co, cv))
     hvv = fermitools.math.spinorb.transform_onebody(h_ao, (cv, cv))
@@ -96,6 +151,8 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     govvv = fermitools.math.spinorb.transform_twobody(r_ao, (co, cv, cv, cv))
     gvvvv = fermitools.math.spinorb.transform_twobody(r_ao, (cv, cv, cv, cv))
 
+    t2 = oo_info['t2']
+    no, _, nv, _ = t2.shape
     m1oo, m1vv = fermitools.oo.odc12.onebody_density(t2)
     foo = fermitools.oo.odc12.fock_xy(
             hxy=hoo, goxoy=goooo, gxvyv=govov, m1oo=m1oo, m1vv=m1vv)
@@ -119,9 +176,9 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     sys.stdout.flush()
 
     t = time.time()
-    w, x, y, info = fermitools.lr.solve.spectrum(
+    w, x, y, lr_info = fermitools.lr.solve.spectrum(
             a=a, b=b, s=s, d=d, ad=ad, sd=sd, nroot=nroot, nguess=nguess,
-            nvec=nvec, niter=niter, r_thresh=rthresh,
+            nvec=nvec, niter=niter, rthresh=rthresh,
             guess_random=guess_random)
     print("\nODC-12 excitation energies (in a.u.):")
     print(w.reshape(-1, 1))
@@ -130,6 +187,10 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     print('\nODC-12 linear response total time: {:8.1f}s'
           .format(time.time() - t))
     sys.stdout.flush()
+
+    info.update(lr_info)
+    info['lr_x'] = x
+    info['lr_y'] = y
 
     # Copmute the transition dipoles
     pg = fermitools.lr.odc12.property_gradient(
@@ -144,12 +205,14 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
           .reshape(-1, 1)).round(12))
     sys.stdout.flush()
 
-    return w, x, y, mu_trans, info, oo_info
+    info['mu_trans'] = mu_trans
+
+    return w, info
 
 
-def dipole_polarizability(labels, coords, charge, spin, basis, angstrom=False,
-                          nvec=100, niter=50, rthresh=1e-7, oo_niter=200,
-                          oo_rthresh=1e-10, interface=None):
+def polarizability(labels, coords, charge, spin, basis, angstrom=False,
+                   nvec=100, niter=50, rthresh=1e-7, oo_niter=200,
+                   oo_rthresh=1e-10, interface=None):
     '''
     :param labels: nuclear labels
     :type labels: tuple
@@ -180,44 +243,28 @@ def dipole_polarizability(labels, coords, charge, spin, basis, angstrom=False,
     :param interface: interface for computing integrals and SCF orbitals
     :type interface: module
     '''
-    coords = numpy.divide(coords, 0.52917720859) if angstrom else coords
+    en_elec, oo_info = energy(
+            labels=labels, coords=coords, charge=charge, spin=spin,
+            basis=basis, angstrom=angstrom, niter=oo_niter,
+            rthresh=oo_rthresh, interface=interface)
 
-    # Spaces
-    na = fermitools.chem.elec.count_alpha(labels, charge, spin)
-    nb = fermitools.chem.elec.count_beta(labels, charge, spin)
-    nbf = interface.integrals.nbf(basis, labels)
-    no = na + nb
-    nv = 2*nbf - no
+    info = {k: v for k, v in oo_info.items()
+            if k not in ('niter', 'r1max', 'r2max')}
 
-    # Integrals
-    h_ao = interface.integrals.core_hamiltonian(basis, labels, coords)
-    p_ao = interface.integrals.dipole(basis, labels, coords)
-    r_ao = interface.integrals.repulsion(basis, labels, coords)
-
-    # Mean-field guess orbitals
-    c_guess = interface.hf.unrestricted_orbitals(
-            basis, labels, coords, charge, spin)
-    t2_guess = numpy.zeros((no, no, nv, nv))
-
-    # Solve ground state
-    t = time.time()
-    en_elec, c, t2, info = fermitools.oo.odc12.solve(
-            na=na, nb=nb, h_ao=h_ao, r_ao=r_ao, c_guess=c_guess,
-            t2_guess=t2_guess, niter=oo_niter, r_thresh=oo_rthresh,
-            print_conv=True)
-    en_nuc = fermitools.chem.nuc.energy(labels=labels, coords=coords)
-    en_tot = en_elec + en_nuc
-    oo_info = {'en_tot': en_tot, 't2': t2, 'c': c, **info}
-    print("\nGround state energy:")
-    print('{:20.15f}'.format(en_tot))
-    print('time: {:8.1f}s'.format(time.time() - t))
+    info['oo_niter'] = oo_info['niter']
+    info['oo_r1max'] = oo_info['r1max']
+    info['oo_r2max'] = oo_info['r2max']
 
     # LR inputs
-    ac, bc = c
-    aco, acv = numpy.split(ac, (na,), axis=1)
-    bco, bcv = numpy.split(bc, (nb,), axis=1)
-    co = (aco, bco)
-    cv = (acv, bcv)
+    print("\nTransforming the integrals and computing the density matrices...")
+    sys.stdout.flush()
+    t = time.time()
+
+    co = oo_info['co']
+    cv = oo_info['cv']
+    h_ao = info['h_ao']
+    p_ao = info['p_ao']
+    r_ao = info['r_ao']
     hoo = fermitools.math.spinorb.transform_onebody(h_ao, (co, co))
     hov = fermitools.math.spinorb.transform_onebody(h_ao, (co, cv))
     hvv = fermitools.math.spinorb.transform_onebody(h_ao, (cv, cv))
@@ -231,6 +278,7 @@ def dipole_polarizability(labels, coords, charge, spin, basis, angstrom=False,
     govvv = fermitools.math.spinorb.transform_twobody(r_ao, (co, cv, cv, cv))
     gvvvv = fermitools.math.spinorb.transform_twobody(r_ao, (cv, cv, cv, cv))
 
+    t2 = oo_info['t2']
     m1oo, m1vv = fermitools.oo.odc12.onebody_density(t2)
     foo = fermitools.oo.odc12.fock_xy(
             hxy=hoo, goxoy=goooo, gxvyv=govov, m1oo=m1oo, m1vv=m1vv)
@@ -238,12 +286,6 @@ def dipole_polarizability(labels, coords, charge, spin, basis, angstrom=False,
             hxy=hov, goxoy=gooov, gxvyv=govvv, m1oo=m1oo, m1vv=m1vv)
     fvv = fermitools.oo.odc12.fock_xy(
             hxy=hvv, goxoy=govov, gxvyv=gvvvv, m1oo=m1oo, m1vv=m1vv)
-
-    # Evaluate dipole moment as expectation value
-    mu = numpy.array([numpy.vdot(pxoo, m1oo) + numpy.vdot(pxvv, m1vv)
-                      for pxoo, pxvv in zip(poo, pvv)])
-    print("Electric dipole:")
-    print(mu.round(12))
 
     # Evaluate dipole polarizability by linear response
     pg = fermitools.lr.odc12.property_gradient(
@@ -254,11 +296,14 @@ def dipole_polarizability(labels, coords, charge, spin, basis, angstrom=False,
     ad = fermitools.lr.odc12.hessian_zeroth_order_diagonal(
             foo=foo, fvv=fvv, t2=t2)
     t = time.time()
-    r, info = fermitools.lr.solve.static_response(
-            a=a, b=b, pg=pg, ad=ad, nvec=nvec, niter=niter, r_thresh=rthresh)
+    r, lr_info = fermitools.lr.solve.static_response(
+            a=a, b=b, pg=pg, ad=ad, nvec=nvec, niter=niter, rthresh=rthresh)
     alpha = numpy.dot(r.T, pg)
     print("Electric dipole polarizability tensor:")
     print(alpha.round(12))
     print('time: {:8.1f}s'.format(time.time() - t))
 
-    return mu, alpha, info, oo_info
+    info.update(lr_info)
+    info['lr_r'] = r
+
+    return alpha, info
