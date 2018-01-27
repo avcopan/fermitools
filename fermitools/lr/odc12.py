@@ -165,7 +165,26 @@ def onebody_hessian(foo, fvv, goooo, goovv, govov, gvvvv, t2):
 
 def mixed_hessian(fov, gooov, govvv, t2):
     m1oo, m1vv = onebody_density(t2)
-    fioo, fivv = _fancy_mixed_interaction(fov, gooov, govvv, m1oo, m1vv)
+    no, uo = scipy.linalg.eigh(m1oo)
+    nv, uv = scipy.linalg.eigh(m1vv)
+    n1oo = broadcast_sum({2: no, 3: no}) - 1
+    n1vv = broadcast_sum({2: nv, 3: nv}) - 1
+    io = numpy.eye(*uo.shape)
+    iv = numpy.eye(*uv.shape)
+    ioo = numpy.ascontiguousarray(
+           + einsum('ik,la->iakl', io, fov)
+           - einsum('mlka,im->iakl', gooov, m1oo)
+           + einsum('ilke,ae->iakl', gooov, m1vv))
+    ivv = numpy.ascontiguousarray(
+           - einsum('ac,id->iadc', iv, fov)
+           + einsum('mcad,im->iadc', govvv, m1oo)
+           - einsum('iced,ae->iadc', govvv, m1vv))
+    tfioo = transform(ioo, (uo, uo)) / n1oo
+    tfivv = transform(ivv, (uv, uv)) / n1vv
+    uot = numpy.ascontiguousarray(numpy.transpose(uo))
+    uvt = numpy.ascontiguousarray(numpy.transpose(uv))
+    fioo = transform(tfioo, (uot, uot))
+    fivv = transform(tfivv, (uvt, uvt))
 
     def _a12(r2):
         a12 = (
@@ -216,10 +235,31 @@ def mixed_hessian(fov, gooov, govvv, t2):
 
 def twobody_hessian(foo, fvv, goooo, govov, gvvvv, t2):
     m1oo, m1vv = onebody_density(t2)
-    ffoo = fancy_property(foo, m1oo)
-    ffvv = fancy_property(fvv, m1vv)
-    fgoooo, fgovov, fgvvvv = _fancy_repulsion(
-            ffoo, ffvv, goooo, govov, gvvvv, m1oo, m1vv)
+    no, uo = scipy.linalg.eigh(m1oo)
+    nv, uv = scipy.linalg.eigh(m1vv)
+    n1oo = broadcast_sum({0: no, 1: no}) - 1
+    n1vv = broadcast_sum({0: nv, 1: nv}) - 1
+    io = numpy.eye(*uo.shape)
+    iv = numpy.eye(*uv.shape)
+    tffoo = transform(foo, (uo, uo)) / n1oo
+    tffvv = transform(fvv, (uv, uv)) / n1vv
+    tgoooo = transform(goooo, (uo, uo, uo, uo))
+    tgovov = transform(govov, (uo, uv, uo, uv))
+    tgvvvv = transform(gvvvv, (uv, uv, uv, uv))
+    tfgoooo = ((tgoooo - einsum('il,jk->ikjl', tffoo, io)
+                       - einsum('il,jk->ikjl', io, tffoo))
+               / einsum('ij,kl->ikjl', n1oo, n1oo))
+    tfgovov = tgovov / einsum('ij,ab->iajb', n1oo, n1vv)
+    tfgvvvv = ((tgvvvv - einsum('ad,bc->acbd', tffvv, iv)
+                       - einsum('ad,bc->acbd', iv, tffvv))
+               / einsum('ab,cd->acbd', n1vv, n1vv))
+    uot = numpy.ascontiguousarray(numpy.transpose(uo))
+    uvt = numpy.ascontiguousarray(numpy.transpose(uv))
+    ffoo = transform(tffoo, (uot, uot))
+    ffvv = transform(tffvv, (uvt, uvt))
+    fgoooo = transform(tfgoooo, (uot, uot, uot, uot))
+    fgovov = transform(tfgovov, (uot, uvt, uot, uvt))
+    fgvvvv = transform(tfgvvvv, (uvt, uvt, uvt, uvt))
 
     def _a22(r2):
         a22 = asm('0/1|2/3')(
@@ -262,55 +302,3 @@ def onebody_metric(t2):
             - einsum('ab,ib...->ia...', m1vv, r1))
 
     return _s11
-
-
-# Private
-def _fancy_mixed_interaction(fov, gooov, govvv, m1oo, m1vv):
-    no, uo = scipy.linalg.eigh(m1oo)
-    nv, uv = scipy.linalg.eigh(m1vv)
-    n1oo = broadcast_sum({2: no, 3: no}) - 1
-    n1vv = broadcast_sum({2: nv, 3: nv}) - 1
-    io = numpy.eye(*uo.shape)
-    iv = numpy.eye(*uv.shape)
-    ioo = numpy.ascontiguousarray(
-           + einsum('ik,la->iakl', io, fov)
-           - einsum('mlka,im->iakl', gooov, m1oo)
-           + einsum('ilke,ae->iakl', gooov, m1vv))
-    ivv = numpy.ascontiguousarray(
-           - einsum('ac,id->iadc', iv, fov)
-           + einsum('mcad,im->iadc', govvv, m1oo)
-           - einsum('iced,ae->iadc', govvv, m1vv))
-    tfioo = transform(ioo, (uo, uo)) / n1oo
-    tfivv = transform(ivv, (uv, uv)) / n1vv
-    uot = numpy.ascontiguousarray(numpy.transpose(uo))
-    uvt = numpy.ascontiguousarray(numpy.transpose(uv))
-    fioo = transform(tfioo, (uot, uot))
-    fivv = transform(tfivv, (uvt, uvt))
-    return fioo, fivv
-
-
-def _fancy_repulsion(ffoo, ffvv, goooo, govov, gvvvv, m1oo, m1vv):
-    no, uo = scipy.linalg.eigh(m1oo)
-    nv, uv = scipy.linalg.eigh(m1vv)
-    n1oo = broadcast_sum({0: no, 1: no}) - 1
-    n1vv = broadcast_sum({0: nv, 1: nv}) - 1
-    io = numpy.eye(*uo.shape)
-    iv = numpy.eye(*uv.shape)
-    tffoo = transform(ffoo, (uo, uo))
-    tffvv = transform(ffvv, (uv, uv))
-    tgoooo = transform(goooo, (uo, uo, uo, uo))
-    tgovov = transform(govov, (uo, uv, uo, uv))
-    tgvvvv = transform(gvvvv, (uv, uv, uv, uv))
-    tfgoooo = ((tgoooo - einsum('il,jk->ikjl', tffoo, io)
-                       - einsum('il,jk->ikjl', io, tffoo))
-               / einsum('ij,kl->ikjl', n1oo, n1oo))
-    tfgovov = tgovov / einsum('ij,ab->iajb', n1oo, n1vv)
-    tfgvvvv = ((tgvvvv - einsum('ad,bc->acbd', tffvv, iv)
-                       - einsum('ad,bc->acbd', iv, tffvv))
-               / einsum('ab,cd->acbd', n1vv, n1vv))
-    uot = numpy.ascontiguousarray(numpy.transpose(uo))
-    uvt = numpy.ascontiguousarray(numpy.transpose(uv))
-    fgoooo = transform(tfgoooo, (uot, uot, uot, uot))
-    fgovov = transform(tfgovov, (uot, uvt, uot, uvt))
-    fgvvvv = transform(tfgvvvv, (uvt, uvt, uvt, uvt))
-    return fgoooo, fgovov, fgvvvv
