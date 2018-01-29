@@ -3,6 +3,8 @@ from . import combinatorics
 from . import asym
 from . import sigma
 from . import diis
+from .ix import cast
+from .ix import diagonal_indices
 from .bcast import broadcast_sum
 from .findif import central_difference
 from .rav import ravel, raveler
@@ -10,6 +12,8 @@ from .urav import unravel, unraveler
 from .trans import transform
 from .ot import orth
 from .ex import expm
+from .dsk import callable_disk_array
+from .dsk import callable_core_array
 
 # Choose your einsum function:
 
@@ -31,6 +35,8 @@ __all__ = [
         'diis',
         'tensoralg',
         'transform',
+        'cast',
+        'diagonal_indices',
         'broadcast_sum',
         'central_difference',
         'einsum',
@@ -38,4 +44,6 @@ __all__ = [
         'unravel', 'unraveler',
         'einsum',
         'orth',
-        'expm']
+        'expm',
+        'callable_disk_array',
+        'callable_core_array']

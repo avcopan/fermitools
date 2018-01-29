@@ -6,8 +6,8 @@ import sys
 from ..ot import orth
 
 
-def eighg(a, b, neig, ad, bd, guess, niter=100, nvec=100, rthresh=1e-5,
-          print_conv=True, highest=False):
+def eighg(a, b, neig, ad, bd, guess, niter=100, nsvec=100, nvec=100,
+          rthresh=1e-5, print_conv=True, highest=False):
     """solve for the lowest generalized eigenvalues of a hermitian matrix
 
     :param a: the matrix, as a callable linear operator
@@ -24,7 +24,9 @@ def eighg(a, b, neig, ad, bd, guess, niter=100, nvec=100, rthresh=1e-5,
     :type guess: numpy.ndarray
     :param niter: the maximum number of iterations
     :type niter: int
-    :param nvec: the maximum number of vectors to hold in memory
+    :param nsvec: maximum number of sigma vectors to compute per sub-iteration
+    :type nsvec: int
+    :param nvec: maximum number of vectors to hold in memory
     :type nvec: int
     :param rthresh: residual convergence threshold
     :type rthresh: float
@@ -38,17 +40,21 @@ def eighg(a, b, neig, ad, bd, guess, niter=100, nvec=100, rthresh=1e-5,
     """
     dim, _ = guess.shape
 
-    v1 = guess
+    vnew = guess
     av = bv = v = numpy.zeros((dim, 0))
 
     slc = slice(None, neig) if not highest else slice(None, -neig-1, -1)
 
     for iteration in range(niter):
-        v = numpy.concatenate((v, v1), axis=1)
-        av = numpy.concatenate((av, a(v1)), axis=1)
-        bv = numpy.concatenate((bv, b(v1)), axis=1)
-        _, rdim = v.shape
+        _, nnew = vnew.shape
+        sections = numpy.arange(nsvec, nnew, nsvec)
+        for i, vi in enumerate(numpy.split(vnew, sections, axis=1)):
+            av = numpy.concatenate((av, a(vi)), axis=1)
+            bv = numpy.concatenate((bv, b(vi)), axis=1)
+            _, rdim = numpy.shape(av)
+            print('subiteration {:d}, rdim={:d}'.format(i, rdim))
 
+        v = numpy.concatenate((v, vnew), axis=1)
         a_red = numpy.dot(v.T, av)
         b_red = numpy.dot(v.T, bv)
 
@@ -79,12 +85,12 @@ def eighg(a, b, neig, ad, bd, guess, niter=100, nvec=100, rthresh=1e-5,
 
         denom = numpy.reshape(w[None, :] * bd[:, None] - ad[:, None], r.shape)
         vstep = r / denom
-        v1 = orth(vstep, against=v)
-        _, rdim1 = v1.shape
+        vnew = orth(vstep, against=v)
+        _, rdim1 = vnew.shape
 
         if rdim + rdim1 > nvec:
             av = bv = v = numpy.zeros((dim, 0))
-            v1 = x
+            vnew = x
 
     if not converged:
         warnings.warn("Did not converge! (rmax: {:7.1e})".format(rmax))

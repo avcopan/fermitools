@@ -13,14 +13,15 @@ def static_response(a, b, pg, ad, nvec=100, niter=50, rthresh=1e-5):
     v = -2*pg
     guess = v / ad[:, None]
 
-    r, info = solve(a=e, b=v, ad=ad, guess=guess, niter=niter, nvec=nvec,
-                    rthresh=rthresh)
+    r, info = solve(
+            a=e, b=v, ad=ad, guess=guess, niter=niter, nvec=nvec,
+            rthresh=rthresh)
 
     return r, info
 
 
-def spectrum(a, b, s, d, ad, sd, nroot=1, nguess=10, nvec=100, niter=50,
-             rthresh=1e-7, guess_random=False):
+def spectrum(a, b, s, d, ad, sd, nroot=1, nguess=10, nsvec=10, nvec=100,
+             niter=50, rthresh=1e-7, guess_random=False):
     e = bmat([[a, b], [b, a]], 2)
     m = bmat([[s, d], [negative(d), negative(s)]], 2)
     ed = numpy.concatenate((+ad, +ad))
@@ -30,8 +31,8 @@ def spectrum(a, b, s, d, ad, sd, nroot=1, nguess=10, nvec=100, niter=50,
     guess = (orth(numpy.random.random((dim, nguess*nroot))) if guess_random
              else evec_guess(md, nguess*nroot, bd=ed, highest=True))
     w_inv, z, info = eighg(
-            a=m, b=e, neig=nroot, ad=md, bd=ed, guess=guess,
-            rthresh=rthresh, nvec=nvec*nroot, niter=niter, highest=True)
+            a=m, b=e, neig=nroot, ad=md, bd=ed, guess=guess, rthresh=rthresh,
+            nsvec=nsvec*nroot, nvec=nvec*nroot, niter=niter, highest=True)
     w = 1. / w_inv
     x, y = numpy.split(z, 2)
     return w, x, y, info

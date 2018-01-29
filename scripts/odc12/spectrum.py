@@ -18,6 +18,7 @@ w, info = drivers.odc12.spectrum(
         angstrom=True,
         nroot=20,
         nguess=12,              # number of guess vectors per root
+        nsvec=2,                # max vectors per root per sub-iteration
         nvec=100,               # max number of subspace vectors per root
         niter=50,               # number of iterations
         rthresh=1e-5,           # convergence threshold

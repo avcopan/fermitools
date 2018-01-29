@@ -87,9 +87,9 @@ def energy(labels, coords, charge, spin, basis, angstrom=False, niter=100,
 
 
 def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
-             nguess=10, nvec=100, niter=50, rthresh=1e-7, guess_random=False,
-             oo_niter=200, oo_rthresh=1e-10, diis_start=3, diis_nvec=20,
-             interface=None):
+             nguess=10, nsvec=10, nvec=100, niter=50, rthresh=1e-7,
+             guess_random=False, oo_niter=200, oo_rthresh=1e-10, diis_start=3,
+             diis_nvec=20, interface=None):
     '''
     :param labels: nuclear labels
     :type labels: tuple
@@ -107,7 +107,9 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     :type nroot: int
     :param nguess: number of guess vectors per root
     :type nguess: int
-    :param nvec: number of subspace vectors to start with
+    :param nsvec: max vectors per root per sub-iteration
+    :type nsvec: int
+    :param nvec: max number of subspace vectors per root
     :type nvec: int
     :param niter: number of iterations
     :type niter: int
@@ -189,7 +191,7 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     t = time.time()
     w, x, y, lr_info = fermitools.lr.solve.spectrum(
             a=a, b=b, s=s, d=d, ad=ad, sd=sd, nroot=nroot, nguess=nguess,
-            nvec=nvec, niter=niter, rthresh=rthresh,
+            nsvec=nsvec, nvec=nvec, niter=niter, rthresh=rthresh,
             guess_random=guess_random)
     print("\nODC-12 excitation energies (in a.u.):")
     print(w.reshape(-1, 1))
@@ -242,7 +244,7 @@ def polarizability(labels, coords, charge, spin, basis, angstrom=False,
     :type nroot: int
     :param nguess: number of guess vectors per root
     :type nguess: int
-    :param nvec: number of subspace vectors to start with
+    :param nvec: max number of subspace vectors per root
     :type nvec: int
     :param niter: number of iterations
     :type niter: int

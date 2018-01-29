@@ -4,6 +4,8 @@ from toolz import functoolz
 
 from ..math import einsum
 from ..math import transform
+from ..math import cast
+from ..math import diagonal_indices as dix
 from ..math import broadcast_sum
 from ..math import raveler, unraveler
 from ..math.asym import antisymmetrizer_product as asm
@@ -87,7 +89,7 @@ def metric(t2):
 def onebody_hessian_zeroth_order_diagonal(foo, fvv):
     eo = numpy.diagonal(foo)
     ev = numpy.diagonal(fvv)
-    return broadcast_sum({0: -eo, 1: +ev})
+    return - cast(eo, 0, 2) + cast(ev, 1, 2)
 
 
 def twobody_hessian_zeroth_order_diagonal(foo, fvv, t2):
@@ -96,7 +98,8 @@ def twobody_hessian_zeroth_order_diagonal(foo, fvv, t2):
     ffvv = fancy_property(fvv, m1vv)
     efo = numpy.diagonal(ffoo)
     efv = numpy.diagonal(ffvv)
-    return broadcast_sum({0: -efo, 1: -efo, 2: -efv, 3: -efv})
+    return (- cast(efo, 0, 4) - cast(efo, 1, 4)
+            - cast(efv, 2, 4) - cast(efv, 3, 4))
 
 
 def onebody_property_gradient(pov, m1oo, m1vv):
@@ -235,31 +238,39 @@ def mixed_hessian(fov, gooov, govvv, t2):
 
 def twobody_hessian(foo, fvv, goooo, govov, gvvvv, t2):
     m1oo, m1vv = onebody_density(t2)
-    no, uo = scipy.linalg.eigh(m1oo)
-    nv, uv = scipy.linalg.eigh(m1vv)
-    n1oo = broadcast_sum({0: no, 1: no}) - 1
-    n1vv = broadcast_sum({0: nv, 1: nv}) - 1
-    io = numpy.eye(*uo.shape)
-    iv = numpy.eye(*uv.shape)
-    tffoo = transform(foo, (uo, uo)) / n1oo
-    tffvv = transform(fvv, (uv, uv)) / n1vv
-    tgoooo = transform(goooo, (uo, uo, uo, uo))
-    tgovov = transform(govov, (uo, uv, uo, uv))
-    tgvvvv = transform(gvvvv, (uv, uv, uv, uv))
-    tfgoooo = ((tgoooo - einsum('il,jk->ikjl', tffoo, io)
-                       - einsum('il,jk->ikjl', io, tffoo))
-               / einsum('ij,kl->ikjl', n1oo, n1oo))
-    tfgovov = tgovov / einsum('ij,ab->iajb', n1oo, n1vv)
-    tfgvvvv = ((tgvvvv - einsum('ad,bc->acbd', tffvv, iv)
-                       - einsum('ad,bc->acbd', iv, tffvv))
-               / einsum('ab,cd->acbd', n1vv, n1vv))
+    mo, uo = scipy.linalg.eigh(m1oo)
+    mv, uv = scipy.linalg.eigh(m1vv)
     uot = numpy.ascontiguousarray(numpy.transpose(uo))
     uvt = numpy.ascontiguousarray(numpy.transpose(uv))
+    # oo
+    tffoo = transform(foo, (uo, uo))
+    tffoo /= (cast(mo, 0, 2) + cast(mo, 1, 2) - 1)
     ffoo = transform(tffoo, (uot, uot))
+    # vv
+    tffvv = transform(fvv, (uv, uv))
+    tffvv /= (cast(mv, 0, 2) + cast(mv, 1, 2) - 1)
     ffvv = transform(tffvv, (uvt, uvt))
-    fgoooo = transform(tfgoooo, (uot, uot, uot, uot))
-    fgovov = transform(tfgovov, (uot, uvt, uot, uvt))
-    fgvvvv = transform(tfgvvvv, (uvt, uvt, uvt, uvt))
+    # oooo
+    no = len(mo)
+    fgoooo = transform(goooo, (uo, uo, uo, uo))
+    fgoooo[dix(no, (1, 2))] -= cast(tffoo, (0, 2))
+    fgoooo[dix(no, (0, 3))] -= cast(tffoo, (1, 2))
+    fgoooo /= (cast(mo, 0, 4) + cast(mo, 2, 4) - 1)
+    fgoooo /= (cast(mo, 1, 4) + cast(mo, 3, 4) - 1)
+    fgoooo = transform(fgoooo, (uot, uot, uot, uot))
+    # ovov
+    fgovov = transform(govov, (uo, uv, uo, uv))
+    fgovov /= (cast(mo, 0, 4) + cast(mo, 2, 4) - 1)
+    fgovov /= (cast(mv, 1, 4) + cast(mv, 3, 4) - 1)
+    fgovov = transform(fgovov, (uot, uvt, uot, uvt))
+    # vvvv
+    nv = len(mv)
+    fgvvvv = transform(gvvvv, (uv, uv, uv, uv))
+    fgvvvv[dix(nv, (1, 2))] -= cast(tffvv, (0, 2))
+    fgvvvv[dix(nv, (0, 3))] -= cast(tffvv, (1, 2))
+    fgvvvv /= (cast(mv, 0, 4) + cast(mv, 2, 4) - 1)
+    fgvvvv /= (cast(mv, 1, 4) + cast(mv, 3, 4) - 1)
+    fgvvvv = transform(fgvvvv, (uvt, uvt, uvt, uvt))
 
     def _a22(r2):
         a22 = asm('0/1|2/3')(

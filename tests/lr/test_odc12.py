@@ -123,3 +123,7 @@ def test__twobody_hessian():
 def test__onebody_metric():
     s11 = odc12.onebody_metric(T2)
     assert_almost_equal(s11(I1U), S11, decimal=10)
+
+
+if __name__ == '__main__':
+    test__twobody_hessian()
