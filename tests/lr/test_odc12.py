@@ -71,6 +71,14 @@ def test__hessian():
     assert_almost_equal(a(EYE), A, decimal=10)
     assert_almost_equal(b(EYE), B, decimal=10)
 
+    from fermitools.math import callable_disk_array
+    GV4 = callable_disk_array(GVVVV)
+    a, b = odc12.hessian(
+            FOO, FOV, FVV, GOOOO, GOOOV, GOOVV, GOVOV, GOVVV, GV4, T2,
+            disk=True)
+    assert_almost_equal(a(EYE), A, decimal=10)
+    assert_almost_equal(b(EYE), B, decimal=10)
+
 
 def test__metric():
     s, d = odc12.metric(T2)
