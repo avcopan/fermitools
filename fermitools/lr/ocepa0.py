@@ -4,6 +4,7 @@ from toolz import functoolz
 from ..math import einsum
 from ..math import broadcast_sum
 from ..math import raveler, unraveler
+from ..math import callable_core_array
 from ..math.asym import antisymmetrizer_product as asm
 from ..math.asym import megaraveler, megaunraveler
 from ..math.sigma import eye
@@ -38,7 +39,8 @@ def property_gradient(poo, pov, pvv, t2):
     return numpy.concatenate((pg1, pg2), axis=0)
 
 
-def hessian(foo, fov, fvv, goooo, gooov, goovv, govov, govvv, gvvvv, t2):
+def hessian(foo, fov, fvv, goooo, gooov, goovv, govov, govvv, gv4, t2,
+            disk=False):
     no, _, nv, _ = t2.shape
     n1 = no * nv
     r1 = raveler({0: (0, 1)})
@@ -46,9 +48,9 @@ def hessian(foo, fov, fvv, goooo, gooov, goovv, govov, govvv, gvvvv, t2):
     r2 = megaraveler({0: ((0, 1), (2, 3))})
     u2 = megaunraveler({0: {(0, 1): no, (2, 3): nv}})
 
-    a11u, b11u = onebody_hessian(foo, fvv, goooo, goovv, govov, gvvvv, t2)
+    a11u, b11u = onebody_hessian(foo, fvv, goooo, goovv, govov, gv4, t2)
     a12u, b12u, a21u, b21u = mixed_hessian(fov, gooov, govvv, t2)
-    a22u, b22u = twobody_hessian(foo, fvv, goooo, govov, gvvvv)
+    a22u, b22u = twobody_hessian(foo, fvv, goooo, govov, gv4)
     a11 = functoolz.compose(r1, a11u, u1)
     b11 = functoolz.compose(r1, b11u, u1)
     a12 = functoolz.compose(r1, a12u, u2)
@@ -102,7 +104,9 @@ def twobody_property_gradient(poo, pvv, t2):
               einsum('...ik,kjab->ijab...', poo, t2)))
 
 
-def onebody_hessian(foo, fvv, goooo, goovv, govov, gvvvv, t2):
+def onebody_hessian(foo, fvv, goooo, goovv, govov, gv4, t2):
+    gv4 = gv4 if callable(gv4) else callable_core_array(gv4)
+
     fcoo = (foo
             + 1./2 * einsum('imef,jmef->ij', goovv, t2)
             - 1./2 * einsum('im,mkef,jkef->ij', foo, t2, t2)
@@ -112,7 +116,7 @@ def onebody_hessian(foo, fvv, goooo, goovv, govov, gvvvv, t2):
             - einsum('iemf,mkec,jkfc->ij', govov, t2, t2))
     fcvv = (+ 1./2 * einsum('mnae,mnbe', goovv, t2)
             + 1./2 * einsum('ae,mnec,mnbc->ab', fvv, t2, t2)
-            + 1./4 * einsum('aefg,klbe,klfg', gvvvv, t2, t2)
+            + 1./4 * einsum('aefg,klbe,klfg', gv4(), t2, t2)
             - einsum('nema,mkec,nkbc->ab', govov, t2, t2))
     fsoo = (fcoo + numpy.transpose(fcoo)) / 2.
     fsvv = (fcvv + numpy.transpose(fcvv)) / 2.
@@ -127,7 +131,7 @@ def onebody_hessian(foo, fvv, goooo, goovv, govov, gvvvv, t2):
             + 1./2 * einsum('ij,mnac,mnbc,jb...->ia...', foo, t2, t2, r1)
             + 1./2 * einsum('ibje,mnac,mnec,jb...->ia...', govov, t2, t2, r1)
             + 1./2 * einsum('jaie,mnbc,mnec,jb...->ia...', govov, t2, t2, r1)
-            + 1./2 * einsum('aebf,mnec,mnfc,ib...->ia...', gvvvv, t2, t2, r1)
+            + 1./2 * einsum('aebf,mnec,mnfc,ib...->ia...', gv4(), t2, t2, r1)
             - 1./2 * einsum('manb,mkef,nkef,ib...->ia...', govov, t2, t2, r1)
             + 1./2 * einsum('janb,ikef,nkef,jb...->ia...', govov, t2, t2, r1)
             + 1./2 * einsum('maib,mkef,jkef,jb...->ia...', govov, t2, t2, r1)
@@ -136,7 +140,7 @@ def onebody_hessian(foo, fvv, goooo, goovv, govov, gvvvv, t2):
             - einsum('minj,nkac,mkbc,jb...->ia...', goooo, t2, t2, r1)
             - einsum('ibme,mkac,jkec,jb...->ia...', govov, t2, t2, r1)
             - einsum('jame,mkbc,ikec,jb...->ia...', govov, t2, t2, r1)
-            - einsum('aebf,jkec,ikfc,jb...->ia...', gvvvv, t2, t2, r1))
+            - einsum('aebf,jkec,ikfc,jb...->ia...', gv4(), t2, t2, r1))
         return a11
 
     def _b11(r1):
@@ -145,7 +149,7 @@ def onebody_hessian(foo, fvv, goooo, goovv, govov, gvvvv, t2):
             + einsum('jema,imbe,jb...->ia...', govov, t2, r1)
             + einsum('iemb,jmae,jb...->ia...', govov, t2, r1)
             + 1./2 * einsum('ijmn,mnab,jb...->ia...', goooo, t2, r1)
-            + 1./2 * einsum('efab,ijef,jb...->ia...', gvvvv, t2, r1)
+            + 1./2 * einsum('efab,ijef,jb...->ia...', gv4(), t2, r1)
             + 1./2 * einsum('ijbe,mnec,mnac,jb...->ia...', goovv, t2, t2, r1)
             + 1./2 * einsum('jiae,mnec,mnbc,jb...->ia...', goovv, t2, t2, r1)
             - 1./2 * einsum('inab,jkef,nkef,jb...->ia...', goovv, t2, t2, r1)
@@ -209,13 +213,14 @@ def mixed_hessian(fov, gooov, govvv, t2):
     return _a12, _b12, _a21, _b21
 
 
-def twobody_hessian(foo, fvv, goooo, govov, gvvvv):
+def twobody_hessian(foo, fvv, goooo, govov, gv4):
+    gv4 = gv4 if callable(gv4) else callable_core_array(gv4)
 
     def _a22(r2):
         a22 = asm('0/1|2/3')(
             + 1./2 * einsum('ac,ijcb...->ijab...', fvv, r2)
             - 1./2 * einsum('ik,kjab...->ijab...', foo, r2)
-            + 1./8 * einsum('abcd,ijcd...->ijab...', gvvvv, r2)
+            + 1./8 * einsum('abcd,ijcd...->ijab...', gv4(), r2)
             + 1./8 * einsum('ijkl,klab...->ijab...', goooo, r2)
             - einsum('jcla,ilcb...->ijab...', govov, r2))
         return a22
