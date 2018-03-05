@@ -5,7 +5,6 @@ from . import sigma
 from . import diis
 from .ix import cast
 from .ix import diagonal_indices
-from .bcast import broadcast_sum
 from .findif import central_difference
 from .rav import ravel, raveler
 from .urav import unravel, unraveler
@@ -37,7 +36,6 @@ __all__ = [
         'transform',
         'cast',
         'diagonal_indices',
-        'broadcast_sum',
         'central_difference',
         'einsum',
         'ravel', 'raveler',

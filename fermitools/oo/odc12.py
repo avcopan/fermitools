@@ -6,8 +6,8 @@ import scipy.linalg
 from .util import orbital_rotation
 from .util import diis_extrapolator
 from ..math import einsum
+from ..math import cast
 from ..math import transform
-from ..math import broadcast_sum
 from ..math.spinorb import transform_onebody, transform_twobody
 
 from .ocepa0 import twobody_amplitude_gradient
@@ -41,7 +41,7 @@ def solve(h_ao, r_ao, co_guess, cv_guess, t2_guess, niter=50, rthresh=1e-8,
         fvv = fock_xy(hvv, govov, gvvvv, m1oo, m1vv)
         eo = numpy.diagonal(foo)
         ev = numpy.diagonal(fvv)
-        e1 = broadcast_sum({0: +eo, 1: -ev})
+        e1 = cast(eo, 0, 2) - cast(ev, 1, 2)
         r1 = orbital_gradient(fov, gooov, govvv, m1oo, m1vv, t2)
         t1 = t1 + r1 / e1
         # Amplitude step
@@ -49,7 +49,8 @@ def solve(h_ao, r_ao, co_guess, cv_guess, t2_guess, niter=50, rthresh=1e-8,
         ffvv = fancy_property(fvv, m1vv)
         feo = numpy.diagonal(ffoo)
         fev = numpy.diagonal(ffvv)
-        fe2 = broadcast_sum({0: +feo, 1: +feo, 2: +fev, 3: +fev})
+        fe2 = (+ cast(feo, 0, 4) + cast(feo, 1, 4)
+               + cast(fev, 2, 4) + cast(fev, 3, 4))
         r2 = twobody_amplitude_gradient(
                 goooo, goovv, govov, gvvvv, +ffoo, -ffvv, t2)
         t2 = t2 + r2 / fe2
@@ -99,9 +100,9 @@ def fancy_property(pxx, m1xx):
     :returns: the derivative trace intermediate
     :rtype: numpy.ndarray
     """
-    nx, ux = scipy.linalg.eigh(m1xx)
-    ax1, ax2 = pxx.ndim - 2, pxx.ndim - 1
-    n1xx = broadcast_sum({ax1: nx, ax2: nx}) - 1
+    mx, ux = scipy.linalg.eigh(m1xx)
+    ndim = pxx.ndim
+    n1xx = cast(mx, ndim-2, ndim) + cast(mx, ndim-1, ndim) - 1
     tfpxx = transform(pxx, (ux, ux)) / n1xx
     uxt = numpy.ascontiguousarray(numpy.transpose(ux))
     fpxx = transform(tfpxx, (uxt, uxt))

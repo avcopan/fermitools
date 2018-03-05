@@ -5,7 +5,7 @@ import sys
 from .util import orbital_rotation
 from .util import diis_extrapolator
 from ..math import einsum
-from ..math import broadcast_sum
+from ..math import cast
 from ..math.asym import antisymmetrizer_product as asm
 from ..math.spinorb import transform_onebody, transform_twobody
 
@@ -36,11 +36,12 @@ def solve(h_ao, r_ao, co_guess, cv_guess, t2_guess, niter=50, rthresh=1e-8,
         fvv = fock_xy(hvv, govov)
         eo = numpy.diagonal(foo)
         ev = numpy.diagonal(fvv)
-        e1 = broadcast_sum({0: +eo, 1: -ev})
+        e1 = cast(eo, 0, 2) - cast(ev, 1, 2)
         r1 = orbital_gradient(fov, gooov, govvv, t2)
         t1 = t1 + r1 / e1
         # Amplitude step
-        e2 = broadcast_sum({0: +eo, 1: +eo, 2: -ev, 3: -ev})
+        e2 = (+ cast(eo, 0, 4) + cast(eo, 1, 4)
+              - cast(ev, 2, 4) - cast(ev, 3, 4))
         r2 = twobody_amplitude_gradient(
                 goooo, goovv, govov, gvvvv, foo, fvv, t2)
         t2 += r2 / e2

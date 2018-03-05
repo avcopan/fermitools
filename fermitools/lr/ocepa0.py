@@ -1,8 +1,8 @@
 import numpy
 from toolz import functoolz
 
+from ..math import cast
 from ..math import einsum
-from ..math import broadcast_sum
 from ..math import raveler, unraveler
 from ..math.asym import antisymmetrizer_product as asm
 from ..math.asym import megaraveler, megaunraveler
@@ -78,13 +78,14 @@ def metric(t2):
 def onebody_hessian_zeroth_order_diagonal(foo, fvv):
     eo = numpy.diagonal(foo)
     ev = numpy.diagonal(fvv)
-    return broadcast_sum({0: -eo, 1: +ev})
+    return - cast(eo, 0, 2) + cast(ev, 1, 2)
 
 
 def twobody_hessian_zeroth_order_diagonal(foo, fvv):
     eo = numpy.diagonal(foo)
     ev = numpy.diagonal(fvv)
-    return broadcast_sum({0: -eo, 1: -eo, 2: +ev, 3: +ev})
+    return (- cast(eo, 0, 4) - cast(eo, 1, 4)
+            + cast(ev, 2, 4) + cast(ev, 3, 4))
 
 
 def onebody_property_gradient(pov, t2):

@@ -6,7 +6,6 @@ from ..math import einsum
 from ..math import transform
 from ..math import cast
 from ..math import diagonal_indices as dix
-from ..math import broadcast_sum
 from ..math import raveler, unraveler
 from ..math.asym import antisymmetrizer_product as asm
 from ..math.asym import megaraveler, megaunraveler
@@ -168,10 +167,10 @@ def onebody_hessian(foo, fvv, goooo, goovv, govov, gvvvv, t2):
 
 def mixed_hessian(fov, gooov, govvv, t2):
     m1oo, m1vv = onebody_density(t2)
-    no, uo = scipy.linalg.eigh(m1oo)
-    nv, uv = scipy.linalg.eigh(m1vv)
-    n1oo = broadcast_sum({2: no, 3: no}) - 1
-    n1vv = broadcast_sum({2: nv, 3: nv}) - 1
+    mo, uo = scipy.linalg.eigh(m1oo)
+    mv, uv = scipy.linalg.eigh(m1vv)
+    n1oo = cast(mo, 2, 4) + cast(mo, 3, 4) - 1
+    n1vv = cast(mv, 2, 4) + cast(mv, 3, 4) - 1
     io = numpy.eye(*uo.shape)
     iv = numpy.eye(*uv.shape)
     ioo = numpy.ascontiguousarray(
