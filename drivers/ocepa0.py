@@ -89,7 +89,7 @@ def energy(labels, coords, charge, spin, basis, angstrom=False, niter=100,
 def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
              nguess=10, nsvec=10, nvec=100, niter=50, rthresh=1e-7,
              guess_random=False, oo_niter=200, oo_rthresh=1e-10, diis_start=3,
-             diis_nvec=20, disk=False, interface=None):
+             diis_nvec=20, interface=None):
     '''
     :param labels: nuclear labels
     :type labels: tuple
@@ -170,10 +170,6 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     fov = fermitools.oo.ocepa0.fock_xy(hxy=hov, goxoy=gooov)
     fvv = fermitools.oo.ocepa0.fock_xy(hxy=hvv, goxoy=govov)
 
-    gv4 = (fermitools.math.callable_disk_array(gvvvv) if disk else
-           fermitools.math.callable_core_array(gvvvv))
-    gvvvv = None
-
     # Compute spectrum by linear response
     sd = fermitools.lr.ocepa0.metric_zeroth_order_diagonal(no, nv)
     ad = fermitools.lr.ocepa0.hessian_zeroth_order_diagonal(foo=foo, fvv=fvv)
@@ -181,7 +177,7 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     s, d = fermitools.lr.ocepa0.metric(t2=t2)
     a, b = fermitools.lr.ocepa0.hessian(
             foo=foo, fov=fov, fvv=fvv, goooo=goooo, gooov=gooov, goovv=goovv,
-            govov=govov, govvv=govvv, gv4=gv4, t2=t2, disk=disk)
+            govov=govov, govvv=govvv, gvvvv=gvvvv, t2=t2)
 
     print('Integrals and density matrices time: {:8.1f}s\n'
           .format(time.time() - t))
@@ -224,7 +220,7 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
 
 def polarizability(labels, coords, charge, spin, basis, angstrom=False,
                    nvec=100, niter=50, rthresh=1e-7, oo_niter=200,
-                   oo_rthresh=1e-10, diis_start=3, diis_nvec=20, disk=False,
+                   oo_rthresh=1e-10, diis_start=3, diis_nvec=20,
                    interface=None):
     '''
     :param labels: nuclear labels
@@ -301,16 +297,12 @@ def polarizability(labels, coords, charge, spin, basis, angstrom=False,
     fov = fermitools.oo.ocepa0.fock_xy(hxy=hov, goxoy=gooov)
     fvv = fermitools.oo.ocepa0.fock_xy(hxy=hvv, goxoy=govov)
 
-    gv4 = (fermitools.math.callable_disk_array(gvvvv) if disk else
-           fermitools.math.callable_core_array(gvvvv))
-    gvvvv = None
-
     # Evaluate dipole polarizability by linear response
     pg = fermitools.lr.ocepa0.property_gradient(
             poo=poo, pov=pov, pvv=pvv, t2=t2)
     a, b = fermitools.lr.ocepa0.hessian(
             foo=foo, fov=fov, fvv=fvv, goooo=goooo, gooov=gooov, goovv=goovv,
-            govov=govov, govvv=govvv, gv4=gv4, t2=t2, disk=disk)
+            govov=govov, govvv=govvv, gvvvv=gvvvv, t2=t2)
     ad = fermitools.lr.ocepa0.hessian_zeroth_order_diagonal(foo=foo, fvv=fvv)
     t = time.time()
     r, lr_info = fermitools.lr.solve.static_response(
