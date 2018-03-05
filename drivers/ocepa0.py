@@ -2,7 +2,11 @@ import sys
 import time
 import numpy
 import fermitools
+from toolz import functoolz
 from itertools import starmap
+
+import h5py
+import tempfile
 
 
 def energy(labels, coords, charge, spin, basis, angstrom=False, niter=100,
@@ -89,7 +93,7 @@ def energy(labels, coords, charge, spin, basis, angstrom=False, niter=100,
 def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
              nguess=10, nsvec=10, nvec=100, niter=50, rthresh=1e-7,
              guess_random=False, oo_niter=200, oo_rthresh=1e-10, diis_start=3,
-             diis_nvec=20, interface=None):
+             diis_nvec=20, disk=False, interface=None):
     '''
     :param labels: nuclear labels
     :type labels: tuple
@@ -125,6 +129,8 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     :type diis_start: int
     :param diis_nvec: maximum number of DIIS vectors
     :type diis_start: int
+    :param disk: keep V^4 arrays on disk?
+    :type disk: bool
     :param interface: interface for computing integrals and SCF orbitals
     :type interface: module
     '''
@@ -164,6 +170,11 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     govvv = fermitools.math.spinorb.transform_twobody(r_ao, (co, cv, cv, cv))
     gvvvv = fermitools.math.spinorb.transform_twobody(r_ao, (cv, cv, cv, cv))
 
+    if disk:
+        flname = tempfile.mkstemp(suffix='.hdf5')[1]
+        fl = h5py.File(flname, mode='w')
+        gvvvv = fl.create_dataset('gvvvv', data=gvvvv)
+
     t2 = oo_info['t2']
     no, _, nv, _ = t2.shape
     foo = fermitools.oo.ocepa0.fock_xy(hxy=hoo, goxoy=goooo)
@@ -171,13 +182,53 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     fvv = fermitools.oo.ocepa0.fock_xy(hxy=hvv, goxoy=govov)
 
     # Compute spectrum by linear response
-    sd = fermitools.lr.ocepa0.metric_zeroth_order_diagonal(no, nv)
-    ad = fermitools.lr.ocepa0.hessian_zeroth_order_diagonal(foo=foo, fvv=fvv)
+    no, _, nv, _ = t2.shape
+    n1 = no * nv
+    n2 = no * (no - 1) * nv * (nv - 1) // 4
 
-    s, d = fermitools.lr.ocepa0.metric(t2=t2)
-    a, b = fermitools.lr.ocepa0.hessian(
-            foo=foo, fov=fov, fvv=fvv, goooo=goooo, gooov=gooov, goovv=goovv,
-            govov=govov, govvv=govvv, gvvvv=gvvvv, t2=t2)
+    eye = fermitools.math.sigma.eye
+    zero = fermitools.math.sigma.zero
+
+    r1 = fermitools.math.raveler({0: (0, 1)})
+    u1 = fermitools.math.unraveler({0: {0: no, 1: nv}})
+    r2 = fermitools.math.asym.megaraveler({0: ((0, 1), (2, 3))})
+    u2 = fermitools.math.asym.megaunraveler({0: {(0, 1): no, (2, 3): nv}})
+
+    pg1u = fermitools.lr.ocepa0.onebody_property_gradient(pov, t2)
+    pg2u = fermitools.lr.ocepa0.twobody_property_gradient(poo, pvv, t2)
+    ad1u = fermitools.lr.ocepa0.onebody_hessian_zeroth_order_diagonal(
+            foo, fvv)
+    ad2u = fermitools.lr.ocepa0.twobody_hessian_zeroth_order_diagonal(
+            foo, fvv)
+    a11u, b11u = fermitools.lr.ocepa0.onebody_hessian(
+            foo, fvv, goooo, goovv, govov, gvvvv, t2)
+    a12u, b12u, a21u, b21u = fermitools.lr.ocepa0.mixed_hessian(
+            fov, gooov, govvv, t2)
+    a22u = fermitools.lr.ocepa0.twobody_hessian(
+            foo, fvv, goooo, govov, gvvvv)
+    s11u = fermitools.lr.ocepa0.onebody_metric(t2)
+
+    pg1 = r1(pg1u)
+    pg2 = r2(pg2u)
+    ad1 = r1(ad1u)
+    ad2 = r2(ad2u)
+    a11 = functoolz.compose(r1, a11u, u1)
+    b11 = functoolz.compose(r1, b11u, u1)
+    a12 = functoolz.compose(r1, a12u, u2)
+    b12 = functoolz.compose(r1, b12u, u2)
+    a21 = functoolz.compose(r2, a21u, u1)
+    b21 = functoolz.compose(r2, b21u, u1)
+    a22 = functoolz.compose(r2, a22u, u2)
+    b22 = zero
+    s11 = functoolz.compose(r1, s11u, u1)
+
+    pg = numpy.concatenate((pg1, pg2), axis=0)
+    sd = numpy.ones(n1+n2)
+    ad = numpy.concatenate((ad1, ad2), axis=0)
+    s = fermitools.math.sigma.block_diag((s11, eye), (n1,))
+    d = zero
+    a = fermitools.math.sigma.bmat([[a11, a12], [a21, a22]], (n1,))
+    b = fermitools.math.sigma.bmat([[b11, b12], [b21, b22]], (n1,))
 
     print('Integrals and density matrices time: {:8.1f}s\n'
           .format(time.time() - t))
@@ -201,8 +252,6 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     info['lr_y'] = y
 
     # Copmute the transition dipoles
-    pg = fermitools.lr.ocepa0.property_gradient(
-            poo=poo, pov=pov, pvv=pvv, t2=t2)
     mu_trans = fermitools.lr.transition_dipole(
             s=s, d=d, pg=pg, x=x, y=y)
 
@@ -220,7 +269,7 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
 
 def polarizability(labels, coords, charge, spin, basis, angstrom=False,
                    nvec=100, niter=50, rthresh=1e-7, oo_niter=200,
-                   oo_rthresh=1e-10, diis_start=3, diis_nvec=20,
+                   oo_rthresh=1e-10, diis_start=3, diis_nvec=20, disk=False,
                    interface=None):
     '''
     :param labels: nuclear labels
@@ -253,6 +302,8 @@ def polarizability(labels, coords, charge, spin, basis, angstrom=False,
     :type diis_start: int
     :param diis_nvec: maximum number of DIIS vectors
     :type diis_start: int
+    :param disk: keep V^4 arrays on disk?
+    :type disk: bool
     :param interface: interface for computing integrals and SCF orbitals
     :type interface: module
     '''
@@ -292,18 +343,58 @@ def polarizability(labels, coords, charge, spin, basis, angstrom=False,
     govvv = fermitools.math.spinorb.transform_twobody(r_ao, (co, cv, cv, cv))
     gvvvv = fermitools.math.spinorb.transform_twobody(r_ao, (cv, cv, cv, cv))
 
+    if disk:
+        flname = tempfile.mkstemp(suffix='.hdf5')[1]
+        fl = h5py.File(flname, mode='w')
+        gvvvv = fl.create_dataset('gvvvv', data=gvvvv)
+
     t2 = oo_info['t2']
     foo = fermitools.oo.ocepa0.fock_xy(hxy=hoo, goxoy=goooo)
     fov = fermitools.oo.ocepa0.fock_xy(hxy=hov, goxoy=gooov)
     fvv = fermitools.oo.ocepa0.fock_xy(hxy=hvv, goxoy=govov)
 
     # Evaluate dipole polarizability by linear response
-    pg = fermitools.lr.ocepa0.property_gradient(
-            poo=poo, pov=pov, pvv=pvv, t2=t2)
-    a, b = fermitools.lr.ocepa0.hessian(
-            foo=foo, fov=fov, fvv=fvv, goooo=goooo, gooov=gooov, goovv=goovv,
-            govov=govov, govvv=govvv, gvvvv=gvvvv, t2=t2)
-    ad = fermitools.lr.ocepa0.hessian_zeroth_order_diagonal(foo=foo, fvv=fvv)
+    no, _, nv, _ = t2.shape
+    n1 = no * nv
+
+    zero = fermitools.math.sigma.zero
+
+    r1 = fermitools.math.raveler({0: (0, 1)})
+    u1 = fermitools.math.unraveler({0: {0: no, 1: nv}})
+    r2 = fermitools.math.asym.megaraveler({0: ((0, 1), (2, 3))})
+    u2 = fermitools.math.asym.megaunraveler({0: {(0, 1): no, (2, 3): nv}})
+
+    pg1u = fermitools.lr.ocepa0.onebody_property_gradient(pov, t2)
+    pg2u = fermitools.lr.ocepa0.twobody_property_gradient(poo, pvv, t2)
+    ad1u = fermitools.lr.ocepa0.onebody_hessian_zeroth_order_diagonal(
+            foo, fvv)
+    ad2u = fermitools.lr.ocepa0.twobody_hessian_zeroth_order_diagonal(
+            foo, fvv)
+    a11u, b11u = fermitools.lr.ocepa0.onebody_hessian(
+            foo, fvv, goooo, goovv, govov, gvvvv, t2)
+    a12u, b12u, a21u, b21u = fermitools.lr.ocepa0.mixed_hessian(
+            fov, gooov, govvv, t2)
+    a22u = fermitools.lr.ocepa0.twobody_hessian(
+            foo, fvv, goooo, govov, gvvvv)
+
+    pg1 = r1(pg1u)
+    pg2 = r2(pg2u)
+    ad1 = r1(ad1u)
+    ad2 = r2(ad2u)
+    a11 = functoolz.compose(r1, a11u, u1)
+    b11 = functoolz.compose(r1, b11u, u1)
+    a12 = functoolz.compose(r1, a12u, u2)
+    b12 = functoolz.compose(r1, b12u, u2)
+    a21 = functoolz.compose(r2, a21u, u1)
+    b21 = functoolz.compose(r2, b21u, u1)
+    a22 = functoolz.compose(r2, a22u, u2)
+    b22 = zero
+
+    pg = numpy.concatenate((pg1, pg2), axis=0)
+    ad = numpy.concatenate((ad1, ad2), axis=0)
+    a = fermitools.math.sigma.bmat([[a11, a12], [a21, a22]], (n1,))
+    b = fermitools.math.sigma.bmat([[b11, b12], [b21, b22]], (n1,))
+
     t = time.time()
     r, lr_info = fermitools.lr.solve.static_response(
             a=a, b=b, pg=pg, ad=ad, nvec=nvec, niter=niter, rthresh=rthresh)

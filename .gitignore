@@ -6,3 +6,4 @@ timer.dat
 *.clean
 *.profile
 *.png
+.pytest_cache

@@ -1,90 +1,20 @@
 import numpy
 import scipy
-from toolz import functoolz
+
+import h5py
+import tempfile
 
 from ..math import einsum
 from ..math import transform
 from ..math import cast
 from ..math import diagonal_indices as dix
-from ..math import raveler, unraveler
 from ..math.asym import antisymmetrizer_product as asm
-from ..math.asym import megaraveler, megaunraveler
-from ..math.sigma import eye
-from ..math.sigma import zero
-from ..math.sigma import bmat
-from ..math.sigma import block_diag
 
 from ..oo.odc12 import fancy_property
 from ..oo.odc12 import onebody_density
 
 
 # Public
-def hessian_zeroth_order_diagonal(foo, fvv, t2):
-    r1 = raveler({0: (0, 1)})
-    r2 = megaraveler({0: ((0, 1), (2, 3))})
-
-    ad1u = onebody_hessian_zeroth_order_diagonal(foo, fvv)
-    ad2u = twobody_hessian_zeroth_order_diagonal(foo, fvv, t2)
-    ad1 = r1(ad1u)
-    ad2 = r2(ad2u)
-    return numpy.concatenate((ad1, ad2), axis=0)
-
-
-def metric_zeroth_order_diagonal(no, nv):
-    n1 = no * nv
-    n2 = no * (no - 1) * nv * (nv - 1) // 4
-    return numpy.ones(n1+n2)
-
-
-def property_gradient(poo, pov, pvv, t2):
-    r1 = raveler({0: (0, 1)})
-    r2 = megaraveler({0: ((0, 1), (2, 3))})
-
-    m1oo, m1vv = onebody_density(t2)
-    fpoo = fancy_property(poo, m1oo)
-    fpvv = fancy_property(pvv, m1vv)
-    pg1 = r1(onebody_property_gradient(pov, m1oo, m1vv))
-    pg2 = r2(twobody_property_gradient(fpoo, -fpvv, t2))
-    return numpy.concatenate((pg1, pg2), axis=0)
-
-
-def hessian(foo, fov, fvv, goooo, gooov, goovv, govov, govvv, gvvvv, t2):
-    no, _, nv, _ = t2.shape
-    n1 = no * nv
-    r1 = raveler({0: (0, 1)})
-    u1 = unraveler({0: {0: no, 1: nv}})
-    r2 = megaraveler({0: ((0, 1), (2, 3))})
-    u2 = megaunraveler({0: {(0, 1): no, (2, 3): nv}})
-
-    a11u, b11u = onebody_hessian(foo, fvv, goooo, goovv, govov, gvvvv, t2)
-    a12u, b12u, a21u, b21u = mixed_hessian(fov, gooov, govvv, t2)
-    a22u, b22u = twobody_hessian(foo, fvv, goooo, govov, gvvvv, t2)
-    a11 = functoolz.compose(r1, a11u, u1)
-    b11 = functoolz.compose(r1, b11u, u1)
-    a12 = functoolz.compose(r1, a12u, u2)
-    b12 = functoolz.compose(r1, b12u, u2)
-    a21 = functoolz.compose(r2, a21u, u1)
-    b21 = functoolz.compose(r2, b21u, u1)
-    a22 = functoolz.compose(r2, a22u, u2)
-    b22 = functoolz.compose(r2, b22u, u2)
-    a = bmat([[a11, a12], [a21, a22]], (n1,))
-    b = bmat([[b11, b12], [b21, b22]], (n1,))
-    return a, b
-
-
-def metric(t2):
-    no, _, nv, _ = t2.shape
-    n1 = no * nv
-    r1 = raveler({0: (0, 1)})
-    u1 = unraveler({0: {0: no, 1: nv}})
-
-    s11u = onebody_metric(t2)
-    s11 = functoolz.compose(r1, s11u, u1)
-    s = block_diag((s11, eye), (n1,))
-    d = zero
-    return s, d
-
-
 def onebody_hessian_zeroth_order_diagonal(foo, fvv):
     eo = numpy.diagonal(foo)
     ev = numpy.diagonal(fvv)
@@ -235,7 +165,7 @@ def mixed_hessian(fov, gooov, govvv, t2):
     return _a12, _b12, _a21, _b21
 
 
-def twobody_hessian(foo, fvv, goooo, govov, gvvvv, t2):
+def twobody_hessian(foo, fvv, goooo, govov, gvvvv, t2, disk=False):
     m1oo, m1vv = onebody_density(t2)
     mo, uo = scipy.linalg.eigh(m1oo)
     mv, uv = scipy.linalg.eigh(m1vv)
@@ -270,6 +200,11 @@ def twobody_hessian(foo, fvv, goooo, govov, gvvvv, t2):
     fgvvvv /= (cast(mv, 0, 4) + cast(mv, 2, 4) - 1)
     fgvvvv /= (cast(mv, 1, 4) + cast(mv, 3, 4) - 1)
     fgvvvv = transform(fgvvvv, (uvt, uvt, uvt, uvt))
+
+    if disk:
+        flname = tempfile.mkstemp(suffix='.hdf5')[1]
+        fl = h5py.File(flname, mode='w')
+        fgvvvv = fl.create_dataset('fgvvvv', data=fgvvvv)
 
     def _a22(r2):
         a22 = asm('0/1|2/3')(

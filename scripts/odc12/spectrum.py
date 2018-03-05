@@ -3,10 +3,8 @@ import drivers.odc12
 import interfaces.psi4 as interface
 # import interfaces.pyscf as interface
 
-LABELS = ('O', 'H', 'H')
-COORDS = ((0.0000000000,  0.0000000000, -0.0678898741),
-          (0.0000000000, -0.7507081111,  0.5387307840),
-          (0.0000000000,  0.7507081111,  0.5387307840))
+LABELS = ('H', 'H')
+COORDS = ((0., 0., 0.), (0., 0., 1.))
 
 
 w, info = drivers.odc12.spectrum(
@@ -14,7 +12,7 @@ w, info = drivers.odc12.spectrum(
         coords=COORDS,
         charge=0,
         spin=0,
-        basis='cc-pvdz',
+        basis='aug-cc-pvtz',
         angstrom=True,
         nroot=20,
         nguess=12,              # number of guess vectors per root
@@ -27,4 +25,5 @@ w, info = drivers.odc12.spectrum(
         oo_rthresh=1e-8,        # convergence threshold for ground state
         diis_start=3,           # when to start DIIS extrapolations
         diis_nvec=20,           # maximum number of DIIS vectors
+        disk=True,              #
         interface=interface)    # interface for computing integrals

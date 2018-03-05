@@ -50,34 +50,6 @@ S = numpy.load(os.path.join(data_path, 'odc12/s.npy'))
 D = numpy.load(os.path.join(data_path, 'odc12/d.npy'))
 
 
-def test__hessian_zeroth_order_diagonal():
-    ad = odc12.hessian_zeroth_order_diagonal(FOO, FVV, T2)
-    assert_almost_equal(ad, AD, decimal=10)
-
-
-def test__metric_zeroth_order_diagonal():
-    sd = odc12.metric_zeroth_order_diagonal(NO, NV)
-    assert_almost_equal(sd, SD, decimal=10)
-
-
-def test__property_gradient():
-    pg = odc12.property_gradient(POO, POV, PVV, T2)
-    assert_almost_equal(pg, PG, decimal=10)
-
-
-def test__hessian():
-    a, b = odc12.hessian(
-            FOO, FOV, FVV, GOOOO, GOOOV, GOOVV, GOVOV, GOVVV, GVVVV, T2)
-    assert_almost_equal(a(EYE), A, decimal=10)
-    assert_almost_equal(b(EYE), B, decimal=10)
-
-
-def test__metric():
-    s, d = odc12.metric(T2)
-    assert_almost_equal(s(EYE), S, decimal=10)
-    assert_almost_equal(d(EYE), D, decimal=10)
-
-
 def test__onebody_hessian_zeroth_order_diagonal():
     ad1 = odc12.onebody_hessian_zeroth_order_diagonal(FOO, FVV)
     assert_almost_equal(ad1, AD1, decimal=10)

@@ -59,10 +59,9 @@ def test__mixed_hessian():
 
 
 def test__twobody_hessian():
-    a22, b22 = ocepa0.twobody_hessian(
+    a22 = ocepa0.twobody_hessian(
             FOO, FVV, GOOOO, GOVOV, GVVVV)
     assert_almost_equal(a22(I2U), A22, decimal=10)
-    assert_almost_equal(b22(I2U), 0., decimal=10)
 
 
 def test__onebody_metric():

@@ -11,8 +11,6 @@ from .urav import unravel, unraveler
 from .trans import transform
 from .ot import orth
 from .ex import expm
-from .dsk import callable_disk_array
-from .dsk import callable_core_array
 
 # Choose your einsum function:
 

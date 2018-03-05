@@ -1,80 +1,11 @@
 import numpy
-from toolz import functoolz
 
 from ..math import cast
 from ..math import einsum
-from ..math import raveler, unraveler
 from ..math.asym import antisymmetrizer_product as asm
-from ..math.asym import megaraveler, megaunraveler
-from ..math.sigma import eye
-from ..math.sigma import zero
-from ..math.sigma import bmat
-from ..math.sigma import block_diag
 
 
 # Public
-def hessian_zeroth_order_diagonal(foo, fvv):
-    r1 = raveler({0: (0, 1)})
-    r2 = megaraveler({0: ((0, 1), (2, 3))})
-
-    ad1u = onebody_hessian_zeroth_order_diagonal(foo, fvv)
-    ad2u = twobody_hessian_zeroth_order_diagonal(foo, fvv)
-    ad1 = r1(ad1u)
-    ad2 = r2(ad2u)
-    return numpy.concatenate((ad1, ad2), axis=0)
-
-
-def metric_zeroth_order_diagonal(no, nv):
-    n1 = no * nv
-    n2 = no * (no - 1) * nv * (nv - 1) // 4
-    return numpy.ones(n1+n2)
-
-
-def property_gradient(poo, pov, pvv, t2):
-    r1 = raveler({0: (0, 1)})
-    r2 = megaraveler({0: ((0, 1), (2, 3))})
-    pg1 = r1(onebody_property_gradient(pov, t2))
-    pg2 = r2(twobody_property_gradient(poo, pvv, t2))
-    return numpy.concatenate((pg1, pg2), axis=0)
-
-
-def hessian(foo, fov, fvv, goooo, gooov, goovv, govov, govvv, gvvvv, t2):
-    no, _, nv, _ = t2.shape
-    n1 = no * nv
-    r1 = raveler({0: (0, 1)})
-    u1 = unraveler({0: {0: no, 1: nv}})
-    r2 = megaraveler({0: ((0, 1), (2, 3))})
-    u2 = megaunraveler({0: {(0, 1): no, (2, 3): nv}})
-
-    a11u, b11u = onebody_hessian(foo, fvv, goooo, goovv, govov, gvvvv, t2)
-    a12u, b12u, a21u, b21u = mixed_hessian(fov, gooov, govvv, t2)
-    a22u, b22u = twobody_hessian(foo, fvv, goooo, govov, gvvvv)
-    a11 = functoolz.compose(r1, a11u, u1)
-    b11 = functoolz.compose(r1, b11u, u1)
-    a12 = functoolz.compose(r1, a12u, u2)
-    b12 = functoolz.compose(r1, b12u, u2)
-    a21 = functoolz.compose(r2, a21u, u1)
-    b21 = functoolz.compose(r2, b21u, u1)
-    a22 = functoolz.compose(r2, a22u, u2)
-    b22 = b22u
-    a = bmat([[a11, a12], [a21, a22]], (n1,))
-    b = bmat([[b11, b12], [b21, b22]], (n1,))
-    return a, b
-
-
-def metric(t2):
-    no, _, nv, _ = t2.shape
-    n1 = no * nv
-    r1 = raveler({0: (0, 1)})
-    u1 = unraveler({0: {0: no, 1: nv}})
-
-    s11u = onebody_metric(t2)
-    s11 = functoolz.compose(r1, s11u, u1)
-    s = block_diag((s11, eye), (n1,))
-    d = zero
-    return s, d
-
-
 def onebody_hessian_zeroth_order_diagonal(foo, fvv):
     eo = numpy.diagonal(foo)
     ev = numpy.diagonal(fvv)
@@ -221,9 +152,7 @@ def twobody_hessian(foo, fvv, goooo, govov, gvvvv):
             - einsum('jcla,ilcb...->ijab...', govov, r2))
         return a22
 
-    _b22 = zero
-
-    return _a22, _b22
+    return _a22
 
 
 def onebody_metric(t2):
