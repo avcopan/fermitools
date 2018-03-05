@@ -44,6 +44,7 @@ def test__main():
             oo_rthresh=1e-10,       # convergence threshold for ground state
             diis_start=3,           # when to start DIIS extrapolations
             diis_nvec=20,           # maximum number of DIIS vectors
+            disk=True,              #
             interface=interface)    # interface for computing integrals
 
     mu = info['mu']
