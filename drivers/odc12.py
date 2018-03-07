@@ -111,7 +111,7 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     :type nroot: int
     :param nguess: number of guess vectors per root
     :type nguess: int
-    :param nsvec: max vectors per root per sub-iteration
+    :param nsvec: max number of sigma vectors per sub-iteration
     :type nsvec: int
     :param nvec: max number of subspace vectors per root
     :type nvec: int
@@ -241,10 +241,11 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     sys.stdout.flush()
 
     t = time.time()
+    print(disk)
     w, x, y, lr_info = fermitools.lr.solve.spectrum(
             a=a, b=b, s=s, d=d, ad=ad, sd=sd, nroot=nroot, nguess=nguess,
             nsvec=nsvec, nvec=nvec, niter=niter, rthresh=rthresh,
-            guess_random=guess_random)
+            guess_random=guess_random, disk=disk)
     print("\nODC-12 excitation energies (in a.u.):")
     print(w.reshape(-1, 1))
     print("\nODC-12 excitation energies (in eV):")

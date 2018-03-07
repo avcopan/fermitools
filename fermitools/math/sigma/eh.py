@@ -1,74 +1,85 @@
 import numpy
+import itertools
 import scipy.linalg
-import warnings
-import sys
+from toolz import itertoolz
 
-from ..ot import orth
+import sys
+import warnings
+
+import h5py
+import tempfile
 
 
 def eighg(a, b, neig, ad, bd, guess, niter=100, nsvec=100, nvec=100,
-          rthresh=1e-5, print_conv=True, highest=False):
-    """solve for the lowest generalized eigenvalues of a hermitian matrix
-
-    :param a: the matrix, as a callable linear operator
-    :type a: typing.Callable
-    :param b: the metric, as a callable linear operator
-    :type b: typing.Callable
-    :param neig: the number of eigenvalues to solve
-    :type neig: int
-    :param ad: the diagonal elements of a, or an approximation to them
-    :type ad: numpy.ndarray
-    :param bd: the diagonal elements of b, or an approximation to them
-    :type bd: numpy.ndarray
-    :param guess: initial guess vectors
-    :type guess: numpy.ndarray
-    :param niter: the maximum number of iterations
-    :type niter: int
-    :param nsvec: maximum number of sigma vectors to compute per sub-iteration
-    :type nsvec: int
-    :param nvec: maximum number of vectors to hold in memory
-    :type nvec: int
-    :param rthresh: residual convergence threshold
-    :type rthresh: float
-    :param print_conv: print convergence info?
-    :type print_conv: bool
-    :param highest: compute the highest roots, instead of the lowest ones?
-    :type highest: bool
-
-    :returns: eigenvalues, eigenvectors, convergence info
-    :rtype: (numpy.ndarray, numpy.ndarray, dict)
-    """
-    dim, _ = guess.shape
-
-    vnew = guess
-    av = bv = v = numpy.zeros((dim, 0))
-
+          rthresh=1e-5, print_conv=True, highest=False, disk=False):
     slc = slice(None, neig) if not highest else slice(None, -neig-1, -1)
 
-    for iteration in range(niter):
-        _, nnew = vnew.shape
-        sections = numpy.arange(nsvec, nnew, nsvec)
-        for i, vi in enumerate(numpy.split(vnew, sections, axis=1)):
-            av = numpy.concatenate((av, a(vi)), axis=1)
-            bv = numpy.concatenate((bv, b(vi)), axis=1)
-            _, rdim = numpy.shape(av)
-            print('subiteration {:d}, rdim={:d}'.format(i, rdim))
+    ns = ()
+    vs = ()
+    avs = ()
+    bvs = ()
 
-        v = numpy.concatenate((v, vnew), axis=1)
-        a_red = numpy.dot(v.T, av)
-        b_red = numpy.dot(v.T, bv)
+    dim, ni = guess.shape
+    vi = guess
+    i = 0
+
+    for iteration in range(niter):
+        _, finame = tempfile.mkstemp(suffix='.hdf5')
+        fi = h5py.File(finame, mode='w')
+
+        bounds = numpy.concatenate((numpy.arange(0, ni, nsvec), (ni,)))
+
+        avi = numpy.empty((dim, ni))
+
+        for i, (start, end) in enumerate(itertoolz.sliding_window(2, bounds)):
+            vij = numpy.array(vi[:, start:end])
+            avi[:, start:end] = a(vij)
+            print('subiteration a {:d}, {:d} vectors'.format(i, end-start))
+
+        if disk:
+            avi = fi.create_dataset('av', data=avi)
+
+        bvi = numpy.empty((dim, ni))
+
+        for i, (start, end) in enumerate(itertoolz.sliding_window(2, bounds)):
+            vij = numpy.array(vi[:, start:end])
+            bvi[:, start:end] = b(vij)
+            print('subiteration b {:d}, {:d} vectors'.format(i, end-start))
+
+        if disk:
+            bvi = fi.create_dataset('bv', data=bvi)
+
+        if disk:
+            vi = fi.create_dataset('v', data=vi)
+
+        ns += (ni,)
+        vs += (vi,)
+        avs += (avi,)
+        bvs += (bvi,)
+
+        a_blocks = [[numpy.dot(numpy.transpose(avj), vk)
+                     for vk in vs] for avj in avs]
+        b_blocks = [[numpy.dot(numpy.transpose(bvj), vk)
+                     for vk in vs] for bvj in bvs]
+
+        a_red = numpy.bmat(a_blocks)
+        b_red = numpy.bmat(b_blocks)
 
         vals, vecs = scipy.linalg.eigh(a=a_red, b=b_red)
 
         w = vals[slc]
-        x_red = vecs[:, slc]
+        y = vecs[:, slc]
+        sections = tuple(itertools.accumulate(ns))
+        ys = numpy.split(y, sections, axis=0)
 
-        x = numpy.dot(v, x_red)
-        ax = numpy.dot(av, x_red)
-        bx = numpy.dot(bv, x_red)
+        x = sum(numpy.dot(vj, yj) for vj, yj in zip(vs, ys))
+        ax = sum(numpy.dot(avj, yj) for avj, yj in zip(avs, ys))
+        bx = sum(numpy.dot(bvj, yj) for bvj, yj in zip(bvs, ys))
 
         r = ax - bx * w
         rmax = numpy.amax(numpy.abs(r))
+
+        rdim = sum(ns)
 
         info = {'niter': iteration + 1, 'rdim': rdim, 'rmax': rmax}
 
@@ -76,21 +87,33 @@ def eighg(a, b, neig, ad, bd, guess, niter=100, nsvec=100, nvec=100,
 
         if print_conv:
             print(info)
-            # (TEMPORARY HACK -- DELETE THIS LATER)
             print(1/w)
             sys.stdout.flush()
 
         if converged:
             break
 
-        denom = numpy.reshape(w[None, :] * bd[:, None] - ad[:, None], r.shape)
-        vstep = r / denom
-        vnew = orth(vstep, against=v)
-        _, rdim1 = vnew.shape
+        precnd = numpy.reshape(w[None, :] * bd[:, None] - ad[:, None], r.shape)
+        vstep = r / precnd
+        vcomp = 0.
+        for vj in vs:
+            vj = numpy.array(vj)
+            vcomp += numpy.linalg.multi_dot([vj, vj.T, vstep])
+        vproj = vstep - vcomp
 
-        if rdim + rdim1 > nvec:
-            av = bv = v = numpy.zeros((dim, 0))
-            vnew = x
+        vi = scipy.linalg.orth(vproj)
+        _, ni = vi.shape
+        i += 1
+
+        if rdim + ni > nvec:
+            ns = ()
+            vs = ()
+            avs = ()
+            bvs = ()
+
+            vi = x
+            _, ni = vi.shape
+            i = 0
 
     if not converged:
         warnings.warn("Did not converge! (rmax: {:7.1e})".format(rmax))

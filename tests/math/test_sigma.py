@@ -71,14 +71,14 @@ def test__eigh():
     guess = fermitools.math.sigma.evec_guess(ad, nguess)
     w, u, info = sigma.eighg(
             a=a_, b=b_, neig=neig, ad=ad, bd=bd, guess=guess, rthresh=rthresh,
-            nvec=nvec)
+            nvec=nvec, disk=True)
     dt = time.time() - t0
     print(info)
     print(dt)
     assert_almost_equal(w, W, decimal=10)
     assert_almost_equal(numpy.abs(u), numpy.abs(U), decimal=10)
     assert info['niter'] < 14
-    assert dt < 0.1
+    assert dt < 0.15
 
 
 def test__eighg():
@@ -130,32 +130,4 @@ def test__eighg():
     assert_almost_equal(w, W, decimal=10)
     assert_almost_equal(numpy.abs(u), numpy.abs(U), decimal=10)
     assert info['niter'] < 14
-    assert dt < 0.1
-
-
-def test__eighg_disk():
-    from fermitools.math.sigma.eh_disk import eighg
-    dim = 2000
-    neig = 4
-    nguess = 6
-    nsvec = 20
-    nvec = 20
-    rthresh = 1e-11
-    a_ = m_sigma(dim)
-    b_ = fermitools.math.sigma.eye
-
-    ad = fermitools.math.sigma.diagonal(a_, dim)
-    bd = fermitools.math.sigma.diagonal(b_, dim)
-    guess = fermitools.math.sigma.evec_guess(ad, nguess)
-    print('core:')
-    sigma.eighg(
-            a=a_, b=b_, neig=neig, ad=ad, bd=bd, guess=guess, rthresh=rthresh,
-            nsvec=nsvec, nvec=nvec)
-    print('disk:')
-    eighg(
-            a=a_, b=b_, neig=neig, ad=ad, bd=bd, guess=guess, rthresh=rthresh,
-            nsvec=nsvec, nvec=nvec)
-
-
-if __name__ == '__main__':
-    test__eighg_disk()
+    assert dt < 0.15

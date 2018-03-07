@@ -3,8 +3,8 @@ import drivers.odc12
 import interfaces.psi4 as interface
 # import interfaces.pyscf as interface
 
-LABELS = ('H', 'H')
-COORDS = ((0., 0., 0.), (0., 0., 1.))
+LABELS = ('N', 'N')
+COORDS = ((0., 0., 0.), (0., 0., 1.5))
 
 
 w, info = drivers.odc12.spectrum(
@@ -12,11 +12,11 @@ w, info = drivers.odc12.spectrum(
         coords=COORDS,
         charge=0,
         spin=0,
-        basis='aug-cc-pvtz',
+        basis='cc-pvdz',
         angstrom=True,
         nroot=20,
         nguess=12,              # number of guess vectors per root
-        nsvec=2,                # max vectors per root per sub-iteration
+        nsvec=10,               # max number of sigma vectors per sub-iteration
         nvec=100,               # max number of subspace vectors per root
         niter=50,               # number of iterations
         rthresh=1e-5,           # convergence threshold

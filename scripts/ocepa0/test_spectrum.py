@@ -24,18 +24,18 @@ def test__main():
             basis='sto-3g',
             angstrom=False,
             nroot=nroot,
-            nguess=1,               # number of guess vectors per root
-            nsvec=1,                # max vectors per root per sub-iteration
-            nvec=100,               # max number of subspace vectors per root
-            niter=50,               # number of iterations
-            rthresh=1e-6,           # convergence threshold
-            guess_random=True,      # use a random guess?
-            oo_niter=200,           # number of iterations for ground state
-            oo_rthresh=1e-10,       # convergence threshold for ground state
-            diis_start=3,           # when to start DIIS extrapolations
-            diis_nvec=20,           # maximum number of DIIS vectors
-            disk=True,              #
-            interface=interface)    # interface for computing integrals
+            nguess=1,             # number of guess vectors per root
+            nsvec=3,              # max number of sigma vectors per sub-iter
+            nvec=100,             # max number of subspace vectors per root
+            niter=50,             # number of iterations
+            rthresh=1e-6,         # convergence threshold
+            guess_random=True,    # use a random guess?
+            oo_niter=200,         # number of iterations for ground state
+            oo_rthresh=1e-10,     # convergence threshold for ground state
+            diis_start=3,         # when to start DIIS extrapolations
+            diis_nvec=20,         # maximum number of DIIS vectors
+            disk=True,            #
+            interface=interface)  # interface for computing integrals
 
     assert_almost_equal(w[:nroot], W[:nroot], decimal=10)
 
