@@ -19,6 +19,9 @@ def eighg(a, b, neig, ad, bd, guess, niter=100, nsvec=100, nvec=100,
     avs = ()
     bvs = ()
 
+    a_blks = {}
+    b_blks = {}
+
     dim, ni = guess.shape
     vi = guess
     i = 0
@@ -31,20 +34,20 @@ def eighg(a, b, neig, ad, bd, guess, niter=100, nsvec=100, nvec=100,
 
         avi = numpy.empty((dim, ni))
 
-        for i, (start, end) in enumerate(itertoolz.sliding_window(2, bounds)):
+        for s, (start, end) in enumerate(itertoolz.sliding_window(2, bounds)):
             vij = numpy.array(vi[:, start:end])
             avi[:, start:end] = a(vij)
-            print('subiteration a {:d}, {:d} vectors'.format(i, end-start))
+            print('subiteration a {:d}, {:d} vectors'.format(s, end-start))
 
         if disk:
             avi = fi.create_dataset('av', data=avi)
 
         bvi = numpy.empty((dim, ni))
 
-        for i, (start, end) in enumerate(itertoolz.sliding_window(2, bounds)):
+        for s, (start, end) in enumerate(itertoolz.sliding_window(2, bounds)):
             vij = numpy.array(vi[:, start:end])
             bvi[:, start:end] = b(vij)
-            print('subiteration b {:d}, {:d} vectors'.format(i, end-start))
+            print('subiteration b {:d}, {:d} vectors'.format(s, end-start))
 
         if disk:
             bvi = fi.create_dataset('bv', data=bvi)
@@ -57,13 +60,17 @@ def eighg(a, b, neig, ad, bd, guess, niter=100, nsvec=100, nvec=100,
         avs += (avi,)
         bvs += (bvi,)
 
-        a_blocks = [[numpy.dot(numpy.transpose(avj), vk)
-                     for vk in vs] for avj in avs]
-        b_blocks = [[numpy.dot(numpy.transpose(bvj), vk)
-                     for vk in vs] for bvj in bvs]
+        for j, vj in enumerate(vs):
+            vj = numpy.array(vj)
+            a_blks[i, j] = numpy.dot(numpy.transpose(avi), vj)
+            b_blks[i, j] = numpy.dot(numpy.transpose(bvi), vj)
+            a_blks[j, i] = numpy.transpose(a_blks[i, j])
+            b_blks[j, i] = numpy.transpose(b_blks[i, j])
 
-        a_red = numpy.bmat(a_blocks)
-        b_red = numpy.bmat(b_blocks)
+        a_red = numpy.bmat([[a_blks[j, k]
+                             for k in range(i+1)] for j in range(i+1)])
+        b_red = numpy.bmat([[b_blks[j, k]
+                             for k in range(i+1)] for j in range(i+1)])
 
         vals, vecs = scipy.linalg.eigh(a=a_red, b=b_red)
 
@@ -110,6 +117,9 @@ def eighg(a, b, neig, ad, bd, guess, niter=100, nsvec=100, nvec=100,
             vs = ()
             avs = ()
             bvs = ()
+
+            a_blks = {}
+            b_blks = {}
 
             vi = x
             _, ni = vi.shape
