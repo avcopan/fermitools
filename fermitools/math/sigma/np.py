@@ -55,25 +55,6 @@ def bmat(fmatrix, indices_or_sections):
     return _bmat
 
 
-# def bmat(fmatrix, indices_or_sections):
-#     import time
-#
-#     def _bmat(x):
-#         xs = numpy.split(x, indices_or_sections)
-#         fxs = []
-#         print('new')
-#         for i, frow in enumerate(fmatrix):
-#             fx = 0.
-#             for j, (f, x) in enumerate(zip(frow, xs)):
-#                 t = time.time()
-#                 fx += f(x)
-#                 print('({:d}, {:d}): {:.1f}s'.format(i, j, time.time()-t))
-#             fxs.append(fx)
-#         return numpy.concatenate(fxs, axis=0)
-#
-#     return _bmat
-
-
 def block_diag(fs, indices_or_sections):
 
     def _bdiag(x):

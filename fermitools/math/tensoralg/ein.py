@@ -21,10 +21,11 @@ def einsum(subscripts, *operands):
 def contract(arg1, arg2):
     array1, sub1 = arg1
     array2, sub2 = arg2
-    sxs = summation_indices(sub1, sub2)
+    sxs = ''.join(x for x in sub1 if x in sub2)
     ax1 = axes(sxs, sub1, array1.ndim)
     ax2 = axes(sxs, sub2, array2.ndim)
-    sub = contract_subscripts(sub1, sub2)
+    sub = (''.join(x for x in sub1 if x not in sub2) +
+           ''.join(x for x in sub2 if x not in sub1))
     array = numpy.tensordot(array1, array2, axes=(ax1, ax2))
     return array, sub
 
@@ -39,18 +40,8 @@ def axes(xs, sub, ndim):
     return sxs + ixs + exs
 
 
-def summation_indices(sub1, sub2):
-    return ''.join(x for x in sub1 if x != '.' and x in sub2)
-
-
-def contract_subscripts(sub1, sub2):
-    ret = (''.join(x for x in sub1 if x == '.' or x not in sub2) +
-           ''.join(x for x in sub2 if x == '.' or x not in sub1))
-    assert ret.count('.') in (0, 3)
-    return ret
-
-
 if __name__ == '__main__':
+    from numpy.testing import assert_almost_equal
     a = numpy.random.random((2, 3))
     b = numpy.random.random((3, 11, 12, 5))
     c = numpy.random.random((5, 6))
@@ -58,3 +49,4 @@ if __name__ == '__main__':
     d = einsum('ik,k#l,lj', a, b, c)
     print(D.shape)
     print(d.shape)
+    assert_almost_equal(d, D)
