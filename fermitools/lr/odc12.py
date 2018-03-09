@@ -202,7 +202,7 @@ def twobody_hessian(foo, fvv, goooo, govov, gvvvv, t2, disk=False):
     fgvvvv = transform(fgvvvv, (uvt, uvt, uvt, uvt))
 
     if disk:
-        flname = tempfile.mkstemp(suffix='.hdf5')[1]
+        flname = tempfile.mkstemp()[1]
         fl = h5py.File(flname, mode='w')
         fgvvvv = fl.create_dataset('fgvvvv', data=fgvvvv)
 

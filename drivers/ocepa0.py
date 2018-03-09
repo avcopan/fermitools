@@ -171,7 +171,7 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     gvvvv = fermitools.math.spinorb.transform_twobody(r_ao, (cv, cv, cv, cv))
 
     if disk:
-        flname = tempfile.mkstemp(suffix='.hdf5')[1]
+        flname = tempfile.mkstemp()[1]
         fl = h5py.File(flname, mode='w')
         gvvvv = fl.create_dataset('gvvvv', data=gvvvv)
 
@@ -344,7 +344,7 @@ def polarizability(labels, coords, charge, spin, basis, angstrom=False,
     gvvvv = fermitools.math.spinorb.transform_twobody(r_ao, (cv, cv, cv, cv))
 
     if disk:
-        flname = tempfile.mkstemp(suffix='.hdf5')[1]
+        flname = tempfile.mkstemp()[1]
         fl = h5py.File(flname, mode='w')
         gvvvv = fl.create_dataset('gvvvv', data=gvvvv)
 
