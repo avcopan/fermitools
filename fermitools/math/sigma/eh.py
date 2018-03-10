@@ -38,6 +38,7 @@ def eighg(a, b, neig, ad, bd, guess, niter=100, nsvec=100, nvec=100,
             vij = numpy.array(vi[:, start:end])
             avi[:, start:end] = a(vij)
             print('subiteration a {:d}, {:d} vectors'.format(s, end-start))
+            sys.stdout.flush()
 
         if disk:
             avi = fi.create_dataset('av', data=avi)
@@ -48,6 +49,7 @@ def eighg(a, b, neig, ad, bd, guess, niter=100, nsvec=100, nvec=100,
             vij = numpy.array(vi[:, start:end])
             bvi[:, start:end] = b(vij)
             print('subiteration b {:d}, {:d} vectors'.format(s, end-start))
+            sys.stdout.flush()
 
         if disk:
             bvi = fi.create_dataset('bv', data=bvi)
