@@ -32,7 +32,7 @@ def spectrum(a, b, s, d, ad, sd, nroot=1, nguess=10, nsvec=10, nvec=100,
     dim = len(ed)
 
     if disk:
-        _, finame = tempfile.mkstemp(suffix='.hdf5')
+        _, finame = tempfile.mkstemp()
         fi = h5py.File(finame, mode='w')
         guess = fi.create_dataset('guess', (dim, nguess*nroot))
     else:

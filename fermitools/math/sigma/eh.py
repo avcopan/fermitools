@@ -10,9 +10,15 @@ import h5py
 import tempfile
 
 
+def disk_array(a):
+    _, fname = tempfile.mkstemp()
+    f = h5py.File(fname, mode='w')
+    return f.create_dataset('a', data=a)
+
+
 def eighg(a, b, neig, ad, bd, guess, niter=100, nsvec=100, nvec=100,
           rthresh=1e-5, print_conv=True, highest=False, disk=False):
-    slc = slice(None, neig) if not highest else slice(None, -neig-1, -1)
+    roots = slice(None, neig) if not highest else slice(None, -neig-1, -1)
 
     ns = ()
     vs = ()
@@ -22,64 +28,52 @@ def eighg(a, b, neig, ad, bd, guess, niter=100, nsvec=100, nvec=100,
     a_blks = {}
     b_blks = {}
 
-    dim, ni = guess.shape
-    vi = guess
-    i = 0
+    v = guess
+    guess = None
 
     for iteration in range(niter):
-        _, finame = tempfile.mkstemp(suffix='.hdf5')
-        fi = h5py.File(finame, mode='w')
+        _, n = v.shape
+        stops = tuple(range(0, n, nsvec)) + (n,)
 
-        bounds = numpy.concatenate((numpy.arange(0, ni, nsvec), (ni,)))
+        new_vs = ()
+        for start, end in itertoolz.sliding_window(2, stops):
+            vi = v[:, start:end]
+            _, ni = numpy.shape(vi)
+            vi = disk_array(vi) if disk else vi
+            new_vs += (vi,)
+            ns += (ni,)
+            vs += (vi,)
+        v = None
 
-        avi = numpy.empty((dim, ni))
+        for s, vi in enumerate(new_vs):
+            vi = numpy.array(vi)
+            avi = disk_array(a(vi)) if disk else a(vi)
+            bvi = disk_array(b(vi)) if disk else b(vi)
 
-        for s, (start, end) in enumerate(itertoolz.sliding_window(2, bounds)):
-            vij = numpy.array(vi[:, start:end])
-            avi[:, start:end] = a(vij)
-            print('subiteration a {:d}, {:d} vectors'.format(s, end-start))
+            avs += (avi,)
+            bvs += (bvi,)
+
+            i = len(avs) - 1
+            for j, vj in enumerate(vs):
+                a_blks[i, j] = numpy.dot(numpy.transpose(avi), vj)
+                b_blks[i, j] = numpy.dot(numpy.transpose(bvi), vj)
+                a_blks[j, i] = numpy.transpose(a_blks[i, j])
+                b_blks[j, i] = numpy.transpose(b_blks[i, j])
+
+            print("subiteration {:d}".format(s))
             sys.stdout.flush()
 
-        if disk:
-            avi = fi.create_dataset('av', data=avi)
-
-        bvi = numpy.empty((dim, ni))
-
-        for s, (start, end) in enumerate(itertoolz.sliding_window(2, bounds)):
-            vij = numpy.array(vi[:, start:end])
-            bvi[:, start:end] = b(vij)
-            print('subiteration b {:d}, {:d} vectors'.format(s, end-start))
-            sys.stdout.flush()
-
-        if disk:
-            bvi = fi.create_dataset('bv', data=bvi)
-
-        if disk:
-            vi = fi.create_dataset('v', data=vi)
-
-        ns += (ni,)
-        vs += (vi,)
-        avs += (avi,)
-        bvs += (bvi,)
-
-        for j, vj in enumerate(vs):
-            vj = numpy.array(vj)
-            a_blks[i, j] = numpy.dot(numpy.transpose(avi), vj)
-            b_blks[i, j] = numpy.dot(numpy.transpose(bvi), vj)
-            a_blks[j, i] = numpy.transpose(a_blks[i, j])
-            b_blks[j, i] = numpy.transpose(b_blks[i, j])
-
-        a_red = numpy.bmat([[a_blks[j, k]
-                             for k in range(i+1)] for j in range(i+1)])
-        b_red = numpy.bmat([[b_blks[j, k]
-                             for k in range(i+1)] for j in range(i+1)])
-
+        nblks = len(ns)
+        a_red = numpy.bmat(
+                [[a_blks[i, j] for j in range(nblks)] for i in range(nblks)])
+        b_red = numpy.bmat(
+                [[b_blks[i, j] for j in range(nblks)] for i in range(nblks)])
         vals, vecs = scipy.linalg.eigh(a=a_red, b=b_red)
 
-        w = vals[slc]
-        y = vecs[:, slc]
-        sections = tuple(itertools.accumulate(ns))
-        ys = numpy.split(y, sections, axis=0)
+        w = vals[roots]
+        y = vecs[:, roots]
+        blks = tuple(itertools.accumulate(ns))
+        ys = numpy.split(y, blks, axis=0)
 
         x = sum(numpy.dot(vj, yj) for vj, yj in zip(vs, ys))
         ax = sum(numpy.dot(avj, yj) for avj, yj in zip(avs, ys))
@@ -103,18 +97,15 @@ def eighg(a, b, neig, ad, bd, guess, niter=100, nsvec=100, nvec=100,
             break
 
         precnd = numpy.reshape(w[None, :] * bd[:, None] - ad[:, None], r.shape)
-        vstep = r / precnd
-        vcomp = 0.
-        for vj in vs:
-            vj = numpy.array(vj)
-            vcomp += numpy.linalg.multi_dot([vj, vj.T, vstep])
-        vproj = vstep - vcomp
+        v = r / precnd
+        for vi in vs:
+            vi = numpy.array(vi)
+            v -= numpy.linalg.multi_dot([vi, vi.T, v])
+        v, s, _ = scipy.linalg.svd(v, full_matrices=False, overwrite_a=True)
+        tol = max(v.shape) * numpy.amax(numpy.abs(v)) * numpy.finfo(float).eps
+        v = v[:, s > tol]
 
-        vi = scipy.linalg.orth(vproj)
-        _, ni = vi.shape
-        i += 1
-
-        if rdim + ni > nvec:
+        if rdim + v.shape[1] > nvec:
             ns = ()
             vs = ()
             avs = ()
@@ -123,9 +114,7 @@ def eighg(a, b, neig, ad, bd, guess, niter=100, nsvec=100, nvec=100,
             a_blks = {}
             b_blks = {}
 
-            vi = x
-            _, ni = vi.shape
-            i = 0
+            v = x
 
     if not converged:
         warnings.warn("Did not converge! (rmax: {:7.1e})".format(rmax))

@@ -1,11 +1,7 @@
 import numpy
-from operator import add
 from operator import mul
-from functools import partial
 from functools import reduce
-from itertools import chain
 from itertools import starmap
-from itertools import combinations
 from itertools import permutations
 from toolz.itertoolz import drop
 from toolz.itertoolz import accumulate
@@ -23,19 +19,11 @@ def einsum_argsort(subscripts, *operands):
 
 
 def contraction_orderings(n):
-
-    def _ijfilter(i, j):
-
-        def __f(k):
-            return k != i and k != j
-
-        return __f
-
-    def _link(i, j):
-        notij = _ijfilter(i, j)
-        return map(partial(add, (i, j)), permutations(filter(notij, range(n))))
-
-    return chain(*starmap(_link, combinations(range(n), r=2)))
+    for i in range(n):
+        for j in range(i+1, n):
+            r = (k for k in range(n) if k not in (i, j))
+            for klm in permutations(r):
+                yield (i, j) + klm
 
 
 def cost_function(dds):
@@ -80,4 +68,6 @@ def dimdict(shp, sub):
 
 
 if __name__ == '__main__':
-    print(list(contraction_orderings(4)))
+    n = 5
+    c1 = tuple(contraction_orderings(n))
+    print(c1)

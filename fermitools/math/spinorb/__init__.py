@@ -3,10 +3,7 @@ from .dcmp import decompose_onebody
 from .trans import transform_onebody
 from .trans import transform_twobody
 
-from .expand import expand
-
 __all__ = [
         'decompose_onebody',
         'ab2ov', 'ov2ab', 'sort',
-        'transform_onebody', 'transform_twobody',
-        'expand']
+        'transform_onebody', 'transform_twobody']
