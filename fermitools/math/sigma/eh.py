@@ -71,6 +71,7 @@ def eighg(a, b, neig, ad, bd, nguess=None, niter=100, nsvec=100, nvec=100,
                 b_blks[j, i] = numpy.transpose(b_blks[i, j])
 
             print("subiteration {:d}".format(s))
+            sys.stdout.flush()
 
         nblks = len(ns)
         a_red = numpy.bmat(
