@@ -98,7 +98,6 @@ def eighg(a, b, neig, ad, bd, nguess=None, niter=100, nsvec=100, nvec=100,
 
             blks = tuple(itertools.accumulate(ns))
             yis = numpy.split(yi, blks, axis=0)
-            # xi = sum(numpy.dot(vj, yij) for vj, yij in zip(vs, yis))
             axi = sum(numpy.dot(avj, yij) for avj, yij in zip(avs, yis))
             bxi = sum(numpy.dot(bvj, yij) for bvj, yij in zip(bvs, yis))
 
