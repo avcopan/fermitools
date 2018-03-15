@@ -234,7 +234,6 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     sys.stdout.flush()
 
     t = time.time()
-    print(disk)
     w, x, y, lr_info = fermitools.lr.solve.spectrum(
             a=a, b=b, s=s, d=d, ad=ad, sd=sd, nroot=nroot, nguess=nguess,
             nsvec=nsvec, nvec=nvec, niter=niter, rthresh=rthresh,
