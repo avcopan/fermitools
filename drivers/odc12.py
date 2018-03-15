@@ -89,7 +89,7 @@ def energy(labels, coords, charge, spin, basis, angstrom=False, niter=100,
 
 def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
              nguess=10, nsvec=10, nvec=100, niter=50, rthresh=1e-7,
-             guess_type=None, oo_niter=200, oo_rthresh=1e-10, diis_start=3,
+             guess_random=False, oo_niter=200, oo_rthresh=1e-10, diis_start=3,
              diis_nvec=20, disk=False, interface=None):
     '''
     :param labels: nuclear labels
@@ -116,8 +116,8 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     :type niter: int
     :param rthresh: maximum residual for linear response
     :type rthresh: float
-    :param guess_type: guess vector type, None (unit vectors) or 'random'
-    :type guess_type: bool or str
+    :param guess_random: use a random guess?
+    :type guess_random: bool
     :param oo_niter: number of iterations for orbital optimization
     :type oo_niter: int
     :param oo_rthresh: maximum residual for orbital optimization
@@ -238,7 +238,7 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     w, x, y, lr_info = fermitools.lr.solve.spectrum(
             a=a, b=b, s=s, d=d, ad=ad, sd=sd, nroot=nroot, nguess=nguess,
             nsvec=nsvec, nvec=nvec, niter=niter, rthresh=rthresh,
-            guess_type=guess_type, disk=disk)
+            guess_random=guess_random, disk=disk)
     print("\nODC-12 excitation energies (in a.u.):")
     print(w.reshape(-1, 1))
     print("\nODC-12 excitation energies (in eV):")

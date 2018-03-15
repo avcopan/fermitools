@@ -65,7 +65,7 @@ def energy(labels, coords, charge, spin, basis, angstrom=False, niter=100,
 
 def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
              nguess=10, nsvec=10, nvec=100, niter=50, rthresh=1e-7,
-             guess_type=None, oo_niter=200, oo_rthresh=1e-10, diis_start=3,
+             guess_random=False, oo_niter=200, oo_rthresh=1e-10, diis_start=3,
              diis_nvec=20, disk=False, interface=None):
     en_elec, oo_info = energy(
             labels=labels, coords=coords, charge=charge, spin=spin,
@@ -164,7 +164,7 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     eighg(
             a=m, b=e, neig=nroot, ad=md, bd=ed, nguess=nguess*nroot,
             rthresh=rthresh, nsvec=nsvec, nvec=nvec*nroot, niter=niter,
-            highest=True, guess_type=guess_type, disk=disk)
+            highest=True, guess_random=guess_random, disk=disk)
     print('time: {:8.1f}s'.format(time.time() - t))
 
     # Remove the integrals file
@@ -192,7 +192,7 @@ if __name__ == '__main__':
             nvec=20,                # max number of subspace vectors per root
             niter=50,
             rthresh=1e-5,           # convergence threshold
-            guess_type=None,        #
+            guess_random=False,
             oo_niter=200,           # number of iterations for ground state
             oo_rthresh=1e-8,        # convergence threshold for ground state
             diis_start=3,           # when to start DIIS extrapolations

@@ -4,15 +4,19 @@ import scipy.linalg
 from toolz import itertoolz
 from more_itertools import consume
 
-from .util import evec_guess
-from ..disk import dataset, remove_dataset
+from ..disk import dataset, remove_dataset, empty_dataset
 
 import sys
 import warnings
 
 
+def iterate_block_boundaries(dim, block_size):
+    dividers = tuple(range(0, dim, block_size)) + (dim,)
+    return itertoolz.sliding_window(2, dividers)
+
+
 def eighg(a, b, neig, ad, bd, nguess=None, niter=100, nsvec=100, nvec=100,
-          rthresh=1e-5, print_conv=True, highest=False, guess_type=None,
+          rthresh=1e-5, print_conv=True, highest=False, guess_random=False,
           disk=False):
     roots = slice(None, neig) if not highest else slice(None, -neig-1, -1)
 
@@ -24,39 +28,40 @@ def eighg(a, b, neig, ad, bd, nguess=None, niter=100, nsvec=100, nvec=100,
     a_blks = {}
     b_blks = {}
 
-    nguess = 2 * neig if nguess is None else nguess
+    nguess = neig if nguess is None else nguess
     assert nguess >= neig
 
     dim = len(ad)
 
-    if isinstance(guess_type, numpy.ndarray):
-        guess = guess_type
-    elif guess_type is None:
-        guess = evec_guess(ad, nguess, bd=bd, highest=highest)
-    elif guess_type == 'random':
-        rand = numpy.random.random((dim, nguess))
-        guess, s, _ = scipy.linalg.svd(rand, full_matrices=False,
-                                       overwrite_a=True)
-    else:
-        print('Guess type {:s} is not implemented.'.format(str(guess_type)))
+    ixs = numpy.argsort(ad / bd)[::-1] if highest else numpy.argsort(ad / bd)
 
-    v = guess
+    new_vs = ()
+    new_ns = ()
+
+    for start, end in iterate_block_boundaries(nguess, nsvec):
+        ni = end-start
+        if not guess_random:
+            keys = (ixs[start:end], range(ni))
+            vals = numpy.ones(ni)
+            vi = scipy.sparse.coo_matrix((vals, keys),
+                                         shape=(dim, ni)).toarray()
+            vi = dataset(vi) if disk else vi
+        else:
+            vi = numpy.random.random((dim, ni))
+            for vj in new_vs:
+                vj = numpy.array(vj)
+                vi -= numpy.linalg.multi_dot([vj, vj.T, vi])
+            vi, _, _ = scipy.linalg.svd(vi, full_matrices=False,
+                                        overwrite_a=True)
+            vi = dataset(vi) if disk else vi
+        new_vs += (vi,)
+        new_ns += (ni,)
 
     for iteration in range(niter):
-        _, n = v.shape
-        stops = tuple(range(0, n, nsvec)) + (n,)
-
-        new_vs = ()
-        for start, end in itertoolz.sliding_window(2, stops):
-            vi = v[:, start:end]
-            _, ni = numpy.shape(vi)
-            vi = dataset(vi) if disk else vi
-            new_vs += (vi,)
-            ns += (ni,)
-            vs += (vi,)
+        vs += new_vs
+        ns += new_ns
 
         for s, vi in enumerate(new_vs):
-            vi = numpy.array(vi)
             avi = dataset(a(vi)) if disk else a(vi)
             bvi = dataset(b(vi)) if disk else b(vi)
 
@@ -82,17 +87,41 @@ def eighg(a, b, neig, ad, bd, nguess=None, niter=100, nsvec=100, nvec=100,
 
         w = vals[roots]
         y = vecs[:, roots]
-        blks = tuple(itertools.accumulate(ns))
-        ys = numpy.split(y, blks, axis=0)
 
-        x = sum(numpy.dot(vj, yj) for vj, yj in zip(vs, ys))
-        ax = sum(numpy.dot(avj, yj) for avj, yj in zip(avs, ys))
-        bx = sum(numpy.dot(bvj, yj) for bvj, yj in zip(bvs, ys))
+        new_vs = ()
+        new_ns = ()
+        rmax = 0.
 
-        r = ax - bx * w
-        rmax = numpy.amax(numpy.abs(r))
+        for start, end in iterate_block_boundaries(neig, nsvec):
+            wi = w[start:end]
+            yi = y[:, start:end]
+
+            blks = tuple(itertools.accumulate(ns))
+            yis = numpy.split(yi, blks, axis=0)
+            # xi = sum(numpy.dot(vj, yij) for vj, yij in zip(vs, yis))
+            axi = sum(numpy.dot(avj, yij) for avj, yij in zip(avs, yis))
+            bxi = sum(numpy.dot(bvj, yij) for bvj, yij in zip(bvs, yis))
+
+            ri = axi - bxi * wi
+            rmax = max(rmax, numpy.amax(numpy.abs(ri)))
+            precnd = numpy.reshape(wi[None, :] * bd[:, None] - ad[:, None],
+                                   ri.shape)
+            vi = ri / precnd
+            for vj in vs + new_vs:
+                vj = numpy.array(vj)
+                vi -= numpy.linalg.multi_dot([vj, vj.T, vi])
+            vi, s, _ = scipy.linalg.svd(vi, full_matrices=False,
+                                        overwrite_a=True)
+            tol = (max(vi.shape) * numpy.amax(numpy.abs(vi)) *
+                   numpy.finfo(float).eps)
+            vi = vi[:, s > tol]
+            vi = dataset(vi) if disk else vi
+            _, ni = vi.shape
+            new_vs += (vi,)
+            new_ns += (ni,)
 
         rdim = sum(ns)
+        rdim_new = sum(new_ns)
 
         info = {'niter': iteration + 1, 'rdim': rdim, 'rmax': rmax}
 
@@ -106,16 +135,23 @@ def eighg(a, b, neig, ad, bd, nguess=None, niter=100, nsvec=100, nvec=100,
         if converged:
             break
 
-        precnd = numpy.reshape(w[None, :] * bd[:, None] - ad[:, None], r.shape)
-        v = r / precnd
-        for vi in vs:
-            vi = numpy.array(vi)
-            v -= numpy.linalg.multi_dot([vi, vi.T, v])
-        v, s, _ = scipy.linalg.svd(v, full_matrices=False, overwrite_a=True)
-        tol = max(v.shape) * numpy.amax(numpy.abs(v)) * numpy.finfo(float).eps
-        v = v[:, s > tol]
+        if rdim + rdim_new > nvec:
+            if disk:
+                consume(map(remove_dataset, new_vs))
 
-        if rdim + v.shape[1] > nvec:
+            new_vs = ()
+
+            for start, end in iterate_block_boundaries(neig, nsvec):
+                ni = end-start
+                wi = w[start:end]
+                yi = y[:, start:end]
+
+                blks = tuple(itertools.accumulate(ns))
+                yis = numpy.split(yi, blks, axis=0)
+                xi = sum(numpy.dot(vj, yij) for vj, yij in zip(vs, yis))
+                xi = dataset(xi) if disk else xi
+                new_vs += (xi,)
+
             if disk:
                 consume(map(remove_dataset, vs))
                 consume(map(remove_dataset, avs))
@@ -129,14 +165,24 @@ def eighg(a, b, neig, ad, bd, nguess=None, niter=100, nsvec=100, nvec=100,
             a_blks = {}
             b_blks = {}
 
-            v = x
-
     if disk:
+        consume(map(remove_dataset, new_vs))
         consume(map(remove_dataset, vs))
         consume(map(remove_dataset, avs))
         consume(map(remove_dataset, bvs))
 
     if not converged:
         warnings.warn("Did not converge! (rmax: {:7.1e})".format(rmax))
+
+    x = empty_dataset((dim, neig))
+    for start, end in iterate_block_boundaries(neig, nsvec):
+        ni = end-start
+        wi = w[start:end]
+        yi = y[:, start:end]
+
+        blks = tuple(itertools.accumulate(ns))
+        yis = numpy.split(yi, blks, axis=0)
+        xi = sum(numpy.dot(vj, yij) for vj, yij in zip(vs, yis))
+        x[:, start:end] = xi
 
     return w, x, info

@@ -29,7 +29,7 @@ def test__main():
             nvec=100,             # max number of subspace vectors per root
             niter=50,             # number of iterations
             rthresh=1e-6,         # convergence threshold
-            guess_type='random',  # guess vector strategy, None = unit vectors
+            guess_random=True,
             oo_niter=200,         # number of iterations for ground state
             oo_rthresh=1e-10,     # convergence threshold for ground state
             diis_start=3,         # when to start DIIS extrapolations
@@ -52,7 +52,7 @@ def test__main():
             nvec=100,             # max number of subspace vectors per root
             niter=50,             # number of iterations
             rthresh=1e-6,         # convergence threshold
-            guess_type='random',  # guess vector strategy, None = unit vectors
+            guess_random=True,
             oo_niter=200,         # number of iterations for ground state
             oo_rthresh=1e-10,     # convergence threshold for ground state
             diis_start=3,         # when to start DIIS extrapolations

@@ -20,7 +20,7 @@ w, info = drivers.odc12.spectrum(
         nvec=100,               # max number of subspace vectors per root
         niter=50,               # number of iterations
         rthresh=1e-5,           # convergence threshold
-        guess_type=None,        # guess vector strategy, None = unit vectors
+        guess_random=False,
         oo_niter=200,           # number of iterations for ground state
         oo_rthresh=1e-8,        # convergence threshold for ground state
         diis_start=3,           # when to start DIIS extrapolations
