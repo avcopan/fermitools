@@ -5,9 +5,6 @@ import fermitools
 from toolz import functoolz
 from itertools import starmap
 
-import h5py
-import tempfile
-
 
 def energy(labels, coords, charge, spin, basis, angstrom=False, niter=100,
            rthresh=1e-10, diis_start=3, diis_nvec=20, interface=None):
@@ -68,7 +65,7 @@ def energy(labels, coords, charge, spin, basis, angstrom=False, niter=100,
 
 def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
              nguess=10, nsvec=10, nvec=100, niter=50, rthresh=1e-7,
-             guess_random=False, oo_niter=200, oo_rthresh=1e-10, diis_start=3,
+             guess_type=None, oo_niter=200, oo_rthresh=1e-10, diis_start=3,
              diis_nvec=20, disk=False, interface=None):
     en_elec, oo_info = energy(
             labels=labels, coords=coords, charge=charge, spin=spin,
@@ -100,11 +97,7 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     govov = fermitools.math.spinorb.transform_twobody(r_ao, (co, cv, co, cv))
     govvv = fermitools.math.spinorb.transform_twobody(r_ao, (co, cv, cv, cv))
     gvvvv = fermitools.math.spinorb.transform_twobody(r_ao, (cv, cv, cv, cv))
-
-    if disk:
-        flname = tempfile.mkstemp()[1]
-        fl = h5py.File(flname, mode='w')
-        gvvvv = fl.create_dataset('gvvvv', data=gvvvv)
+    gvvvv = fermitools.math.disk.dataset(gvvvv) if disk else gvvvv
 
     t2 = oo_info['t2']
     m1oo, m1vv = fermitools.oo.odc12.onebody_density(t2)
@@ -160,34 +153,23 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     a = fermitools.math.sigma.bmat([[a11, a12], [a21, a22]], (n1,))
     b = fermitools.math.sigma.bmat([[b11, b12], [b21, b22]], (n1,))
     t = time.time()
-    solve_spectrum(
-            a=a, b=b, s=s, d=d, ad=ad, sd=sd, nroot=nroot, nguess=nguess,
-            nsvec=nsvec, nvec=nvec, niter=niter, rthresh=rthresh,
-            guess_random=guess_random, disk=disk)
-    print('time: {:8.1f}s'.format(time.time() - t))
-
-
-def solve_spectrum(a, b, s, d, ad, sd, nroot=1, nguess=10, nsvec=10, nvec=100,
-                   niter=50, rthresh=1e-7, guess_random=False, disk=False):
-    from fermitools.math.sigma import bmat, negative, evec_guess
+    from fermitools.math.sigma import bmat, negative
     from fermitools.math.sigma.eh import eighg as eighg
 
     e = bmat([[a, b], [b, a]], 2)
     m = bmat([[s, d], [negative(d), negative(s)]], 2)
     ed = numpy.concatenate((+ad, +ad))
     md = numpy.concatenate((+sd, -sd))
-    dim = len(ed)
 
+    eighg(
+            a=m, b=e, neig=nroot, ad=md, bd=ed, nguess=nguess*nroot,
+            rthresh=rthresh, nsvec=nsvec, nvec=nvec*nroot, niter=niter,
+            highest=True, guess_type=guess_type, disk=disk)
+    print('time: {:8.1f}s'.format(time.time() - t))
+
+    # Remove the integrals file
     if disk:
-        _, finame = tempfile.mkstemp()
-        fi = h5py.File(finame, mode='w')
-        guess = fi.create_dataset('guess', (dim, nguess*nroot))
-    else:
-        guess = numpy.empty((dim, nguess*nroot))
-
-    guess[:] = evec_guess(md, nguess*nroot, bd=ed, highest=True)
-    eighg(a=m, b=e, neig=nroot, ad=md, bd=ed, guess=guess, rthresh=rthresh,
-          nsvec=nsvec, nvec=nvec*nroot, niter=niter, highest=True, disk=disk)
+        fermitools.math.disk.remove_dataset(gvvvv)
 
 
 if __name__ == '__main__':
@@ -210,7 +192,7 @@ if __name__ == '__main__':
             nvec=20,                # max number of subspace vectors per root
             niter=50,
             rthresh=1e-5,           # convergence threshold
-            guess_random=False,     # use a random guess?
+            guess_type=None,        #
             oo_niter=200,           # number of iterations for ground state
             oo_rthresh=1e-8,        # convergence threshold for ground state
             diis_start=3,           # when to start DIIS extrapolations

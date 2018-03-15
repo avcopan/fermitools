@@ -57,7 +57,7 @@ def test__eigh():
     ad = fermitools.math.sigma.diagonal(a_, dim)
     bd = fermitools.math.sigma.diagonal(b_, dim)
     w, u, info = sigma.eighg(
-            a=a_, b=b_, neig=neig, ad=ad, bd=bd, guess=U, rthresh=rthresh,
+            a=a_, b=b_, neig=neig, ad=ad, bd=bd, guess_type=U, rthresh=rthresh,
             nvec=nvec)
     print(info)
     assert_almost_equal(w, W, decimal=10)
@@ -68,10 +68,9 @@ def test__eigh():
     print(U[:neig+5, :neig].round(1))
 
     t0 = time.time()
-    guess = fermitools.math.sigma.evec_guess(ad, nguess)
     w, u, info = sigma.eighg(
-            a=a_, b=b_, neig=neig, ad=ad, bd=bd, guess=guess, rthresh=rthresh,
-            nvec=nvec, disk=True)
+            a=a_, b=b_, neig=neig, ad=ad, bd=bd, nguess=nguess,
+            rthresh=rthresh, nvec=nvec, disk=True)
     dt = time.time() - t0
     print(info)
     print(dt)
@@ -109,8 +108,8 @@ def test__eighg():
     bd = fermitools.math.sigma.diagonal(b_, dim)
     sd = -numpy.ones(dim)
     w, u, info = sigma.eighg(
-            a=s_, b=b_, neig=neig, ad=sd, bd=bd, guess=U, rthresh=rthresh,
-            nsvec=nsvec, nvec=nvec)
+            a=s_, b=b_, neig=neig, ad=sd, bd=bd, rthresh=rthresh, nsvec=nsvec,
+            nvec=nvec, guess_type=U)
     print(info)
     assert_almost_equal(w, W, decimal=10)
     assert_almost_equal(numpy.abs(u), numpy.abs(U), decimal=10)
@@ -120,10 +119,9 @@ def test__eighg():
     print(U[:neig+5, :neig].round(1))
 
     t0 = time.time()
-    guess = fermitools.math.sigma.evec_guess(sd, nguess, bd=bd)
     w, u, info = sigma.eighg(
-            a=s_, b=b_, neig=neig, ad=sd, bd=bd, guess=guess, rthresh=rthresh,
-            nsvec=nsvec, nvec=nvec)
+            a=s_, b=b_, neig=neig, ad=sd, bd=bd, nguess=nguess,
+            rthresh=rthresh, nsvec=nsvec, nvec=nvec)
     dt = time.time() - t0
     print(info)
     print(dt)

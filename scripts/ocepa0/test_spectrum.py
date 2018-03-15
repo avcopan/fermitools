@@ -29,7 +29,30 @@ def test__main():
             nvec=100,             # max number of subspace vectors per root
             niter=50,             # number of iterations
             rthresh=1e-6,         # convergence threshold
-            guess_random=True,    # use a random guess?
+            guess_type='random',  # guess vector strategy, None = unit vectors
+            oo_niter=200,         # number of iterations for ground state
+            oo_rthresh=1e-10,     # convergence threshold for ground state
+            diis_start=3,         # when to start DIIS extrapolations
+            diis_nvec=20,         # maximum number of DIIS vectors
+            disk=False,           #
+            interface=interface)  # interface for computing integrals
+
+    assert_almost_equal(w[:nroot], W[:nroot], decimal=10)
+
+    w, info = drivers.ocepa0.spectrum(
+            labels=labels,
+            coords=coords,
+            charge=0,
+            spin=0,
+            basis='sto-3g',
+            angstrom=False,
+            nroot=nroot,
+            nguess=1,             # number of guess vectors per root
+            nsvec=3,              # max number of sigma vectors per sub-iter
+            nvec=100,             # max number of subspace vectors per root
+            niter=50,             # number of iterations
+            rthresh=1e-6,         # convergence threshold
+            guess_type='random',  # guess vector strategy, None = unit vectors
             oo_niter=200,         # number of iterations for ground state
             oo_rthresh=1e-10,     # convergence threshold for ground state
             diis_start=3,         # when to start DIIS extrapolations

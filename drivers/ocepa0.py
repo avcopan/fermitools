@@ -5,9 +5,6 @@ import fermitools
 from toolz import functoolz
 from itertools import starmap
 
-import h5py
-import tempfile
-
 
 def energy(labels, coords, charge, spin, basis, angstrom=False, niter=100,
            rthresh=1e-10, diis_start=3, diis_nvec=20, interface=None):
@@ -92,7 +89,7 @@ def energy(labels, coords, charge, spin, basis, angstrom=False, niter=100,
 
 def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
              nguess=10, nsvec=10, nvec=100, niter=50, rthresh=1e-7,
-             guess_random=False, oo_niter=200, oo_rthresh=1e-10, diis_start=3,
+             guess_type=None, oo_niter=200, oo_rthresh=1e-10, diis_start=3,
              diis_nvec=20, disk=False, interface=None):
     '''
     :param labels: nuclear labels
@@ -119,8 +116,8 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     :type niter: int
     :param rthresh: maximum residual for linear response
     :type rthresh: float
-    :param guess_random: use a random guess?
-    :type guess_random: bool
+    :param guess_type: guess vector type, None (unit vectors) or 'random'
+    :type guess_type: bool or str
     :param oo_niter: number of iterations for orbital optimization
     :type oo_niter: int
     :param oo_rthresh: maximum residual for orbital optimization
@@ -169,11 +166,7 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     govov = fermitools.math.spinorb.transform_twobody(r_ao, (co, cv, co, cv))
     govvv = fermitools.math.spinorb.transform_twobody(r_ao, (co, cv, cv, cv))
     gvvvv = fermitools.math.spinorb.transform_twobody(r_ao, (cv, cv, cv, cv))
-
-    if disk:
-        flname = tempfile.mkstemp()[1]
-        fl = h5py.File(flname, mode='w')
-        gvvvv = fl.create_dataset('gvvvv', data=gvvvv)
+    gvvvv = fermitools.math.disk.dataset(gvvvv) if disk else gvvvv
 
     t2 = oo_info['t2']
     no, _, nv, _ = t2.shape
@@ -238,7 +231,7 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     w, x, y, lr_info = fermitools.lr.solve.spectrum(
             a=a, b=b, s=s, d=d, ad=ad, sd=sd, nroot=nroot, nguess=nguess,
             nsvec=nsvec, nvec=nvec, niter=niter, rthresh=rthresh,
-            guess_random=guess_random, disk=disk)
+            guess_type=guess_type, disk=disk)
     print("\nOCEPA0 excitation energies (in a.u.):")
     print(w.reshape(-1, 1))
     print("\nOCEPA0 excitation energies (in eV):")
@@ -246,6 +239,10 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     print('\nOCEPA0 linear response total time: {:8.1f}s'
           .format(time.time() - t))
     sys.stdout.flush()
+
+    # Remove the integrals file
+    if disk:
+        fermitools.math.disk.remove_dataset(gvvvv)
 
     info.update(lr_info)
     info['lr_x'] = x
@@ -342,11 +339,7 @@ def polarizability(labels, coords, charge, spin, basis, angstrom=False,
     govov = fermitools.math.spinorb.transform_twobody(r_ao, (co, cv, co, cv))
     govvv = fermitools.math.spinorb.transform_twobody(r_ao, (co, cv, cv, cv))
     gvvvv = fermitools.math.spinorb.transform_twobody(r_ao, (cv, cv, cv, cv))
-
-    if disk:
-        flname = tempfile.mkstemp()[1]
-        fl = h5py.File(flname, mode='w')
-        gvvvv = fl.create_dataset('gvvvv', data=gvvvv)
+    gvvvv = fermitools.math.disk.dataset(gvvvv) if disk else gvvvv
 
     t2 = oo_info['t2']
     foo = fermitools.oo.ocepa0.fock_xy(hxy=hoo, goxoy=goooo)
@@ -402,6 +395,10 @@ def polarizability(labels, coords, charge, spin, basis, angstrom=False,
     print("Electric dipole polarizability tensor:")
     print(alpha.round(12))
     print('time: {:8.1f}s'.format(time.time() - t))
+
+    # Remove the integrals file
+    if disk:
+        fermitools.math.disk.remove_dataset(gvvvv)
 
     info.update(lr_info)
     info['lr_r'] = r

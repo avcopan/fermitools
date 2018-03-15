@@ -3,6 +3,7 @@ from . import combinatorics
 from . import asym
 from . import sigma
 from . import diis
+from . import disk
 from .ix import cast
 from .ix import diagonal_indices
 from .findif import central_difference
@@ -30,6 +31,7 @@ __all__ = [
         'asym',
         'sigma',
         'diis',
+        'disk',
         'tensoralg',
         'transform',
         'cast',

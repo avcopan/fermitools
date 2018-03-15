@@ -2,22 +2,18 @@ import numpy
 import itertools
 import scipy.linalg
 from toolz import itertoolz
+from more_itertools import consume
+
+from .util import evec_guess
+from ..disk import dataset, remove_dataset
 
 import sys
 import warnings
 
-import h5py
-import tempfile
 
-
-def disk_array(a):
-    _, fname = tempfile.mkstemp()
-    f = h5py.File(fname, mode='w')
-    return f.create_dataset('a', data=a)
-
-
-def eighg(a, b, neig, ad, bd, guess, niter=100, nsvec=100, nvec=100,
-          rthresh=1e-5, print_conv=True, highest=False, disk=False):
+def eighg(a, b, neig, ad, bd, nguess=None, niter=100, nsvec=100, nvec=100,
+          rthresh=1e-5, print_conv=True, highest=False, guess_type=None,
+          disk=False):
     roots = slice(None, neig) if not highest else slice(None, -neig-1, -1)
 
     ns = ()
@@ -28,8 +24,23 @@ def eighg(a, b, neig, ad, bd, guess, niter=100, nsvec=100, nvec=100,
     a_blks = {}
     b_blks = {}
 
+    nguess = 2 * neig if nguess is None else nguess
+    assert nguess >= neig
+
+    dim = len(ad)
+
+    if isinstance(guess_type, numpy.ndarray):
+        guess = guess_type
+    elif guess_type is None:
+        guess = evec_guess(ad, nguess, bd=bd, highest=highest)
+    elif guess_type == 'random':
+        rand = numpy.random.random((dim, nguess))
+        guess, s, _ = scipy.linalg.svd(rand, full_matrices=False,
+                                       overwrite_a=True)
+    else:
+        print('Guess type {:s} is not implemented.'.format(str(guess_type)))
+
     v = guess
-    guess = None
 
     for iteration in range(niter):
         _, n = v.shape
@@ -39,16 +50,15 @@ def eighg(a, b, neig, ad, bd, guess, niter=100, nsvec=100, nvec=100,
         for start, end in itertoolz.sliding_window(2, stops):
             vi = v[:, start:end]
             _, ni = numpy.shape(vi)
-            vi = disk_array(vi) if disk else vi
+            vi = dataset(vi) if disk else vi
             new_vs += (vi,)
             ns += (ni,)
             vs += (vi,)
-        v = None
 
         for s, vi in enumerate(new_vs):
             vi = numpy.array(vi)
-            avi = disk_array(a(vi)) if disk else a(vi)
-            bvi = disk_array(b(vi)) if disk else b(vi)
+            avi = dataset(a(vi)) if disk else a(vi)
+            bvi = dataset(b(vi)) if disk else b(vi)
 
             avs += (avi,)
             bvs += (bvi,)
@@ -105,6 +115,11 @@ def eighg(a, b, neig, ad, bd, guess, niter=100, nsvec=100, nvec=100,
         v = v[:, s > tol]
 
         if rdim + v.shape[1] > nvec:
+            if disk:
+                consume(map(remove_dataset, vs))
+                consume(map(remove_dataset, avs))
+                consume(map(remove_dataset, bvs))
+
             ns = ()
             vs = ()
             avs = ()
@@ -114,6 +129,11 @@ def eighg(a, b, neig, ad, bd, guess, niter=100, nsvec=100, nvec=100,
             b_blks = {}
 
             v = x
+
+    if disk:
+        consume(map(remove_dataset, vs))
+        consume(map(remove_dataset, avs))
+        consume(map(remove_dataset, bvs))
 
     if not converged:
         warnings.warn("Did not converge! (rmax: {:7.1e})".format(rmax))
