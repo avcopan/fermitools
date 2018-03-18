@@ -247,3 +247,19 @@ def onebody_metric(t2):
             - einsum('ab,ib...->ia...', m1vv, r1))
 
     return _s11
+
+
+def onebody_metric_inverse(t2):
+    m1oo, m1vv = onebody_density(t2)
+    mo, uo = scipy.linalg.eigh(m1oo)
+    mv, uv = scipy.linalg.eigh(m1vv)
+    uot = numpy.ascontiguousarray(numpy.transpose(uo))
+    uvt = numpy.ascontiguousarray(numpy.transpose(uv))
+
+    def _x11(r1):
+        yovov = cast(uot, (2, 0), 4) * cast(uv, (1, 3), 4)
+        yovov /= (cast(mo, 2, 4) - cast(mv, 3, 4))
+        zovov = cast(uo, (2, 0), 4) * cast(uvt, (1, 3), 4)
+        return einsum('iajb,jbkc,kc...->ia...', yovov, zovov, r1)
+
+    return _x11

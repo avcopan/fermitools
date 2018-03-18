@@ -144,6 +144,8 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     a22 = functoolz.compose(r2, a22u, u2)
     b22 = functoolz.compose(r2, b22u, u2)
     s11 = functoolz.compose(r1, s11u, u1)
+    print(s11(numpy.eye(n1)).shape)
+    print(s11(numpy.eye(n1)))
 
     sd = numpy.ones(n1+n2)
     ad = numpy.concatenate((ad1, ad2), axis=0)
@@ -184,7 +186,7 @@ if __name__ == '__main__':
             coords=COORDS,
             charge=0,
             spin=0,
-            basis='3-21g',
+            basis='sto-3g',
             angstrom=True,
             nroot=20,
             nguess=12,              # number of guess vectors per root

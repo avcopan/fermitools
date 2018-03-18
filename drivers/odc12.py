@@ -205,6 +205,7 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     a22u, b22u = fermitools.lr.odc12.twobody_hessian(
             foo, fvv, goooo, govov, gvvvv, t2, disk=disk)
     s11u = fermitools.lr.odc12.onebody_metric(t2)
+    x11u = fermitools.lr.odc12.onebody_metric_inverse(t2)
 
     pg1 = r1(pg1u)
     pg2 = r2(pg2u)
@@ -219,6 +220,18 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     a22 = functoolz.compose(r2, a22u, u2)
     b22 = functoolz.compose(r2, b22u, u2)
     s11 = functoolz.compose(r1, s11u, u1)
+    x11 = functoolz.compose(r1, x11u, u1)
+
+    print(s11(numpy.eye(n1)).shape)
+    print(s11(numpy.eye(n1)).round(1))
+
+    print(x11(numpy.eye(n1)).shape)
+    print(x11(numpy.eye(n1)).round(1))
+
+    print(x11(s11(numpy.eye(n1))).shape)
+    print(x11(s11(numpy.eye(n1))).round(1))
+    from numpy.testing import assert_almost_equal
+    assert_almost_equal(numpy.eye(n1), x11(s11(numpy.eye(n1))), decimal=12)
 
     pg = numpy.concatenate((pg1, pg2), axis=0)
     sd = numpy.ones(n1+n2)

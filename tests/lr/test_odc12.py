@@ -97,5 +97,10 @@ def test__onebody_metric():
     assert_almost_equal(s11(I1U), S11, decimal=10)
 
 
+def test__onebody_metric_inverse():
+    x11 = odc12.onebody_metric_inverse(T2)
+    assert_almost_equal(x11(S11), I1U, decimal=10)
+
+
 if __name__ == '__main__':
     test__twobody_hessian()
