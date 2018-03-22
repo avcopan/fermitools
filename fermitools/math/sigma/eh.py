@@ -17,7 +17,7 @@ def iterate_block_boundaries(dim, block_size):
 
 def eighg(a, b, neig, ad, bd, nguess=None, niter=100, nsvec=100, nvec=100,
           rthresh=1e-5, print_conv=True, highest=False, guess_random=False,
-          disk=False, nconv=None):
+          disk=False, nconv=None, dotv=None):
     roots = slice(None, neig) if not highest else slice(None, -neig-1, -1)
     ns = ()
     vs = ()
@@ -34,6 +34,8 @@ def eighg(a, b, neig, ad, bd, nguess=None, niter=100, nsvec=100, nvec=100,
     assert nconv <= neig
 
     dim = len(ad)
+
+    dotv = numpy.ones((dim, 1)) if dotv is None else dotv
 
     ixs = numpy.argsort(ad / bd)[::-1] if highest else numpy.argsort(ad / bd)
 
@@ -93,6 +95,9 @@ def eighg(a, b, neig, ad, bd, nguess=None, niter=100, nsvec=100, nvec=100,
         new_vs = ()
         new_ns = ()
         rmaxv = numpy.zeros((neig,))
+        norms = numpy.zeros((neig,))
+        _, ndot = numpy.shape(dotv)
+        proj = numpy.zeros((neig, ndot))
 
         for start, end in iterate_block_boundaries(neig, nsvec):
             wi = w[start:end]
@@ -100,8 +105,12 @@ def eighg(a, b, neig, ad, bd, nguess=None, niter=100, nsvec=100, nvec=100,
 
             blks = tuple(itertools.accumulate(ns))
             yis = numpy.split(yi, blks, axis=0)
+            xi = sum(numpy.dot(vj, yij) for vj, yij in zip(vs, yis))
             axi = sum(numpy.dot(avj, yij) for avj, yij in zip(avs, yis))
             bxi = sum(numpy.dot(bvj, yij) for bvj, yij in zip(bvs, yis))
+
+            norms[start:end] = numpy.diag(numpy.dot(xi.T, axi))
+            proj[start:end, :] = numpy.dot(xi.T, dotv)
 
             ri = axi - bxi * wi
             rmaxv[start:end] = numpy.amax(numpy.abs(ri), axis=0)
@@ -124,7 +133,6 @@ def eighg(a, b, neig, ad, bd, nguess=None, niter=100, nsvec=100, nvec=100,
         rdim = sum(ns)
         rdim_new = sum(new_ns)
 
-        print(nconv)
         rmax = max(rmaxv[:nconv])
         info = {'niter': iteration + 1, 'rdim': rdim, 'rmax': rmax}
 
@@ -134,6 +142,9 @@ def eighg(a, b, neig, ad, bd, nguess=None, niter=100, nsvec=100, nvec=100,
             print(info)
             print("inverse eigenvalues and residuals:")
             print(numpy.hstack((1/w[:, None], rmaxv[:, None])))
+            print("transition strengths:")
+            print(numpy.linalg.norm(norms[:, None] * proj * proj, axis=1)
+                  [:, None].round(10))
             sys.stdout.flush()
 
         if converged:

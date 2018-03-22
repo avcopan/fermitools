@@ -239,7 +239,7 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     w, x, y, lr_info = fermitools.lr.solve.spectrum(
             a=a, b=b, s=s, d=d, ad=ad, sd=sd, nroot=nroot, nguess=nguess,
             nsvec=nsvec, nvec=nvec, niter=niter, rthresh=rthresh,
-            guess_random=guess_random, disk=disk, nconv=nconv)
+            guess_random=guess_random, disk=disk, nconv=nconv, pg=pg)
     print("\nODC-12 excitation energies (in a.u.):")
     print(w.reshape(-1, 1))
     print("\nODC-12 excitation energies (in eV):")
