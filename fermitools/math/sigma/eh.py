@@ -17,9 +17,8 @@ def iterate_block_boundaries(dim, block_size):
 
 def eighg(a, b, neig, ad, bd, nguess=None, niter=100, nsvec=100, nvec=100,
           rthresh=1e-5, print_conv=True, highest=False, guess_random=False,
-          disk=False):
+          disk=False, nconv=None):
     roots = slice(None, neig) if not highest else slice(None, -neig-1, -1)
-
     ns = ()
     vs = ()
     avs = ()
@@ -30,6 +29,9 @@ def eighg(a, b, neig, ad, bd, nguess=None, niter=100, nsvec=100, nvec=100,
 
     nguess = neig if nguess is None else nguess
     assert nguess >= neig
+
+    nconv = neig if nconv is None else nconv
+    assert nconv <= neig
 
     dim = len(ad)
 
@@ -90,7 +92,7 @@ def eighg(a, b, neig, ad, bd, nguess=None, niter=100, nsvec=100, nvec=100,
 
         new_vs = ()
         new_ns = ()
-        rmax = 0.
+        rmaxv = numpy.zeros((neig,))
 
         for start, end in iterate_block_boundaries(neig, nsvec):
             wi = w[start:end]
@@ -102,7 +104,7 @@ def eighg(a, b, neig, ad, bd, nguess=None, niter=100, nsvec=100, nvec=100,
             bxi = sum(numpy.dot(bvj, yij) for bvj, yij in zip(bvs, yis))
 
             ri = axi - bxi * wi
-            rmax = max(rmax, numpy.amax(numpy.abs(ri)))
+            rmaxv[start:end] = numpy.amax(numpy.abs(ri), axis=0)
             precnd = numpy.reshape(wi[None, :] * bd[:, None] - ad[:, None],
                                    ri.shape)
             vi = ri / precnd
@@ -122,13 +124,16 @@ def eighg(a, b, neig, ad, bd, nguess=None, niter=100, nsvec=100, nvec=100,
         rdim = sum(ns)
         rdim_new = sum(new_ns)
 
+        print(nconv)
+        rmax = max(rmaxv[:nconv])
         info = {'niter': iteration + 1, 'rdim': rdim, 'rmax': rmax}
 
         converged = rmax < rthresh
 
         if print_conv:
             print(info)
-            print(1/w)
+            print("inverse eigenvalues and residuals:")
+            print(numpy.hstack((1/w[:, None], rmaxv[:, None])))
             sys.stdout.flush()
 
         if converged:

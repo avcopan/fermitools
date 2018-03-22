@@ -90,7 +90,7 @@ def energy(labels, coords, charge, spin, basis, angstrom=False, niter=100,
 def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
              nguess=10, nsvec=10, nvec=100, niter=50, rthresh=1e-7,
              guess_random=False, oo_niter=200, oo_rthresh=1e-10, diis_start=3,
-             diis_nvec=20, disk=False, interface=None):
+             diis_nvec=20, disk=False, interface=None, nconv=None):
     '''
     :param labels: nuclear labels
     :type labels: tuple
@@ -130,6 +130,8 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     :type disk: bool
     :param interface: interface for computing integrals and SCF orbitals
     :type interface: module
+    :param nconv: number of roots to converge
+    :type nconv: int
     '''
     en_elec, oo_info = energy(
             labels=labels, coords=coords, charge=charge, spin=spin,
@@ -237,7 +239,7 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     w, x, y, lr_info = fermitools.lr.solve.spectrum(
             a=a, b=b, s=s, d=d, ad=ad, sd=sd, nroot=nroot, nguess=nguess,
             nsvec=nsvec, nvec=nvec, niter=niter, rthresh=rthresh,
-            guess_random=guess_random, disk=disk)
+            guess_random=guess_random, disk=disk, nconv=nconv)
     print("\nODC-12 excitation energies (in a.u.):")
     print(w.reshape(-1, 1))
     print("\nODC-12 excitation energies (in eV):")
