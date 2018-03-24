@@ -9,4 +9,4 @@ def transition_dipole(s, d, pg, x, y):
     t = numpy.dot(x.T, pg) + numpy.dot(y.T, pg)
     print('norms:')
     print(norms)
-    return norms[:, None] * t * t
+    return t * t / norms[:, None]

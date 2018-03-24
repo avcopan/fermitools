@@ -143,7 +143,7 @@ def eighg(a, b, neig, ad, bd, nguess=None, niter=100, nsvec=100, nvec=100,
             print("inverse eigenvalues and residuals:")
             print(numpy.hstack((1/w[:, None], rmaxv[:, None])))
             print("transition strengths:")
-            print(numpy.linalg.norm(norms[:, None] * proj * proj, axis=1)
+            print(numpy.linalg.norm(proj * proj / norms[:, None], axis=1)
                   [:, None].round(10))
             sys.stdout.flush()
 
