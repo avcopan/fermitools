@@ -90,7 +90,7 @@ def eighg(a, b, neig, ad, bd, nguess=None, niter=100, nsvec=100, nvec=100,
 
         new_vs = ()
         new_ns = ()
-        rmax = 0.
+        rmaxv = numpy.zeros((neig,))
 
         for start, end in iterate_block_boundaries(neig, nsvec):
             wi = w[start:end]
@@ -102,7 +102,7 @@ def eighg(a, b, neig, ad, bd, nguess=None, niter=100, nsvec=100, nvec=100,
             bxi = sum(numpy.dot(bvj, yij) for bvj, yij in zip(bvs, yis))
 
             ri = axi - bxi * wi
-            rmax = max(rmax, numpy.amax(numpy.abs(ri)))
+            rmaxv[start:end] = numpy.amax(numpy.abs(ri), axis=0)
             precnd = numpy.reshape(wi[None, :] * bd[:, None] - ad[:, None],
                                    ri.shape)
             vi = ri / precnd
@@ -122,13 +122,16 @@ def eighg(a, b, neig, ad, bd, nguess=None, niter=100, nsvec=100, nvec=100,
         rdim = sum(ns)
         rdim_new = sum(new_ns)
 
+        rmax = max(rmaxv)
         info = {'niter': iteration + 1, 'rdim': rdim, 'rmax': rmax}
 
         converged = rmax < rthresh
 
         if print_conv:
             print(info)
-            print(1/w)
+            for j, (wj, rmaxj) in enumerate(zip(w, rmaxv)):
+                print('  eigenvalue {:d}: {:15.10f}, rmax={:3.1e}'
+                      .format(j, wj, rmaxj))
             sys.stdout.flush()
 
         if converged:

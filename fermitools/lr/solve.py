@@ -24,6 +24,13 @@ def spectrum(a, b, s, d, ad, sd, nroot=1, nguess=10, nsvec=10, nvec=100,
     m = bmat([[s, d], [negative(d), negative(s)]], 2)
     ed = numpy.concatenate((+ad, +ad))
     md = numpy.concatenate((+sd, -sd))
+
+    from ..math.direct import eigh
+
+    eigh(a=m, k=nroot, ad=md, b=e, bd=ed, nconv=None, nx0=nguess*nroot,
+         highest=True, maxvecs=nvec*nroot, maxiter=niter, tol=rthresh,
+         print_conv=True)
+
     w_inv, z, info = eighg(
             a=m, b=e, neig=nroot, ad=md, bd=ed, nguess=nguess*nroot,
             rthresh=rthresh, nsvec=nsvec, nvec=nvec*nroot, niter=niter,
