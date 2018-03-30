@@ -94,7 +94,8 @@ def _unraveler(nuaxes, udim):
     def _unravel(a):
         (rdim,), odims = numpy.split(a.shape, (1,))
         udims = (udim,) * nuaxes
-        b = numpy.zeros(numpy.concatenate((udims, odims)))
+        dt = a.dtype
+        b = numpy.zeros(numpy.concatenate((udims, odims)), dtype=dt)
         ix = tuple(zip(*itertools.combinations(range(udim), r=nuaxes)))
         b[ix] = a
         c = antisymmetrizer(range(nuaxes))(b)

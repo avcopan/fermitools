@@ -205,6 +205,7 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     a22u, b22u = fermitools.lr.odc12.twobody_hessian(
             foo, fvv, goooo, govov, gvvvv, t2, disk=disk)
     s11u = fermitools.lr.odc12.onebody_metric(t2)
+    x11u = fermitools.lr.odc12.onebody_metric_inverse(t2)
 
     pg1 = r1(pg1u)
     pg2 = r2(pg2u)
@@ -219,12 +220,14 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     a22 = functoolz.compose(r2, a22u, u2)
     b22 = functoolz.compose(r2, b22u, u2)
     s11 = functoolz.compose(r1, s11u, u1)
+    x11 = functoolz.compose(r1, x11u, u1)
 
     pg = numpy.concatenate((pg1, pg2), axis=0)
     sd = numpy.ones(n1+n2)
     ad = numpy.concatenate((ad1, ad2), axis=0)
 
     s = fermitools.math.sigma.block_diag((s11, eye), (n1,))
+    x = fermitools.math.sigma.block_diag((x11, eye), (n1,))
     d = zero
     a = fermitools.math.sigma.bmat([[a11, a12], [a21, a22]], (n1,))
     b = fermitools.math.sigma.bmat([[b11, b12], [b21, b22]], (n1,))
@@ -237,7 +240,7 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     w, x, y, lr_info = fermitools.lr.solve.spectrum(
             a=a, b=b, s=s, d=d, ad=ad, sd=sd, nroot=nroot, nguess=nguess,
             nsvec=nsvec, nvec=nvec, niter=niter, rthresh=rthresh,
-            guess_random=guess_random, disk=disk)
+            guess_random=guess_random, disk=disk, x=x)
     print("\nODC-12 excitation energies (in a.u.):")
     print(w.reshape(-1, 1))
     print("\nODC-12 excitation energies (in eV):")
