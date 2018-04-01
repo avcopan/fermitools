@@ -5,6 +5,11 @@ import itertools
 import warnings
 from .ix import cast
 
+import os
+import h5py
+import tempfile
+from more_itertools import consume
+
 
 def standard_basis_vectors(dim, axes):
     xs = list(axes)
@@ -32,10 +37,6 @@ def orth(x, compress=True):
 
 
 def update_block_rep(xi, axi, bldict, xs, axs, sym=False):
-
-    if numpy.size(xi) == 0:
-        return bldict, xs, axs
-
     i = len(xs)
     bldict[i, i] = numpy.dot(numpy.transpose(xi), axi)
 
@@ -58,8 +59,8 @@ def split_rdot(xs, y):
     return sum(numpy.dot(x, y) for x, y in zip(xs, ys))
 
 
-def eig0(a, k, ad, nconv=None, nguess=None, maxdim=None, maxiter=100,
-         tol=1e-5, print_conv=False, printf=None):
+def eig_simple(a, k, ad, nconv=None, nguess=None, maxdim=None, maxiter=100,
+               tol=1e-5, print_conv=False, printf=None):
     nconv = nconv if nconv is not None else k
     nguess = nguess if nguess is not None else 2*k
     maxdim = maxdim if maxdim is not None else nguess + 40*k
@@ -126,8 +127,8 @@ def eig0(a, k, ad, nconv=None, nguess=None, maxdim=None, maxiter=100,
     return w, v, info
 
 
-def eig1(a, k, ad, nconv=None, nguess=None, maxdim=None, maxiter=100, tol=1e-5,
-         print_conv=False, printf=None):
+def eig(a, k, ad, nconv=None, nguess=None, maxdim=None, maxiter=100, tol=1e-5,
+        print_conv=False, printf=None):
     nconv = nconv if nconv is not None else k
     nguess = nguess if nguess is not None else 2*k
     maxdim = maxdim if maxdim is not None else nguess + 40*k
@@ -199,8 +200,27 @@ def eig1(a, k, ad, nconv=None, nguess=None, maxdim=None, maxiter=100, tol=1e-5,
     return w, v, info
 
 
-def eig_blocked(a, k, ad, nconv=None, blsize=None, nguess=None, maxdim=None,
-                maxiter=100, tol=1e-5, print_conv=False, printf=None):
+# Disk algorithms
+def file_name(prefix, label, number):
+    return '{:s}.{:s}.{:d}'.format(prefix, label, number)
+
+
+def empty_dataset(fname, shape):
+    f = h5py.File(fname, mode='w')
+    return f.create_dataset('data', shape)
+
+
+def dataset(fname, data):
+    f = h5py.File(fname, mode='w')
+    return f.create_dataset('data', data=data)
+
+
+def remove_dataset(dataset):
+    os.remove(dataset.file.filename)
+
+
+def eig_disk(a, k, ad, nconv=None, blsize=None, nguess=None, maxdim=None,
+             maxiter=100, tol=1e-5, print_conv=False, printf=None):
     nconv = nconv if nconv is not None else k
     blsize = blsize if blsize is not None else k
     nguess = nguess if nguess is not None else 2*k
@@ -216,20 +236,30 @@ def eig_blocked(a, k, ad, nconv=None, blsize=None, nguess=None, maxdim=None,
 
     converged = False
 
+    _, prf = tempfile.mkstemp()
+
+    v = empty_dataset(fname=prf, shape=(dim, k))
+
     axes = numpy.arange(nguess)
-    new_xs = tuple(standard_basis_vectors(dim=dim, axes=ax) for ax in
-                   numpy.split(axes, numpy.arange(blsize, nguess, blsize)))
+    splits = numpy.arange(blsize, nguess, blsize)
+    new_xs = tuple(dataset(fname=file_name(prf, 'new_x', i),
+                           data=standard_basis_vectors(dim=dim, axes=ax))
+                   for i, ax in enumerate(numpy.split(axes, splits)))
 
     for iteration in range(maxiter):
 
-        for s, xi in enumerate(new_xs):
-            xi = orth(project_out(xi, xs), compress=True)
-            axi = a(xi)
-            ap_bldict, xs, axs = update_block_rep(xi, axi, ap_bldict, xs, axs)
-
+        for new_xi in new_xs:
+            i = len(xs)
+            xi = orth(project_out(new_xi, xs), compress=True)
+            if numpy.size(xi) > 0:
+                xi = dataset(fname=file_name(prf, 'x', i), data=xi)
+                axi = dataset(fname=file_name(prf, 'ax', i), data=a(xi))
+                ap_bldict, xs, axs = update_block_rep(xi, axi, ap_bldict,
+                                                      xs, axs)
             if print_conv:
-                print("subiteration {:d}".format(s))
-                sys.stdout.flush()
+                print("block {:d}".format(i))
+
+        consume(map(remove_dataset, new_xs))
 
         nbl = len(xs)
         ap = block_dict_matrix(ap_bldict, (nbl, nbl))
@@ -244,20 +274,24 @@ def eig_blocked(a, k, ad, nconv=None, blsize=None, nguess=None, maxdim=None,
         ws = numpy.split(w, numpy.arange(blsize, k, blsize))
         vps = numpy.split(vp, numpy.arange(blsize, k, blsize), axis=1)
 
-        vs = ()
-        new_xs = ()
         rmaxvs = ()
 
-        for wi, vpi in zip(ws, vps):
+        vs = ()
+        new_xs = ()
+
+        for i, (wi, vpi) in enumerate(zip(ws, vps)):
             vi = split_rdot(xs, vpi)
             avi = split_rdot(axs, vpi)
             ri = avi - vi * cast(wi, 1, 2)
-            xi = -ri / (cast(ad, 0, 2) - cast(wi, 1, 2))
+            new_xi = -ri / (cast(ad, 0, 2) - cast(wi, 1, 2))
             rmaxvi = numpy.amax(numpy.abs(ri), axis=0)
+            rmaxvs += (rmaxvi,)
+
+            vi = dataset(fname=file_name(prf, 'v', i), data=vi)
+            new_xi = dataset(fname=file_name(prf, 'new_x', i), data=new_xi)
 
             vs += (vi,)
-            rmaxvs += (rmaxvi,)
-            new_xs += (xi,)
+            new_xs += (new_xi,)
 
         rmaxv = numpy.concatenate(rmaxvs)
         rmax = max(rmaxv[:nconv])
@@ -280,13 +314,30 @@ def eig_blocked(a, k, ad, nconv=None, blsize=None, nguess=None, maxdim=None,
             break
 
         if rdim + k > maxdim:
+            consume(map(remove_dataset, xs))
+            consume(map(remove_dataset, axs))
+
             xs = ()
             axs = ()
 
             ap_bldict = {}
             new_xs = vs
+        else:
+            consume(map(remove_dataset, vs))
+
+    consume(map(remove_dataset, new_xs))
+    consume(map(remove_dataset, xs))
+    consume(map(remove_dataset, axs))
+
+    offset = 0
+    for vi in vs:
+        _, ki = numpy.shape(vi)
+        v[:, offset:offset+ki] = vi
+        offset += ki
+
+    consume(map(remove_dataset, vs))
 
     if not converged:
         warnings.warn("Did not converge! rmax={:3.1e}".format(rmax))
 
-    return w, vs, info
+    return w, v, info

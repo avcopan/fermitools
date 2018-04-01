@@ -22,31 +22,27 @@ def test__eig():
 
     a_ = scipy.sparse.linalg.aslinearoperator(a)
 
-    w, V, INFO = direct.eig0(
+    w, V, INFO = direct.eig_simple(
             a=a_, k=k, ad=ad, nguess=2*k, maxdim=8*k, tol=1e-8,
             print_conv=True)
 
     assert_almost_equal(w, W)
 
-    w, v, info = direct.eig1(
+    w, v, info = direct.eig(
             a=a_, k=k, ad=ad, nguess=2*k, maxdim=8*k, tol=1e-8,
             print_conv=True)
 
     assert_almost_equal(w, W)
     assert_almost_equal(numpy.abs(v), numpy.abs(V))
-    assert info['niter'] == INFO['niter']
-    assert info['rdim'] == INFO['rdim']
+    assert info['niter'] <= INFO['niter'] + 1
 
-    w, vs, info = direct.eig_blocked(
+    w, v, info = direct.eig_disk(
             a=a_, k=k, ad=ad, blsize=3, nguess=2*k, maxdim=8*k, tol=1e-8,
             print_conv=True)
 
-    v = numpy.hstack(vs)
-
     assert_almost_equal(w, W)
     assert_almost_equal(numpy.abs(v), numpy.abs(V))
-    assert info['niter'] == INFO['niter']
-    assert info['rdim'] == INFO['rdim']
+    assert info['niter'] <= INFO['niter'] + 1
 
 
 if __name__ == '__main__':
