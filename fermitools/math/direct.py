@@ -67,7 +67,8 @@ def eig_simple(a, k, ad, nconv=None, nguess=None, maxdim=None, maxiter=100,
     printf = printf if printf is not None else (lambda x: x)
 
     dim = len(ad)
-    guess = standard_basis_vectors(dim=dim, axes=range(nguess))
+    axes = numpy.argsort(ad)[numpy.arange(nguess)]
+    guess = standard_basis_vectors(dim=dim, axes=axes)
 
     ax = x = numpy.zeros((dim, 0))
 
@@ -134,8 +135,11 @@ def eig(a, k, ad, nconv=None, nguess=None, maxdim=None, maxiter=100, tol=1e-5,
     maxdim = maxdim if maxdim is not None else nguess + 40*k
     printf = printf if printf is not None else (lambda x: x)
 
+    assert nconv <= k <= nguess <= maxdim
+
     dim = len(ad)
-    guess = standard_basis_vectors(dim=dim, axes=numpy.arange(nguess))
+    axes = numpy.argsort(ad)[numpy.arange(nguess)]
+    guess = standard_basis_vectors(dim=dim, axes=axes)
 
     xs = ()
     axs = ()
@@ -240,7 +244,7 @@ def eig_disk(a, k, ad, nconv=None, blsize=None, nguess=None, maxdim=None,
 
     v = empty_dataset(fname=prf, shape=(dim, k))
 
-    axes = numpy.arange(nguess)
+    axes = numpy.argsort(ad)[numpy.arange(nguess)]
     splits = numpy.arange(blsize, nguess, blsize)
     new_xs = tuple(dataset(fname=file_name(prf, 'new_x', i),
                            data=standard_basis_vectors(dim=dim, axes=ax))

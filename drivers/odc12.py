@@ -88,8 +88,8 @@ def energy(labels, coords, charge, spin, basis, angstrom=False, niter=100,
 
 
 def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
-             nguess=10, nsvec=10, nvec=100, niter=50, rthresh=1e-7,
-             guess_random=False, oo_niter=200, oo_rthresh=1e-10, diis_start=3,
+             nconv=None, nguess=None, maxdim=None, maxiter=100, rthresh=1e-5,
+             oo_niter=200, oo_rthresh=1e-10, diis_start=3,
              diis_nvec=20, disk=False, interface=None):
     '''
     :param labels: nuclear labels
@@ -106,18 +106,16 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     :type angstrom: bool
     :param nroot: number of roots to compute
     :type nroot: int
-    :param nguess: number of guess vectors per root
+    :param nconv: number of roots to converge
+    :type nconv: int
+    :param nguess: number of guess vectors
     :type nguess: int
-    :param nsvec: max number of sigma vectors per sub-iteration
-    :type nsvec: int
-    :param nvec: max number of subspace vectors per root
-    :type nvec: int
-    :param niter: number of iterations
-    :type niter: int
+    :param maxdim: maximum number of expansion vectors
+    :type maxdim: int
+    :param maxiter: maximum iteration
+    :type maxiter: int
     :param rthresh: maximum residual for linear response
     :type rthresh: float
-    :param guess_random: use a random guess?
-    :type guess_random: bool
     :param oo_niter: number of iterations for orbital optimization
     :type oo_niter: int
     :param oo_rthresh: maximum residual for orbital optimization
@@ -137,13 +135,6 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
             rthresh=oo_rthresh, diis_start=diis_start, diis_nvec=diis_nvec,
             interface=interface)
 
-    info = {k: v for k, v in oo_info.items()
-            if k not in ('niter', 'r1max', 'r2max')}
-
-    info['oo_niter'] = oo_info['niter']
-    info['oo_r1max'] = oo_info['r1max']
-    info['oo_r2max'] = oo_info['r2max']
-
     # LR inputs
     print("\nTransforming the integrals and computing the density matrices...")
     sys.stdout.flush()
@@ -151,15 +142,15 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
 
     co = oo_info['co']
     cv = oo_info['cv']
-    h_ao = info['h_ao']
-    p_ao = info['p_ao']
-    r_ao = info['r_ao']
+    h_ao = oo_info['h_ao']
+    # p_ao = oo_info['p_ao']
+    r_ao = oo_info['r_ao']
     hoo = fermitools.math.spinorb.transform_onebody(h_ao, (co, co))
     hov = fermitools.math.spinorb.transform_onebody(h_ao, (co, cv))
     hvv = fermitools.math.spinorb.transform_onebody(h_ao, (cv, cv))
-    poo = fermitools.math.spinorb.transform_onebody(p_ao, (co, co))
-    pov = fermitools.math.spinorb.transform_onebody(p_ao, (co, cv))
-    pvv = fermitools.math.spinorb.transform_onebody(p_ao, (cv, cv))
+    # poo = fermitools.math.spinorb.transform_onebody(p_ao, (co, co))
+    # pov = fermitools.math.spinorb.transform_onebody(p_ao, (co, cv))
+    # pvv = fermitools.math.spinorb.transform_onebody(p_ao, (cv, cv))
     goooo = fermitools.math.spinorb.transform_twobody(r_ao, (co, co, co, co))
     gooov = fermitools.math.spinorb.transform_twobody(r_ao, (co, co, co, cv))
     goovv = fermitools.math.spinorb.transform_twobody(r_ao, (co, co, cv, cv))
@@ -176,24 +167,23 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
             hxy=hov, goxoy=gooov, gxvyv=govvv, m1oo=m1oo, m1vv=m1vv)
     fvv = fermitools.oo.odc12.fock_xy(
             hxy=hvv, goxoy=govov, gxvyv=gvvvv, m1oo=m1oo, m1vv=m1vv)
-    fpoo = fermitools.oo.odc12.fancy_property(poo, m1oo)
-    fpvv = fermitools.oo.odc12.fancy_property(pvv, m1vv)
+    # fpoo = fermitools.oo.odc12.fancy_property(poo, m1oo)
+    # fpvv = fermitools.oo.odc12.fancy_property(pvv, m1vv)
 
     # Compute spectrum by linear response
     no, _, nv, _ = t2.shape
     n1 = no * nv
-    n2 = no * (no - 1) * nv * (nv - 1) // 4
+    # n2 = no * (no - 1) * nv * (nv - 1) // 4
 
     eye = fermitools.math.sigma.eye
-    zero = fermitools.math.sigma.zero
 
     r1 = fermitools.math.raveler({0: (0, 1)})
     u1 = fermitools.math.unraveler({0: {0: no, 1: nv}})
     r2 = fermitools.math.asym.megaraveler({0: ((0, 1), (2, 3))})
     u2 = fermitools.math.asym.megaunraveler({0: {(0, 1): no, (2, 3): nv}})
 
-    pg1u = fermitools.lr.odc12.onebody_property_gradient(pov, m1oo, m1vv)
-    pg2u = fermitools.lr.odc12.twobody_property_gradient(fpoo, -fpvv, t2)
+    # pg1u = fermitools.lr.odc12.onebody_property_gradient(pov, m1oo, m1vv)
+    # pg2u = fermitools.lr.odc12.twobody_property_gradient(fpoo, -fpvv, t2)
     ad1u = fermitools.lr.odc12.onebody_hessian_zeroth_order_diagonal(
             foo, fvv)
     ad2u = fermitools.lr.odc12.twobody_hessian_zeroth_order_diagonal(
@@ -204,11 +194,10 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
             fov, gooov, govvv, t2)
     a22u, b22u = fermitools.lr.odc12.twobody_hessian(
             foo, fvv, goooo, govov, gvvvv, t2, disk=disk)
-    s11u = fermitools.lr.odc12.onebody_metric(t2)
-    x11u = fermitools.lr.odc12.onebody_metric_inverse(t2)
+    sinv11u = fermitools.lr.odc12.onebody_metric_inverse(t2)
 
-    pg1 = r1(pg1u)
-    pg2 = r2(pg2u)
+    # pg1 = r1(pg1u)
+    # pg2 = r2(pg2u)
     ad1 = r1(ad1u)
     ad2 = r2(ad2u)
     a11 = functoolz.compose(r1, a11u, u1)
@@ -219,56 +208,38 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     b21 = functoolz.compose(r2, b21u, u1)
     a22 = functoolz.compose(r2, a22u, u2)
     b22 = functoolz.compose(r2, b22u, u2)
-    s11 = functoolz.compose(r1, s11u, u1)
-    x11 = functoolz.compose(r1, x11u, u1)
+    sinv11 = functoolz.compose(r1, sinv11u, u1)
 
-    pg = numpy.concatenate((pg1, pg2), axis=0)
-    sd = numpy.ones(n1+n2)
+    # pg = numpy.concatenate((pg1, pg2), axis=0)
     ad = numpy.concatenate((ad1, ad2), axis=0)
 
-    s = fermitools.math.sigma.block_diag((s11, eye), (n1,))
-    x = fermitools.math.sigma.block_diag((x11, eye), (n1,))
-    d = zero
+    sinv = fermitools.math.sigma.block_diag((sinv11, eye), (n1,))
     a = fermitools.math.sigma.bmat([[a11, a12], [a21, a22]], (n1,))
     b = fermitools.math.sigma.bmat([[b11, b12], [b21, b22]], (n1,))
+
+    h = functoolz.compose(sinv, fermitools.math.sigma.add(a, b),
+                          sinv, fermitools.math.sigma.subtract(a, b))
+    hd = ad * ad
+
+    print(numpy.sqrt(numpy.sort(hd)))
 
     print('Integrals and density matrices time: {:8.1f}s\n'
           .format(time.time() - t))
     sys.stdout.flush()
 
     t = time.time()
-    w, x, y, lr_info = fermitools.lr.solve.spectrum(
-            a=a, b=b, s=s, d=d, ad=ad, sd=sd, nroot=nroot, nguess=nguess,
-            nsvec=nsvec, nvec=nvec, niter=niter, rthresh=rthresh,
-            guess_random=guess_random, disk=disk)
-    print("\nODC-12 excitation energies (in a.u.):")
-    print(w.reshape(-1, 1))
-    print("\nODC-12 excitation energies (in eV):")
-    print(w.reshape(-1, 1)*27.2114)
     print('\nODC-12 linear response total time: {:8.1f}s'
           .format(time.time() - t))
+    w2, v, info = fermitools.math.direct.eig(
+            a=h, k=nroot, ad=hd, nguess=nguess, maxdim=maxdim,
+            maxiter=maxiter, tol=rthresh, print_conv=True, printf=numpy.sqrt)
     sys.stdout.flush()
+
+    w = numpy.sqrt(w2)
 
     # Remove the integrals file
     if disk:
         fermitools.math.disk.remove_dataset(gvvvv)
-
-    info.update(lr_info)
-    info['lr_x'] = x
-    info['lr_y'] = y
-
-    # Copmute the transition dipoles
-    mu_trans = fermitools.lr.transition_dipole(
-            s=s, d=d, pg=pg, x=x, y=y)
-
-    print("\nODC-12 transition dipoles (a.u.):")
-    print(mu_trans.round(12))
-    print("\nODC-12 norm of transition dipoles (a.u.):")
-    print(numpy.sqrt(numpy.diag(numpy.dot(mu_trans, mu_trans.T))
-          .reshape(-1, 1)).round(12))
-    sys.stdout.flush()
-
-    info['mu_trans'] = mu_trans
 
     return w, info
 

@@ -3,6 +3,7 @@ from . import combinatorics
 from . import asym
 from . import sigma
 from . import diis
+from . import direct
 from . import disk
 from .ix import cast
 from .ix import diagonal_indices
@@ -31,6 +32,7 @@ __all__ = [
         'asym',
         'sigma',
         'diis',
+        'direct',
         'disk',
         'tensoralg',
         'transform',
