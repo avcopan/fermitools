@@ -26,9 +26,9 @@ def test__main():
             nroot=nroot,
             nconv=nroot,             # number of roots to converge
             nguess=10*nroot,         # number of guess vectors
-            maxdim=100*nroot,         # max number of subspace vectors
+            maxdim=20*nroot,         # max number of subspace vectors
             maxiter=100,
-            rthresh=1e-6,
+            rthresh=1e-5,
             oo_niter=200,         # number of iterations for ground state
             oo_rthresh=1e-10,     # convergence threshold for ground state
             diis_start=3,         # when to start DIIS extrapolations
@@ -36,7 +36,8 @@ def test__main():
             disk=False,           #
             interface=interface)  # interface for computing integrals
 
-    assert_almost_equal(w[:nroot], W[:nroot], decimal=10)
+    print(W[:nroot])
+    assert_almost_equal(w[:nroot], W[:nroot], decimal=8)
 
 
 if __name__ == '__main__':

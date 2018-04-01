@@ -173,7 +173,9 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     # Compute spectrum by linear response
     no, _, nv, _ = t2.shape
     n1 = no * nv
-    # n2 = no * (no - 1) * nv * (nv - 1) // 4
+    n2 = no * (no - 1) * nv * (nv - 1) // 4
+
+    print("LR matrix dimensions: n1={:d}, n2={:d}".format(n1, n2))
 
     eye = fermitools.math.sigma.eye
 
@@ -230,7 +232,7 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     t = time.time()
     print('\nODC-12 linear response total time: {:8.1f}s'
           .format(time.time() - t))
-    w2, v, info = fermitools.math.direct.eig(
+    w2, v, info = fermitools.math.direct.eig_simple(
             a=h, k=nroot, ad=hd, nguess=nguess, maxdim=maxdim,
             maxiter=maxiter, tol=rthresh, print_conv=True, printf=numpy.sqrt)
     sys.stdout.flush()

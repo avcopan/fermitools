@@ -88,15 +88,19 @@ def eig_simple(a, k, ad, nconv=None, nguess=None, maxdim=None, maxiter=100,
         vals, vecs = scipy.linalg.eig(a=ap)
 
         select = numpy.argsort(vals)[:k]
-        w = numpy.real(vals[select])
-        vp = numpy.real(vecs[:, select])
-        vp_im_norm = scipy.linalg.norm(numpy.imag(vecs[:, select]))
+        w = vals[select]
+        vp = vecs[:, select]
 
         v = numpy.dot(x, vp)
         av = numpy.dot(ax, vp)
 
         r = av - v * cast(w, 1, 2)
-        xi = -r / (cast(ad, 0, 2) - cast(w, 1, 2))
+        xi = numpy.real(-r / (cast(ad, 0, 2) - cast(w, 1, 2)))
+
+        iw = numpy.imag(w)
+        imaxv = numpy.amax(numpy.abs(numpy.imag(v)), axis=0)
+        w = numpy.real(w)
+        v = numpy.real(v)
 
         rmaxv = numpy.amax(numpy.abs(r), axis=0)
         rmax = max(rmaxv[:nconv])
@@ -104,9 +108,10 @@ def eig_simple(a, k, ad, nconv=None, nguess=None, maxdim=None, maxiter=100,
         rdim = len(vals)
         info = {'niter': iteration + 1, 'rdim': rdim, 'rmax': rmax}
 
-        if vp_im_norm > numpy.finfo(float).eps:
-            warnings.warn("Discarding imaginary component with norm {:3.1e}."
-                          .format(vp_im_norm))
+        if max(imaxv) > numpy.finfo(float).eps:
+            warnings.warn("Discarding imaginary components")
+            print(iw)
+            print(imaxv)
 
         if print_conv:
             print(info)
