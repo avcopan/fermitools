@@ -3,7 +3,7 @@ import drivers.odc12
 import interfaces.psi4 as interface
 # import interfaces.pyscf as interface
 
-LABELS = ('H', 'F')
+LABELS = ('N', 'N')
 COORDS = ((0., 0., 0.), (0., 0., 1.5))
 
 

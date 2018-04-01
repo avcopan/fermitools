@@ -223,21 +223,29 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
                           sinv, fermitools.math.sigma.subtract(a, b))
     hd = ad * ad
 
-    print(numpy.sqrt(numpy.sort(hd)))
-
     print('Integrals and density matrices time: {:8.1f}s\n'
           .format(time.time() - t))
     sys.stdout.flush()
 
     t = time.time()
-    print('\nODC-12 linear response total time: {:8.1f}s'
-          .format(time.time() - t))
     w2, v, info = fermitools.math.direct.eig_simple(
             a=h, k=nroot, ad=hd, nguess=nguess, maxdim=maxdim,
             maxiter=maxiter, tol=rthresh, print_conv=True, printf=numpy.sqrt)
+    print('\nODC-12 linear response total time: {:8.1f}s'
+          .format(time.time() - t))
     sys.stdout.flush()
 
-    w = numpy.sqrt(w2)
+    # t = time.time()
+    # hminus = functoolz.compose(sinv, fermitools.math.sigma.subtract(a, b),
+    #                            sinv, fermitools.math.sigma.add(a, b))
+    # w2, v, info = fermitools.math.direct.eig_simple(
+    #         a=hminus, k=nroot, ad=hd, nguess=nguess, maxdim=maxdim,
+    #         maxiter=maxiter, tol=rthresh, print_conv=True, printf=numpy.sqrt)
+    # print('\nODC-12 linear response total time: {:8.1f}s'
+    #       .format(time.time() - t))
+    # sys.stdout.flush()
+
+    w = numpy.real(numpy.sqrt(w2))
 
     # Remove the integrals file
     if disk:
