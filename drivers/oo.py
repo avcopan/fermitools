@@ -48,19 +48,21 @@ def energy(method, labels, coords, charge, spin, basis, angstrom=False,
     print("\nnuclear replusion energy: {:20.15f}".format(en_nuc))
 
     if method.lower() == 'ocepa0':
-        fermitools.oo.ocepa0.solve(
+        en_elec, co, cv, t2, info = fermitools.oo.ocepa0.solve(
                 h_ao=h_ao, r_ao=r_ao, co_guess=co_guess, cv_guess=cv_guess,
                 t2_guess=t2_guess, maxiter=maxiter, rthresh=rthresh,
-                diis_start=diis_start, diis_nvec=diis_nvec, print_conv=True,
-                p_ao=p_ao)
+                diis_start=diis_start, diis_nvec=diis_nvec, print_conv=True)
+        fermitools.oo.ocepa0.compute_property(p_ao, co, cv, t2)
     elif method.lower() == 'odc12':
-        fermitools.oo.odc12.solve(
+        en_elec, co, cv, t2, info = fermitools.oo.odc12.solve(
                 h_ao=h_ao, r_ao=r_ao, co_guess=co_guess, cv_guess=cv_guess,
                 t2_guess=t2_guess, maxiter=maxiter, rthresh=rthresh,
-                diis_start=diis_start, diis_nvec=diis_nvec, print_conv=True,
-                p_ao=p_ao)
+                diis_start=diis_start, diis_nvec=diis_nvec, print_conv=True)
+        fermitools.oo.odc12.compute_property(p_ao, co, cv, t2)
     else:
         raise Exception("Method {:s} does not exist.".format(str(method)))
+
+    print("\ntotal energy: {:20.15f}".format(en_nuc + en_elec))
 
 
 def spectrum(method, labels, coords, charge, spin, basis, angstrom=False,
@@ -76,8 +78,7 @@ def spectrum(method, labels, coords, charge, spin, basis, angstrom=False,
         en_elec, co, cv, t2, info = fermitools.oo.ocepa0.solve(
                 h_ao=h_ao, r_ao=r_ao, co_guess=co_guess, cv_guess=cv_guess,
                 t2_guess=t2_guess, maxiter=maxiter, rthresh=rthresh,
-                diis_start=diis_start, diis_nvec=diis_nvec, print_conv=True,
-                p_ao=p_ao)
+                diis_start=diis_start, diis_nvec=diis_nvec, print_conv=True)
         fermitools.lr.ocepa0.solve_spectrum(
                 h_ao=h_ao, r_ao=r_ao, co=co, cv=cv, t2=t2, nroot=nroot,
                 nconv=nconv, nguess=nguess, maxdim=maxdim, maxiter=maxiter,
@@ -87,8 +88,7 @@ def spectrum(method, labels, coords, charge, spin, basis, angstrom=False,
         en_elec, co, cv, t2, info = fermitools.oo.odc12.solve(
                 h_ao=h_ao, r_ao=r_ao, co_guess=co_guess, cv_guess=cv_guess,
                 t2_guess=t2_guess, maxiter=maxiter, rthresh=rthresh,
-                diis_start=diis_start, diis_nvec=diis_nvec, print_conv=True,
-                p_ao=p_ao)
+                diis_start=diis_start, diis_nvec=diis_nvec, print_conv=True)
         fermitools.lr.odc12.solve_spectrum(
                 h_ao=h_ao, r_ao=r_ao, co=co, cv=cv, t2=t2, nroot=nroot,
                 nconv=nconv, nguess=nguess, maxdim=maxdim, maxiter=maxiter,

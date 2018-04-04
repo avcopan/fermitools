@@ -7,6 +7,24 @@ import scipy.sparse
 from numpy.testing import assert_almost_equal
 
 
+def test__solve():
+    dim = 2000
+    noise = numpy.random.uniform(low=-4e-3, high=+4e-3, size=(dim, dim))
+
+    s = numpy.eye(dim) + noise
+    vals = numpy.ones(dim) + numpy.arange(dim)
+    a = numpy.linalg.multi_dot([scipy.linalg.inv(s), numpy.diag(vals), s])
+    b = numpy.random.random((dim, 2))
+
+    X = scipy.linalg.solve(a, b)
+
+    ad = numpy.diag(a)
+    a_ = scipy.sparse.linalg.aslinearoperator(a)
+
+    x, info = direct.solve(a=a_, b=b, ad=ad, print_conv=True, tol=1e-7)
+    assert_almost_equal(x, X)
+
+
 def test__eig():
     dim = 2000
     k = 7
@@ -46,4 +64,4 @@ def test__eig():
 
 
 if __name__ == '__main__':
-    test__eig()
+    test__solve()

@@ -1,4 +1,7 @@
-from .oo import energy, spectrum
+from .oo import integrals, hf_orbitals, energy, spectrum
 
 
-__all__ = ['energy', 'spectrum']
+__all__ = [
+        'integrals',
+        'hf_orbitals',
+        'energy', 'spectrum']

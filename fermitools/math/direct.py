@@ -63,6 +63,55 @@ def split_rdot(xs, y):
     return sum(numpy.dot(x, y) for x, y in zip(xs, ys))
 
 
+def solve(a, b, ad, maxdim=None, maxiter=50, tol=1e-5, print_conv=False):
+    dim = len(ad)
+    ndim = numpy.ndim(b)
+    maxdim = maxdim if maxdim is not None else dim
+
+    guess = b / cast(ad, 0, ndim)
+
+    au = u = numpy.zeros((dim, 0))
+
+    converged = False
+
+    ui = guess
+
+    for iteration in range(maxiter):
+        ui = orth(project_out(ui, (u,)), compress=True)
+        aui = a(ui)
+
+        u = numpy.concatenate((u, ui), axis=1)
+        au = numpy.concatenate((au, aui), axis=1)
+
+        ap = numpy.dot(numpy.transpose(u), au)
+        bp = numpy.dot(numpy.transpose(u), b)
+        xp = scipy.linalg.solve(ap, bp)
+
+        x = numpy.dot(u, xp)
+        ax = numpy.dot(au, xp)
+        r = ax - b
+        ui = -r / cast(ad, 0, ndim)
+
+        rmaxv = numpy.amax(numpy.abs(r), axis=0)
+        rmax = max(rmaxv)
+        converged = rmax < tol
+        rdim, _ = numpy.shape(ap)
+        info = {'niter': iteration + 1, 'rdim': rdim, 'rmax': rmax}
+
+        if print_conv:
+            print(info)
+            print("Residuals:")
+            print(rmaxv)
+
+        if converged:
+            break
+
+    if not converged:
+        warnings.warn("Did not converge! rmax={:3.1e}".format(rmax))
+
+    return x, info
+
+
 def eig_simple(a, k, ad, nconv=None, nguess=None, maxdim=None, maxiter=100,
                tol=1e-5, print_conv=False, printf=None):
     nconv = nconv if nconv is not None else k

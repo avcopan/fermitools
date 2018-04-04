@@ -12,7 +12,7 @@ from ..math.spinorb import transform_onebody, transform_twobody
 
 
 def solve(h_ao, r_ao, co_guess, cv_guess, t2_guess, maxiter=50, rthresh=1e-8,
-          diis_start=3, diis_nvec=20, print_conv=True, p_ao=None):
+          diis_start=3, diis_nvec=20, print_conv=True):
     no, _, nv, _ = t2_guess.shape
     t1 = numpy.zeros((no, nv))
     t2 = t2_guess
@@ -58,6 +58,9 @@ def solve(h_ao, r_ao, co_guess, cv_guess, t2_guess, maxiter=50, rthresh=1e-8,
 
         if print_conv:
             print(info)
+            en_elec = electronic_energy(
+                    hoo, hvv, goooo, goovv, govov, gvvvv, t2)
+            print("(pure) electronic energy: {:20.15f}".format(en_elec))
             sys.stdout.flush()
 
         if converged:
@@ -65,25 +68,27 @@ def solve(h_ao, r_ao, co_guess, cv_guess, t2_guess, maxiter=50, rthresh=1e-8,
 
         (t1, t2), trs = extrapolate(t=(t1, t2), r=(r1, r2), trs=trs)
 
-    en_elec = electronic_energy(hoo, hvv, goooo, goovv, govov, gvvvv, t2)
-
-    print('time: {:8.1f}s'.format(time.time() - tm))
-    print("\n(pure) electronic energy: {:20.15f}".format(en_elec))
-    sys.stdout.flush()
+    if print_conv:
+        print('time: {:8.1f}s'.format(time.time() - tm))
+        sys.stdout.flush()
 
     if not converged:
         warnings.warn("Did not converge!")
 
-    if p_ao is not None:
-        poo = transform_onebody(p_ao, (co, co))
-        pvv = transform_onebody(p_ao, (cv, cv))
-        m1oo, m1vv = onebody_density(t2)
-        mu = (numpy.tensordot(poo, m1oo, axes=((-2, -1), (0, 1))) +
-              numpy.tensordot(pvv, m1vv, axes=((-2, -1), (0, 1))))
-        print("First-order properties:")
-        print(mu.round(12))
+    en_elec = electronic_energy(hoo, hvv, goooo, goovv, govov, gvvvv, t2)
 
     return en_elec, co, cv, t2, info
+
+
+def compute_property(p_ao, co, cv, t2):
+    poo = transform_onebody(p_ao, (co, co))
+    pvv = transform_onebody(p_ao, (cv, cv))
+    m1oo, m1vv = onebody_density(t2)
+    mu = (numpy.tensordot(poo, m1oo, axes=((-2, -1), (0, 1))) +
+          numpy.tensordot(pvv, m1vv, axes=((-2, -1), (0, 1))))
+    print("First-order properties:")
+    print(mu.round(12))
+    return mu
 
 
 def fock_xy(hxy, goxoy):
