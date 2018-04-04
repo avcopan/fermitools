@@ -60,7 +60,7 @@ def solve(h_ao, r_ao, co_guess, cv_guess, t2_guess, maxiter=50, rthresh=1e-8,
             print(info)
             en_elec = electronic_energy(
                     hoo, hvv, goooo, goovv, govov, gvvvv, t2)
-            print("(pure) electronic energy: {:20.15f}".format(en_elec))
+            print("electronic energy: {:20.15f}".format(en_elec))
             sys.stdout.flush()
 
         if converged:

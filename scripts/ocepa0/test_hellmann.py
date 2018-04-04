@@ -36,7 +36,6 @@ def test_main():
     maxiter = 50
     rthresh = 1e-6
 
-    # Integrals
     h_ao, r_ao, p_ao = drivers.integrals(
             basis, labels, coords, angstrom=False, interface=interface)
     co_guess, cv_guess, no, nv = drivers.hf_orbitals(

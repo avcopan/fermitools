@@ -63,5 +63,35 @@ def test__eig():
     assert info['niter'] <= INFO['niter'] + 1
 
 
+def test__eigh():
+    dim = 2000
+    k = -7
+    noise = numpy.random.uniform(low=-4e-3, high=+4e-3, size=(dim, dim))
+
+    a = numpy.eye(dim)
+    ad = numpy.ones(dim)
+
+    s = numpy.eye(dim) + noise
+    vals = numpy.ones(dim) + numpy.arange(dim)
+    b = numpy.linalg.multi_dot([numpy.transpose(s), numpy.diag(vals), s])
+    bd = numpy.diag(b)
+
+    vals, vecs = scipy.linalg.eigh(a=a, b=b)
+    W = vals[k:]
+    V = vecs[:, k:]
+
+    a_ = scipy.sparse.linalg.aslinearoperator(a)
+    b_ = scipy.sparse.linalg.aslinearoperator(b)
+
+    w, v, info = direct.eigh(
+            a=a_, k=k, ad=ad, b=b_, bd=bd, nguess=2*abs(k), maxdim=8*abs(k),
+            maxiter=100, tol=1e-8, print_conv=True)
+    print(w)
+
+    assert_almost_equal(w, W)
+    assert_almost_equal(numpy.abs(v), numpy.abs(V))
+
+
 if __name__ == '__main__':
-    test__solve()
+    # test__solve()
+    test__eigh()

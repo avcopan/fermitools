@@ -7,7 +7,7 @@ from ..math import cast
 from ..math import einsum
 from ..math import raveler, unraveler
 from ..math.direct import solve
-from ..math.sigma import eighg
+from ..math.direct import eigh
 from ..math.sigma import zero, eye, add, negative, block_diag, bmat
 from ..math.asym import megaraveler, megaunraveler
 from ..math.asym import antisymmetrizer_product as asm
@@ -128,10 +128,11 @@ def solve_spectrum(h_ao, r_ao, co, cv, t2, nroot=1, nconv=None, nguess=None,
     md = numpy.concatenate((+sd, -sd))
 
     tm = time.time()
-    w_inv, z, info = eighg(
-            a=m, b=e, neig=nroot, ad=md, bd=ed, nguess=nguess, rthresh=rthresh,
-            nsvec=blsize, nvec=maxdim, niter=maxiter, highest=True, disk=disk)
-    w = 1. / w_inv
+    w_inv, z, info = eigh(
+            a=m, k=-nroot, ad=md, b=e, bd=ed, nconv=nconv, nguess=nguess,
+            maxdim=maxdim, maxiter=maxiter, tol=rthresh, print_conv=print_conv,
+            printf=numpy.reciprocal)
+    w = numpy.reciprocal(w_inv)
     x, y = numpy.split(z, 2)
     print("\nOCEPA0 excitation energies (in a.u.):")
     print(w.reshape(-1, 1))
