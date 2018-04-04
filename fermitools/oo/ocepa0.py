@@ -1,5 +1,6 @@
 import numpy
 import warnings
+import time
 import sys
 
 from .util import orbital_rotation
@@ -10,8 +11,8 @@ from ..math.asym import antisymmetrizer_product as asm
 from ..math.spinorb import transform_onebody, transform_twobody
 
 
-def solve(h_ao, r_ao, co_guess, cv_guess, t2_guess, niter=50, rthresh=1e-8,
-          diis_start=3, diis_nvec=20, print_conv=True):
+def solve(h_ao, r_ao, co_guess, cv_guess, t2_guess, maxiter=50, rthresh=1e-8,
+          diis_start=3, diis_nvec=20, print_conv=True, p_ao=None):
     no, _, nv, _ = t2_guess.shape
     t1 = numpy.zeros((no, nv))
     t2 = t2_guess
@@ -19,7 +20,9 @@ def solve(h_ao, r_ao, co_guess, cv_guess, t2_guess, niter=50, rthresh=1e-8,
     trs = ()
     extrapolate = diis_extrapolator(start=diis_start, nvec=diis_nvec)
 
-    for iteration in range(niter):
+    tm = time.time()
+
+    for iteration in range(maxiter):
         co, cv = orbital_rotation(co_guess, cv_guess, t1)
         hoo = transform_onebody(h_ao, (co, co))
         hov = transform_onebody(h_ao, (co, cv))
@@ -64,8 +67,21 @@ def solve(h_ao, r_ao, co_guess, cv_guess, t2_guess, niter=50, rthresh=1e-8,
 
     en_elec = electronic_energy(hoo, hvv, goooo, goovv, govov, gvvvv, t2)
 
+    print('time: {:8.1f}s'.format(time.time() - tm))
+    print("\n(pure) electronic energy: {:20.15f}".format(en_elec))
+    sys.stdout.flush()
+
     if not converged:
         warnings.warn("Did not converge!")
+
+    if p_ao is not None:
+        poo = transform_onebody(p_ao, (co, co))
+        pvv = transform_onebody(p_ao, (cv, cv))
+        m1oo, m1vv = onebody_density(t2)
+        mu = (numpy.tensordot(poo, m1oo, axes=((-2, -1), (0, 1))) +
+              numpy.tensordot(pvv, m1vv, axes=((-2, -1), (0, 1))))
+        print("First-order properties:")
+        print(mu.round(12))
 
     return en_elec, co, cv, t2, info
 
