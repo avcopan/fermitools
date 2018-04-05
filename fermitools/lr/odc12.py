@@ -33,8 +33,8 @@ def twobody_hessian_zeroth_order_diagonal(foo, fvv, t2):
 
 def onebody_property_gradient(pov, m1oo, m1vv):
     return (
-        + einsum('...ie,ea->ia...', pov, m1vv)
-        - einsum('im,...ma->ia...', m1oo, pov))
+        + einsum('im,...ma->ia...', m1oo, pov)
+        - einsum('...ie,ea->ia...', pov, m1vv))
 
 
 def twobody_property_gradient(poo, pvv, t2):
@@ -120,46 +120,46 @@ def mixed_hessian(fov, gooov, govvv, t2):
 
     def _a12(r2):
         a12 = (
-            + 1./2 * einsum('lacd,ilcd...->ia...', govvv, r2)
-            + 1./2 * einsum('klid,klad...->ia...', gooov, r2)
-            + 1./2 * einsum('iakm,mlcd,klcd...->ia...', fioo, t2, r2)
-            + 1./2 * einsum('iaec,kled,klcd...->ia...', fivv, t2, r2)
-            + einsum('mcae,mled,ilcd...->ia...', govvv, t2, r2)
-            + einsum('imke,mled,klad...->ia...', gooov, t2, r2)
-            + 1./4 * einsum('mnla,mncd,ilcd...->ia...', gooov, t2, r2)
-            + 1./4 * einsum('idef,klef,klad...->ia...', govvv, t2, r2))
+            - 1./2 * einsum('lacd,ilcd...->ia...', govvv, r2)
+            - 1./2 * einsum('klid,klad...->ia...', gooov, r2)
+            - 1./2 * einsum('iakm,mlcd,klcd...->ia...', fioo, t2, r2)
+            - 1./2 * einsum('iaec,kled,klcd...->ia...', fivv, t2, r2)
+            - einsum('mcae,mled,ilcd...->ia...', govvv, t2, r2)
+            - einsum('imke,mled,klad...->ia...', gooov, t2, r2)
+            - 1./4 * einsum('mnla,mncd,ilcd...->ia...', gooov, t2, r2)
+            - 1./4 * einsum('idef,klef,klad...->ia...', govvv, t2, r2))
         return a12
 
     def _b12(r2):
         b12 = (
-            + 1./2 * einsum('iamk,mlcd,klcd...->ia...', fioo, t2, r2)
-            + 1./2 * einsum('iace,kled,klcd...->ia...', fivv, t2, r2)
-            + einsum('lead,kice,klcd...->ia...', govvv, t2, r2)
-            + einsum('ilmd,kmca,klcd...->ia...', gooov, t2, r2)
-            - 1./4 * einsum('klma,micd,klcd...->ia...', gooov, t2, r2)
-            - 1./4 * einsum('iecd,klea,klcd...->ia...', govvv, t2, r2))
+            - 1./2 * einsum('iamk,mlcd,klcd...->ia...', fioo, t2, r2)
+            - 1./2 * einsum('iace,kled,klcd...->ia...', fivv, t2, r2)
+            - einsum('lead,kice,klcd...->ia...', govvv, t2, r2)
+            - einsum('ilmd,kmca,klcd...->ia...', gooov, t2, r2)
+            + 1./4 * einsum('klma,micd,klcd...->ia...', gooov, t2, r2)
+            + 1./4 * einsum('iecd,klea,klcd...->ia...', govvv, t2, r2))
         return b12
 
     def _a21(r1):
         a21 = asm('0/1|2/3')(
-            + 1./2 * einsum('jcab,ic...->ijab...', govvv, r1)
-            + 1./2 * einsum('ijkb,ka...->ijab...', gooov, r1)
-            + 1./2 * einsum('kcim,mjab,kc...->ijab...', fioo, t2, r1)
-            + 1./2 * einsum('kcea,ijeb,kc...->ijab...', fivv, t2, r1)
-            + einsum('mace,mjeb,ic...->ijab...', govvv, t2, r1)
-            + einsum('kmie,mjeb,ka...->ijab...', gooov, t2, r1)
-            + 1./4 * einsum('mnjc,mnab,ic...->ijab...', gooov, t2, r1)
-            + 1./4 * einsum('kbef,ijef,ka...->ijab...', govvv, t2, r1))
+            - 1./2 * einsum('jcab,ic...->ijab...', govvv, r1)
+            - 1./2 * einsum('ijkb,ka...->ijab...', gooov, r1)
+            - 1./2 * einsum('kcim,mjab,kc...->ijab...', fioo, t2, r1)
+            - 1./2 * einsum('kcea,ijeb,kc...->ijab...', fivv, t2, r1)
+            - einsum('mace,mjeb,ic...->ijab...', govvv, t2, r1)
+            - einsum('kmie,mjeb,ka...->ijab...', gooov, t2, r1)
+            - 1./4 * einsum('mnjc,mnab,ic...->ijab...', gooov, t2, r1)
+            - 1./4 * einsum('kbef,ijef,ka...->ijab...', govvv, t2, r1))
         return a21
 
     def _b21(r1):
         b21 = asm('0/1|2/3')(
-            + 1./2 * einsum('kcmi,mjab,kc...->ijab...', fioo, t2, r1)
-            + 1./2 * einsum('kcae,ijeb,kc...->ijab...', fivv, t2, r1)
-            + einsum('jecb,ikae,kc...->ijab...', govvv, t2, r1)
-            + einsum('kjmb,imac,kc...->ijab...', gooov, t2, r1)
-            - 1./4 * einsum('ijmc,mkab,kc...->ijab...', gooov, t2, r1)
-            - 1./4 * einsum('keab,ijec,kc...->ijab...', govvv, t2, r1))
+            - 1./2 * einsum('kcmi,mjab,kc...->ijab...', fioo, t2, r1)
+            - 1./2 * einsum('kcae,ijeb,kc...->ijab...', fivv, t2, r1)
+            - einsum('jecb,ikae,kc...->ijab...', govvv, t2, r1)
+            - einsum('kjmb,imac,kc...->ijab...', gooov, t2, r1)
+            + 1./4 * einsum('ijmc,mkab,kc...->ijab...', gooov, t2, r1)
+            + 1./4 * einsum('keab,ijec,kc...->ijab...', govvv, t2, r1))
         return b21
 
     return _a12, _b12, _a21, _b21
