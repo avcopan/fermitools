@@ -145,79 +145,11 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     h_ao = oo_info['h_ao']
     # p_ao = oo_info['p_ao']
     r_ao = oo_info['r_ao']
-    hoo = fermitools.math.spinorb.transform_onebody(h_ao, (co, co))
-    hov = fermitools.math.spinorb.transform_onebody(h_ao, (co, cv))
-    hvv = fermitools.math.spinorb.transform_onebody(h_ao, (cv, cv))
-    # poo = fermitools.math.spinorb.transform_onebody(p_ao, (co, co))
-    # pov = fermitools.math.spinorb.transform_onebody(p_ao, (co, cv))
-    # pvv = fermitools.math.spinorb.transform_onebody(p_ao, (cv, cv))
-    goooo = fermitools.math.spinorb.transform_twobody(r_ao, (co, co, co, co))
-    gooov = fermitools.math.spinorb.transform_twobody(r_ao, (co, co, co, cv))
-    goovv = fermitools.math.spinorb.transform_twobody(r_ao, (co, co, cv, cv))
-    govov = fermitools.math.spinorb.transform_twobody(r_ao, (co, cv, co, cv))
-    govvv = fermitools.math.spinorb.transform_twobody(r_ao, (co, cv, cv, cv))
-    gvvvv = fermitools.math.spinorb.transform_twobody(r_ao, (cv, cv, cv, cv))
-    gvvvv = fermitools.math.disk.dataset(gvvvv) if disk else gvvvv
 
-    t2 = oo_info['t2']
-    m1oo, m1vv = fermitools.oo.odc12.onebody_density(t2)
-    foo = fermitools.oo.odc12.fock_xy(
-            hxy=hoo, goxoy=goooo, gxvyv=govov, m1oo=m1oo, m1vv=m1vv)
-    fov = fermitools.oo.odc12.fock_xy(
-            hxy=hov, goxoy=gooov, gxvyv=govvv, m1oo=m1oo, m1vv=m1vv)
-    fvv = fermitools.oo.odc12.fock_xy(
-            hxy=hvv, goxoy=govov, gxvyv=gvvvv, m1oo=m1oo, m1vv=m1vv)
-    # fpoo = fermitools.oo.odc12.fancy_property(poo, m1oo)
-    # fpvv = fermitools.oo.odc12.fancy_property(pvv, m1vv)
+    import fermitools.lr.odc12
 
-    # Compute spectrum by linear response
-    no, _, nv, _ = t2.shape
-    n1 = no * nv
-    n2 = no * (no - 1) * nv * (nv - 1) // 4
-
-    print("LR matrix dimensions: n1={:d}, n2={:d}".format(n1, n2))
-
-    eye = fermitools.math.sigma.eye
-
-    r1 = fermitools.math.raveler({0: (0, 1)})
-    u1 = fermitools.math.unraveler({0: {0: no, 1: nv}})
-    r2 = fermitools.math.asym.megaraveler({0: ((0, 1), (2, 3))})
-    u2 = fermitools.math.asym.megaunraveler({0: {(0, 1): no, (2, 3): nv}})
-
-    # pg1u = fermitools.lr.odc12.onebody_property_gradient(pov, m1oo, m1vv)
-    # pg2u = fermitools.lr.odc12.twobody_property_gradient(fpoo, -fpvv, t2)
-    ad1u = fermitools.lr.odc12.onebody_hessian_zeroth_order_diagonal(
-            foo, fvv)
-    ad2u = fermitools.lr.odc12.twobody_hessian_zeroth_order_diagonal(
-            foo, fvv, t2)
-    a11u, b11u = fermitools.lr.odc12.onebody_hessian(
-            foo, fvv, goooo, goovv, govov, gvvvv, t2)
-    a12u, b12u, a21u, b21u = fermitools.lr.odc12.mixed_hessian(
-            fov, gooov, govvv, t2)
-    a22u, b22u = fermitools.lr.odc12.twobody_hessian(
-            foo, fvv, goooo, govov, gvvvv, t2, disk=disk)
-    sinv11u = fermitools.lr.odc12.onebody_metric_inverse(t2)
-
-    # pg1 = r1(pg1u)
-    # pg2 = r2(pg2u)
-    ad1 = r1(ad1u)
-    ad2 = r2(ad2u)
-    a11 = functoolz.compose(r1, a11u, u1)
-    b11 = functoolz.compose(r1, b11u, u1)
-    a12 = functoolz.compose(r1, a12u, u2)
-    b12 = functoolz.compose(r1, b12u, u2)
-    a21 = functoolz.compose(r2, a21u, u1)
-    b21 = functoolz.compose(r2, b21u, u1)
-    a22 = functoolz.compose(r2, a22u, u2)
-    b22 = functoolz.compose(r2, b22u, u2)
-    sinv11 = functoolz.compose(r1, sinv11u, u1)
-
-    # pg = numpy.concatenate((pg1, pg2), axis=0)
-    ad = numpy.concatenate((ad1, ad2), axis=0)
-
-    sinv = fermitools.math.sigma.block_diag((sinv11, eye), (n1,))
-    a = fermitools.math.sigma.bmat([[a11, a12], [a21, a22]], (n1,))
-    b = fermitools.math.sigma.bmat([[b11, b12], [b21, b22]], (n1,))
+    a, b, ad = fermitools.lr.odc12.build_hessian_blocks(h_ao, r_ao, co, cv, t2)
+    si, sid = fermitools.lr.odc12.build_metric_inverse_blocks(t2)
 
     h = functoolz.compose(sinv, fermitools.math.sigma.add(a, b),
                           sinv, fermitools.math.sigma.subtract(a, b))
@@ -246,10 +178,6 @@ def spectrum(labels, coords, charge, spin, basis, angstrom=False, nroot=1,
     # sys.stdout.flush()
 
     w = numpy.real(numpy.sqrt(w2))
-
-    # Remove the integrals file
-    if disk:
-        fermitools.math.disk.remove_dataset(gvvvv)
 
     return w, info
 

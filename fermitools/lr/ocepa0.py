@@ -1,14 +1,14 @@
 import numpy
-from toolz import functoolz
 import time
 import sys
 
+from toolz import functoolz
+from .linmap import zero, eye, add, negative, block_diag, bmat
 from ..math import cast
 from ..math import einsum
 from ..math import raveler, unraveler
 from ..math.direct import solve
 from ..math.direct import eigh
-from ..math.sigma import zero, eye, add, negative, block_diag, bmat
 from ..math.asym import megaraveler, megaunraveler
 from ..math.asym import antisymmetrizer_product as asm
 from ..math.spinorb import transform_onebody, transform_twobody
@@ -16,7 +16,65 @@ from ..math.spinorb import transform_onebody, transform_twobody
 from ..oo.ocepa0 import fock_xy
 
 
-# Public
+def solve_static_response(h_ao, p_ao, r_ao, co, cv, t2, maxdim=None,
+                          maxiter=20, rthresh=1e-5, print_conv=False):
+    a, b, ad = build_hessian_blocks(h_ao, r_ao, co, cv, t2)
+    s, sd = build_metric_blocks(t2)
+    pg = build_property_gradient_blocks(p_ao, co, cv, t2)
+
+    print("Second-order (static) properties:")
+    e = add(a, b)
+    v = -2*pg
+    r, info = solve(a=e, b=v, ad=ad, maxdim=maxdim, tol=rthresh,
+                    print_conv=True)
+    alpha = numpy.dot(r.T, pg)
+    print(alpha.round(12))
+    return alpha
+
+
+def solve_spectrum(h_ao, r_ao, co, cv, t2, nroot=1, nconv=None, nguess=None,
+                   maxdim=None, maxiter=100, rthresh=1e-5, print_conv=False,
+                   disk=False, blsize=None, p_ao=None):
+    a, b, ad = build_hessian_blocks(h_ao, r_ao, co, cv, t2)
+    s, sd = build_metric_blocks(t2)
+
+    e = bmat([[a, b], [b, a]], 2)
+    m = block_diag((s, negative(s)), (len(ad),))
+    ed = numpy.concatenate((+ad, +ad))
+    md = numpy.concatenate((+sd, -sd))
+
+    tm = time.time()
+    w_inv, z, info = eigh(
+            a=m, k=-nroot, ad=md, b=e, bd=ed, nconv=nconv, nguess=nguess,
+            maxdim=maxdim, maxiter=maxiter, tol=rthresh, print_conv=print_conv,
+            printf=numpy.reciprocal)
+    w = numpy.reciprocal(w_inv)
+    x, y = numpy.split(z, 2)
+    print("\nOCEPA0 excitation energies (in a.u.):")
+    print(w.reshape(-1, 1))
+    print("\nOCEPA0 excitation energies (in eV):")
+    print(w.reshape(-1, 1)*27.2114)
+    print('\nOCEPA0 linear response total time: {:8.1f}s'
+          .format(time.time() - tm))
+    sys.stdout.flush()
+
+    if p_ao is not None:
+        pg = build_property_gradient_blocks(p_ao, co, cv, t2)
+        norms = numpy.diag(numpy.dot(x.T, s(x)) - numpy.dot(y.T, s(y)))
+        t = numpy.dot(x.T, pg) + numpy.dot(y.T, pg)
+        mu_trans = t * t / norms[:, None]
+
+        print("\nOCEPA0 transition dipoles (a.u.):")
+        print(mu_trans.round(12))
+        print("\nOCEPA0 norm of transition dipoles (a.u.):")
+        print(numpy.sqrt(numpy.diag(numpy.dot(mu_trans, mu_trans.T))
+              .reshape(-1, 1)).round(12))
+        sys.stdout.flush()
+
+    return w, (x, y), info
+
+
+# Helper functions for solver
 def count_excitations(no, nv):
     n1 = no * nv
     n2 = no * (no - 1) * nv * (nv - 1) // 4
@@ -100,64 +158,7 @@ def build_property_gradient_blocks(p_ao, co, cv, t2):
     return pg
 
 
-def solve_static_response(h_ao, p_ao, r_ao, co, cv, t2, maxdim=None,
-                          maxiter=20, rthresh=1e-5, print_conv=False):
-    a, b, ad = build_hessian_blocks(h_ao, r_ao, co, cv, t2)
-    s, sd = build_metric_blocks(t2)
-    pg = build_property_gradient_blocks(p_ao, co, cv, t2)
-
-    print("Second-order (static) properties:")
-    e = add(a, b)
-    v = -2*pg
-    r, info = solve(a=e, b=v, ad=ad, maxdim=maxdim, tol=rthresh,
-                    print_conv=True)
-    alpha = numpy.dot(r.T, pg)
-    print(alpha.round(12))
-    return alpha
-
-
-def solve_spectrum(h_ao, r_ao, co, cv, t2, nroot=1, nconv=None, nguess=None,
-                   maxdim=None, maxiter=100, rthresh=1e-5, print_conv=False,
-                   disk=False, blsize=None, p_ao=None):
-    a, b, ad = build_hessian_blocks(h_ao, r_ao, co, cv, t2)
-    s, sd = build_metric_blocks(t2)
-
-    e = bmat([[a, b], [b, a]], 2)
-    m = block_diag((s, negative(s)), (len(ad),))
-    ed = numpy.concatenate((+ad, +ad))
-    md = numpy.concatenate((+sd, -sd))
-
-    tm = time.time()
-    w_inv, z, info = eigh(
-            a=m, k=-nroot, ad=md, b=e, bd=ed, nconv=nconv, nguess=nguess,
-            maxdim=maxdim, maxiter=maxiter, tol=rthresh, print_conv=print_conv,
-            printf=numpy.reciprocal)
-    w = numpy.reciprocal(w_inv)
-    x, y = numpy.split(z, 2)
-    print("\nOCEPA0 excitation energies (in a.u.):")
-    print(w.reshape(-1, 1))
-    print("\nOCEPA0 excitation energies (in eV):")
-    print(w.reshape(-1, 1)*27.2114)
-    print('\nOCEPA0 linear response total time: {:8.1f}s'
-          .format(time.time() - tm))
-    sys.stdout.flush()
-
-    if p_ao is not None:
-        pg = build_property_gradient_blocks(p_ao, co, cv, t2)
-        norms = numpy.diag(numpy.dot(x.T, s(x)) - numpy.dot(y.T, s(y)))
-        t = numpy.dot(x.T, pg) + numpy.dot(y.T, pg)
-        mu_trans = t * t / norms[:, None]
-
-        print("\nOCEPA0 transition dipoles (a.u.):")
-        print(mu_trans.round(12))
-        print("\nOCEPA0 norm of transition dipoles (a.u.):")
-        print(numpy.sqrt(numpy.diag(numpy.dot(mu_trans, mu_trans.T))
-              .reshape(-1, 1)).round(12))
-        sys.stdout.flush()
-
-    return w, (x, y), info
-
-
+# The LR-OCEPA0 equations:
 def onebody_hessian_zeroth_order_diagonal(foo, fvv):
     eo = numpy.diagonal(foo)
     ev = numpy.diagonal(fvv)

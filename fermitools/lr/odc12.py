@@ -1,20 +1,173 @@
 import numpy
 import scipy
 
+import sys
+import time
 import h5py
 import tempfile
 
+from toolz import functoolz
+from .linmap import eye, negative, block_diag, bmat
+from ..math import cast
 from ..math import einsum
 from ..math import transform
-from ..math import cast
 from ..math import diagonal_indices as dix
+from ..math import raveler, unraveler
+from ..math.asym import megaraveler, megaunraveler
 from ..math.asym import antisymmetrizer_product as asm
+from ..math.spinorb import transform_onebody, transform_twobody
 
+from ..math.direct import eigh
+
+from ..oo.odc12 import fock_xy
 from ..oo.odc12 import fancy_property
 from ..oo.odc12 import onebody_density
 
 
-# Public
+def solve_spectrum(h_ao, r_ao, co, cv, t2, nroot=1, nconv=None, nguess=None,
+                   maxdim=None, maxiter=100, rthresh=1e-5, print_conv=False,
+                   disk=False, blsize=None, p_ao=None):
+    a, b, ad = build_hessian_blocks(h_ao, r_ao, co, cv, t2)
+    s, sd = build_metric_blocks(t2)
+
+    e = bmat([[a, b], [b, a]], 2)
+    m = block_diag((s, negative(s)), (len(ad),))
+    ed = numpy.concatenate((+ad, +ad))
+    md = numpy.concatenate((+sd, -sd))
+
+    tm = time.time()
+    w_inv, z, info = eigh(
+            a=m, k=-nroot, ad=md, b=e, bd=ed, nconv=nconv, nguess=nguess,
+            maxdim=maxdim, maxiter=maxiter, tol=rthresh, print_conv=print_conv,
+            printf=numpy.reciprocal)
+    w = numpy.reciprocal(w_inv)
+    x, y = numpy.split(z, 2)
+    print("\nODC-12 excitation energies (in a.u.):")
+    print(w.reshape(-1, 1))
+    print("\nODC-12 excitation energies (in eV):")
+    print(w.reshape(-1, 1)*27.2114)
+    print('\nODC-12 linear response total time: {:8.1f}s'
+          .format(time.time() - tm))
+    sys.stdout.flush()
+
+    if p_ao is not None:
+        pg = build_property_gradient_blocks(p_ao, co, cv, t2)
+        norms = numpy.diag(numpy.dot(x.T, s(x)) - numpy.dot(y.T, s(y)))
+        t = numpy.dot(x.T, pg) + numpy.dot(y.T, pg)
+        mu_trans = t * t / norms[:, None]
+
+        print("\nODC-12 transition dipoles (a.u.):")
+        print(mu_trans.round(12))
+        print("\nODC-12 norm of transition dipoles (a.u.):")
+        print(numpy.sqrt(numpy.diag(numpy.dot(mu_trans, mu_trans.T))
+              .reshape(-1, 1)).round(12))
+        sys.stdout.flush()
+
+    return w, (x, y), info
+
+
+# Helper functions for solver
+def count_excitations(no, nv):
+    n1 = no * nv
+    n2 = no * (no - 1) * nv * (nv - 1) // 4
+    return n1, n2
+
+
+def build_ravelers(no, nv):
+    r1 = raveler({0: (0, 1)})
+    u1 = unraveler({0: {0: no, 1: nv}})
+    r2 = megaraveler({0: ((0, 1), (2, 3))})
+    u2 = megaunraveler({0: {(0, 1): no, (2, 3): nv}})
+    return r1, r2, u1, u2
+
+
+def build_hessian_blocks(h_ao, r_ao, co, cv, t2):
+    hoo = transform_onebody(h_ao, (co, co))
+    hov = transform_onebody(h_ao, (co, cv))
+    hvv = transform_onebody(h_ao, (cv, cv))
+    goooo = transform_twobody(r_ao, (co, co, co, co))
+    gooov = transform_twobody(r_ao, (co, co, co, cv))
+    goovv = transform_twobody(r_ao, (co, co, cv, cv))
+    govov = transform_twobody(r_ao, (co, cv, co, cv))
+    govvv = transform_twobody(r_ao, (co, cv, cv, cv))
+    gvvvv = transform_twobody(r_ao, (cv, cv, cv, cv))
+    m1oo, m1vv = onebody_density(t2)
+    foo = fock_xy(hxy=hoo, goxoy=goooo, gxvyv=govov, m1oo=m1oo, m1vv=m1vv)
+    fov = fock_xy(hxy=hov, goxoy=gooov, gxvyv=govvv, m1oo=m1oo, m1vv=m1vv)
+    fvv = fock_xy(hxy=hvv, goxoy=govov, gxvyv=gvvvv, m1oo=m1oo, m1vv=m1vv)
+
+    ad1u = onebody_hessian_zeroth_order_diagonal(foo, fvv)
+    ad2u = twobody_hessian_zeroth_order_diagonal(foo, fvv, t2)
+    a11u, b11u = onebody_hessian(foo, fvv, goooo, goovv, govov, gvvvv, t2)
+    a12u, b12u, a21u, b21u = mixed_hessian(fov, gooov, govvv, t2)
+    a22u, b22u = twobody_hessian(foo, fvv, goooo, govov, gvvvv, t2)
+
+    no, _, nv, _ = t2.shape
+    r1, r2, u1, u2 = build_ravelers(no, nv)
+    ad1 = r1(ad1u)
+    ad2 = r2(ad2u)
+    a11 = functoolz.compose(r1, a11u, u1)
+    b11 = functoolz.compose(r1, b11u, u1)
+    a12 = functoolz.compose(r1, a12u, u2)
+    b12 = functoolz.compose(r1, b12u, u2)
+    a21 = functoolz.compose(r2, a21u, u1)
+    b21 = functoolz.compose(r2, b21u, u1)
+    a22 = functoolz.compose(r2, a22u, u2)
+    b22 = functoolz.compose(r2, b22u, u2)
+
+    n1, n2 = count_excitations(no, nv)
+    a = bmat([[a11, a12], [a21, a22]], (n1,))
+    b = bmat([[b11, b12], [b21, b22]], (n1,))
+
+    ad = numpy.concatenate((ad1, ad2), axis=0)
+
+    return a, b, ad
+
+
+def build_metric_blocks(t2):
+    no, _, nv, _ = t2.shape
+    r1, _, u1, _ = build_ravelers(no, nv)
+    s11u = onebody_metric(t2)
+    s11 = functoolz.compose(r1, s11u, u1)
+
+    n1, n2 = count_excitations(no, nv)
+    s = block_diag((s11, eye), (n1,))
+    sd = numpy.ones(n1+n2)
+    return s, sd
+
+
+def build_metric_inverse_blocks(t2):
+    no, _, nv, _ = t2.shape
+    r1, _, u1, _ = build_ravelers(no, nv)
+    si11u = onebody_metric_inverse(t2)
+    si11 = functoolz.compose(r1, si11u, u1)
+
+    n1, n2 = count_excitations(no, nv)
+    si = block_diag((si11, eye), (n1,))
+    sid = numpy.ones(n1+n2)
+    return si, sid
+
+
+def build_property_gradient_blocks(p_ao, co, cv, t2):
+    poo = transform_onebody(p_ao, (co, co))
+    pov = transform_onebody(p_ao, (co, cv))
+    pvv = transform_onebody(p_ao, (cv, cv))
+    m1oo, m1vv = onebody_density(t2)
+    fpoo = fancy_property(poo, m1oo)
+    fpvv = fancy_property(pvv, m1vv)
+
+    pg1u = onebody_property_gradient(pov, m1oo, m1vv)
+    pg2u = twobody_property_gradient(fpoo, -fpvv, t2)
+
+    no, _, nv, _ = t2.shape
+    r1, r2, _, _ = build_ravelers(no, nv)
+    pg1 = r1(pg1u)
+    pg2 = r2(pg2u)
+    pg = numpy.concatenate((pg1, pg2), axis=0)
+    return pg
+
+
+# The LR-ODC-12 equations:
 def onebody_hessian_zeroth_order_diagonal(foo, fvv):
     eo = numpy.diagonal(foo)
     ev = numpy.diagonal(fvv)

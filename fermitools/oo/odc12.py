@@ -13,7 +13,7 @@ from ..math.spinorb import transform_onebody, transform_twobody
 from .ocepa0 import twobody_amplitude_gradient
 
 
-def solve(h_ao, r_ao, co_guess, cv_guess, t2_guess, niter=50, rthresh=1e-8,
+def solve(h_ao, r_ao, co_guess, cv_guess, t2_guess, maxiter=50, rthresh=1e-8,
           diis_start=3, diis_nvec=20, print_conv=True):
     no, _, nv, _ = t2_guess.shape
     t1 = numpy.zeros((no, nv))
@@ -23,7 +23,7 @@ def solve(h_ao, r_ao, co_guess, cv_guess, t2_guess, niter=50, rthresh=1e-8,
     trs = ()
     extrapolate = diis_extrapolator(start=diis_start, nvec=diis_nvec)
 
-    for iteration in range(niter):
+    for iteration in range(maxiter):
         co, cv = orbital_rotation(co_guess, cv_guess, t1)
         hoo = transform_onebody(h_ao, (co, co))
         hov = transform_onebody(h_ao, (co, cv))
