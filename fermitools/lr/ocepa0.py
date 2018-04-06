@@ -1,17 +1,18 @@
 import numpy
-import time
+
 import sys
+import time
 
 from toolz import functoolz
-from .linmap import zero, eye, add, negative, block_diag, bmat
+from .linmap import zero, eye, negative, add, block_diag, bmat
 from ..math import cast
 from ..math import einsum
 from ..math import raveler, unraveler
-from ..math.direct import solve
-from ..math.direct import eigh
 from ..math.asym import megaraveler, megaunraveler
 from ..math.asym import antisymmetrizer_product as asm
 from ..math.spinorb import transform_onebody, transform_twobody
+
+from ..math.direct import eigh, solve
 
 from ..oo.ocepa0 import fock_xy
 

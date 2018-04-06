@@ -11,6 +11,17 @@ from ..math.asym import antisymmetrizer_product as asm
 from ..math.spinorb import transform_onebody, transform_twobody
 
 
+def compute_property(p_ao, co, cv, t2):
+    poo = transform_onebody(p_ao, (co, co))
+    pvv = transform_onebody(p_ao, (cv, cv))
+    m1oo, m1vv = onebody_density(t2)
+    mu = (numpy.tensordot(poo, m1oo, axes=((-2, -1), (0, 1))) +
+          numpy.tensordot(pvv, m1vv, axes=((-2, -1), (0, 1))))
+    print("First-order properties:")
+    print(mu.round(12))
+    return mu
+
+
 def solve(h_ao, r_ao, co_guess, cv_guess, t2_guess, maxiter=50, rthresh=1e-8,
           diis_start=3, diis_nvec=20, print_conv=True):
     no, _, nv, _ = t2_guess.shape
@@ -80,17 +91,7 @@ def solve(h_ao, r_ao, co_guess, cv_guess, t2_guess, maxiter=50, rthresh=1e-8,
     return en_elec, co, cv, t2, info
 
 
-def compute_property(p_ao, co, cv, t2):
-    poo = transform_onebody(p_ao, (co, co))
-    pvv = transform_onebody(p_ao, (cv, cv))
-    m1oo, m1vv = onebody_density(t2)
-    mu = (numpy.tensordot(poo, m1oo, axes=((-2, -1), (0, 1))) +
-          numpy.tensordot(pvv, m1vv, axes=((-2, -1), (0, 1))))
-    print("First-order properties:")
-    print(mu.round(12))
-    return mu
-
-
+# The OCEPA0 equations
 def fock_xy(hxy, goxoy):
     return hxy + numpy.trace(goxoy, axis1=0, axis2=2)
 

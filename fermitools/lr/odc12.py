@@ -7,7 +7,7 @@ import h5py
 import tempfile
 
 from toolz import functoolz
-from .linmap import eye, negative, block_diag, bmat
+from .linmap import eye, negative, add, block_diag, bmat
 from ..math import cast
 from ..math import einsum
 from ..math import transform
@@ -17,11 +17,27 @@ from ..math.asym import megaraveler, megaunraveler
 from ..math.asym import antisymmetrizer_product as asm
 from ..math.spinorb import transform_onebody, transform_twobody
 
-from ..math.direct import eigh
+from ..math.direct import eigh, solve
 
 from ..oo.odc12 import fock_xy
 from ..oo.odc12 import fancy_property
 from ..oo.odc12 import onebody_density
+
+
+def solve_static_response(h_ao, p_ao, r_ao, co, cv, t2, maxdim=None,
+                          maxiter=20, rthresh=1e-5, print_conv=False):
+    a, b, ad = build_hessian_blocks(h_ao, r_ao, co, cv, t2)
+    s, sd = build_metric_blocks(t2)
+    pg = build_property_gradient_blocks(p_ao, co, cv, t2)
+
+    print("Second-order (static) properties:")
+    e = add(a, b)
+    v = -2*pg
+    r, info = solve(a=e, b=v, ad=ad, maxdim=maxdim, tol=rthresh,
+                    print_conv=True)
+    alpha = numpy.dot(r.T, pg)
+    print(alpha.round(12))
+    return alpha
 
 
 def solve_spectrum(h_ao, r_ao, co, cv, t2, nroot=1, nconv=None, nguess=None,
