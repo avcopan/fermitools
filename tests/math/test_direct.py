@@ -25,6 +25,35 @@ def test__solve():
     assert_almost_equal(x, X)
 
 
+def test__eig_biorth():
+    dim = 1000
+    k = 7
+    noise = numpy.random.uniform(low=-4e-3, high=+4e-3, size=(dim, dim))
+
+    s = numpy.eye(dim) + noise
+    vals = numpy.ones(dim) + numpy.arange(dim)
+    a = numpy.linalg.multi_dot([scipy.linalg.inv(s), numpy.diag(vals), s])
+
+    vals, lvecs, rvecs = scipy.linalg.eig(a=a, left=True)
+
+    select = numpy.argsort(vals)[:k]
+    W = numpy.real(vals[select])
+    VL = lvecs[:, select]
+    VR = rvecs[:, select]
+    binorms = numpy.sqrt(numpy.sum(VL * VR, axis=0))
+    VL /= binorms
+    VR /= binorms
+
+    print(W)
+    print(numpy.dot(VL.T, VR).round(11))
+
+    # ad = numpy.diag(a)
+
+    # W = vals[:k]
+
+    # a_ = scipy.sparse.linalg.aslinearoperator(a)
+
+
 def test__eig():
     dim = 2000
     k = 7
@@ -94,4 +123,4 @@ def test__eigh():
 
 if __name__ == '__main__':
     # test__solve()
-    test__eigh()
+    test__eig_biorth()
