@@ -7,7 +7,7 @@ import h5py
 import tempfile
 
 from toolz import functoolz
-from .linmap import eye, negative, add, block_diag, bmat
+from .linmap import eye, negative, add, subtract, block_diag, bmat
 from ..math import cast
 from ..math import einsum
 from ..math import transform
@@ -17,7 +17,7 @@ from ..math.asym import megaraveler, megaunraveler
 from ..math.asym import antisymmetrizer_product as asm
 from ..math.spinorb import transform_onebody, transform_twobody
 
-from ..math.direct import eigh, solve
+from ..math.direct import eigh, solve, eig
 
 from ..oo.odc12 import fock_xy
 from ..oo.odc12 import fancy_property
@@ -65,6 +65,102 @@ def solve_spectrum(h_ao, r_ao, co, cv, t2, nroot=1, nconv=None, nguess=None,
     print('\nODC-12 linear response total time: {:8.1f}s'
           .format(time.time() - tm))
     sys.stdout.flush()
+
+    if p_ao is not None:
+        pg = build_property_gradient_blocks(p_ao, co, cv, t2)
+        norms = numpy.diag(numpy.dot(x.T, s(x)) - numpy.dot(y.T, s(y)))
+        t = numpy.dot(x.T, pg) + numpy.dot(y.T, pg)
+        mu_trans = t * t / norms[:, None]
+
+        print("\nODC-12 transition dipoles (a.u.):")
+        print(mu_trans.round(12))
+        print("\nODC-12 norm of transition dipoles (a.u.):")
+        print(numpy.sqrt(numpy.diag(numpy.dot(mu_trans, mu_trans.T))
+              .reshape(-1, 1)).round(12))
+        sys.stdout.flush()
+
+    return w, (x, y), info
+
+
+def solve_spectrum2(h_ao, r_ao, co, cv, t2, nroot=1, nconv=None, nguess=None,
+                    maxdim=None, maxiter=100, rthresh=1e-5, print_conv=False,
+                    disk=False, blsize=None, p_ao=None):
+    a, b, ad = build_hessian_blocks(h_ao, r_ao, co, cv, t2)
+    s, _ = build_metric_blocks(t2)
+    si, _ = build_metric_function_blocks(t2, f=numpy.reciprocal)
+
+    h_plus = functoolz.compose(si, add(a, b))
+    h_minus = functoolz.compose(si, subtract(a, b))
+
+    h_bar = functoolz.compose(h_minus, h_plus)
+    hd = ad * ad
+
+    tm = time.time()
+    w2, c_plus, info = eig(
+            a=h_bar, k=nroot, ad=hd, nconv=nconv, nguess=nguess, maxdim=maxdim,
+            maxiter=maxiter, tol=rthresh, print_conv=print_conv,
+            printf=numpy.sqrt)
+
+    w = numpy.real(numpy.sqrt(w2))
+    x = (c_plus + h_plus(c_plus) / cast(w, 1, 2)) / 2.
+    y = (c_plus - h_plus(c_plus) / cast(w, 1, 2)) / 2.
+
+    print("\nODC-12 excitation energies (in a.u.):")
+    print(w.reshape(-1, 1))
+    print("\nODC-12 excitation energies (in eV):")
+    print(w.reshape(-1, 1)*27.2114)
+    print('\nODC-12 linear response total time: {:8.1f}s'
+          .format(time.time() - tm))
+    sys.stdout.flush()
+
+    if p_ao is not None:
+        pg = build_property_gradient_blocks(p_ao, co, cv, t2)
+        norms = numpy.diag(numpy.dot(x.T, s(x)) - numpy.dot(y.T, s(y)))
+        t = numpy.dot(x.T, pg) + numpy.dot(y.T, pg)
+        mu_trans = t * t / norms[:, None]
+
+        print("\nODC-12 transition dipoles (a.u.):")
+        print(mu_trans.round(12))
+        print("\nODC-12 norm of transition dipoles (a.u.):")
+        print(numpy.sqrt(numpy.diag(numpy.dot(mu_trans, mu_trans.T))
+              .reshape(-1, 1)).round(12))
+        sys.stdout.flush()
+
+    return w, (x, y), info
+
+
+def solve_spectrum3(h_ao, r_ao, co, cv, t2, nroot=1, nconv=None, nguess=None,
+                    maxdim=None, maxiter=100, rthresh=1e-5, print_conv=False,
+                    disk=False, blsize=None, p_ao=None):
+    a, b, ad = build_hessian_blocks(h_ao, r_ao, co, cv, t2)
+    s, _ = build_metric_blocks(t2)
+    f = functoolz.compose(numpy.reciprocal, numpy.sqrt)
+    sir, _ = build_metric_function_blocks(t2, f=f)
+
+    h_plus = functoolz.compose(sir, add(a, b), sir)
+    h_minus = functoolz.compose(sir, subtract(a, b), sir)
+
+    h_bar = functoolz.compose(h_minus, h_plus)
+    hd = ad * ad
+
+    tm = time.time()
+    w2, c_plus, info = eig(
+            a=h_bar, k=nroot, ad=hd, nconv=nconv, nguess=nguess, maxdim=maxdim,
+            maxiter=maxiter, tol=rthresh, print_conv=print_conv,
+            printf=numpy.sqrt)
+
+    w = numpy.real(numpy.sqrt(w2))
+
+    print("\nODC-12 excitation energies (in a.u.):")
+    print(w.reshape(-1, 1))
+    print("\nODC-12 excitation energies (in eV):")
+    print(w.reshape(-1, 1)*27.2114)
+    print('\nODC-12 linear response total time: {:8.1f}s'
+          .format(time.time() - tm))
+    sys.stdout.flush()
+
+    x = (sir(c_plus) + sir(h_plus(c_plus)) / cast(w, 1, 2)) / 2.
+    y = (sir(c_plus) - sir(h_plus(c_plus)) / cast(w, 1, 2)) / 2.
 
     if p_ao is not None:
         pg = build_property_gradient_blocks(p_ao, co, cv, t2)
@@ -152,16 +248,16 @@ def build_metric_blocks(t2):
     return s, sd
 
 
-def build_metric_inverse_blocks(t2):
+def build_metric_function_blocks(t2, f):
     no, _, nv, _ = t2.shape
     r1, _, u1, _ = build_ravelers(no, nv)
-    si11u = onebody_metric_inverse(t2)
-    si11 = functoolz.compose(r1, si11u, u1)
+    sf11u = onebody_metric_function(t2, f=f)
+    sf11 = functoolz.compose(r1, sf11u, u1)
 
     n1, n2 = count_excitations(no, nv)
-    si = block_diag((si11, eye), (n1,))
-    sid = numpy.ones(n1+n2)
-    return si, sid
+    sf = block_diag((sf11, eye), (n1,))
+    sfd = numpy.ones(n1+n2)
+    return sf, sfd
 
 
 def build_property_gradient_blocks(p_ao, co, cv, t2):
@@ -418,17 +514,15 @@ def onebody_metric(t2):
     return _s11
 
 
-def onebody_metric_inverse(t2):
+def onebody_metric_function(t2, f):
     m1oo, m1vv = onebody_density(t2)
     mo, uo = scipy.linalg.eigh(m1oo)
     mv, uv = scipy.linalg.eigh(m1vv)
-    uot = numpy.ascontiguousarray(numpy.transpose(uo))
-    uvt = numpy.ascontiguousarray(numpy.transpose(uv))
 
     def _x11(r1):
-        yovov = cast(uot, (2, 0), 4) * cast(uv, (1, 3), 4)
-        yovov /= (cast(mo, 2, 4) - cast(mv, 3, 4))
-        zovov = cast(uo, (2, 0), 4) * cast(uvt, (1, 3), 4)
-        return einsum('iajb,jbkc,kc...->ia...', yovov, zovov, r1)
+        yovOV = einsum('iI,aA->iaIA', uo, uv)
+        zovOV = einsum('iI,aA->IAia', uo, uv)
+        yovOV *= f(cast(mo, 2, 4) - cast(mv, 3, 4))
+        return einsum('iaJB,JBkc,kc...->ia...', yovOV, zovOV, r1)
 
     return _x11

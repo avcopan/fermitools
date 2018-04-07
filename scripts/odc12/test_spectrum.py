@@ -11,8 +11,8 @@ def test__main():
     import drivers
     import interfaces.psi4 as interface
 
-    nroot = 10
-    nconv = 8
+    nroot = 11
+    nconv = 10
     labels = ('O', 'H', 'H')
     coords = ((0.000000000000,  0.000000000000, -0.143225816552),
               (0.000000000000,  1.638036840407,  1.136548822547),
@@ -25,8 +25,8 @@ def test__main():
     diis_start = 3
     diis_nvec = 20
     maxiter = 50
-    rthresh = 1e-6
-    nguess = nroot*4
+    rthresh = 1e-7
+    nguess = nroot*8
     maxdim = nroot*10
 
     h_ao, r_ao, p_ao = drivers.integrals(
@@ -40,12 +40,13 @@ def test__main():
                 h_ao=h_ao, r_ao=r_ao, co_guess=co_guess, cv_guess=cv_guess,
                 t2_guess=t2_guess, maxiter=oo_maxiter, rthresh=oo_rthresh,
                 diis_start=diis_start, diis_nvec=diis_nvec, print_conv=True)
-    w, z, info = fermitools.lr.odc12.solve_spectrum(
+    w, z, info = fermitools.lr.odc12.solve_spectrum3(
             h_ao=h_ao, r_ao=r_ao, co=co, cv=cv, t2=t2, nroot=nroot,
             nconv=nconv, nguess=nguess, maxdim=maxdim, maxiter=maxiter,
             rthresh=rthresh, print_conv=True)
 
     w = numpy.sort(w)
+    print(W[:nconv])
     assert_almost_equal(w[:nconv], W[:nconv], decimal=10)
 
 

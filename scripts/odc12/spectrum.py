@@ -20,7 +20,7 @@ drivers.spectrum(
         nguess=10*5,
         maxdim=10*10,
         maxiter=50,
-        rthresh=1e-5,
+        rthresh=1e-6,
         oo_maxiter=200,         # number of iterations for ground state
         oo_rthresh=1e-8,        # convergence threshold for ground state
         diis_start=3,           # when to start DIIS extrapolations

@@ -97,8 +97,8 @@ def test__onebody_metric():
     assert_almost_equal(s11(I1U), S11, decimal=10)
 
 
-def test__onebody_metric_inverse():
-    x11 = odc12.onebody_metric_inverse(T2)
+def test__onebody_metric_function():
+    x11 = odc12.onebody_metric_function(T2, f=numpy.reciprocal)
     assert_almost_equal(x11(S11), I1U, decimal=10)
 
 
