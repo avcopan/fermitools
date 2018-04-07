@@ -32,6 +32,9 @@ def test__eig_biorth():
 
     s = numpy.eye(dim) + noise
     vals = numpy.ones(dim) + numpy.arange(dim)
+    vals[0] = 1
+    vals[1] = 1
+    vals[2] = 1
     a = numpy.linalg.multi_dot([scipy.linalg.inv(s), numpy.diag(vals), s])
 
     vals, lvecs, rvecs = scipy.linalg.eig(a=a, left=True)
@@ -44,14 +47,34 @@ def test__eig_biorth():
     VL /= binorms
     VR /= binorms
 
-    print(W)
-    print(numpy.dot(VL.T, VR).round(11))
+    ad = numpy.diag(a)
+    a_ = scipy.sparse.linalg.aslinearoperator(a)
+    ah_ = scipy.sparse.linalg.aslinearoperator(a.T)
 
-    # ad = numpy.diag(a)
+    print('left:')
+    w, vl, info = direct.eig_simple(
+            a=ah_, k=k, ad=ad, nguess=2*k, maxdim=8*k, tol=1e-12,
+            print_conv=True)
+    w = numpy.real(w)
+    assert_almost_equal(w, W, decimal=10)
 
-    # W = vals[:k]
+    print('right:')
+    w, vr, info = direct.eig_simple(
+            a=a_, k=k, ad=ad, nguess=2*k, maxdim=8*k, tol=1e-12,
+            print_conv=True)
+    w = numpy.real(w)
+    assert_almost_equal(w, W, decimal=10)
 
-    # a_ = scipy.sparse.linalg.aslinearoperator(a)
+    ovlp = numpy.dot(vr.T, vl)
+    print(numpy.abs(ovlp).round(1))
+    print(numpy.max(numpy.abs(ovlp), axis=0))
+
+    vl = numpy.dot(vl, scipy.linalg.inv(ovlp))
+
+    ovlp = numpy.dot(vr.T, vl)
+    print(numpy.abs(ovlp).round(1))
+
+    print(numpy.amax(numpy.abs(ah_(vl) - vl * w[None, :])))
 
 
 def test__eig():
