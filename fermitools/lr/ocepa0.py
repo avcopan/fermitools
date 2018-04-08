@@ -1,10 +1,12 @@
 import numpy
+import scipy
 
 import sys
 import time
 
 from toolz import functoolz
-from .linmap import zero, eye, negative, add, block_diag, bmat
+from .linmap import eye, zero, add, subtract, block_diag, bmat
+from .diskdave import eig as eig_disk
 from ..math import cast
 from ..math import einsum
 from ..math import raveler, unraveler
@@ -12,7 +14,8 @@ from ..math.asym import megaraveler, megaunraveler
 from ..math.asym import antisymmetrizer_product as asm
 from ..math.spinorb import transform_onebody, transform_twobody
 
-from ..math.direct import eigh, solve
+from ..math.direct import solve
+from ..math.direct import eig as eig_core
 
 from ..oo.ocepa0 import fock_xy
 
@@ -37,20 +40,31 @@ def solve_spectrum(h_ao, r_ao, co, cv, t2, nroot=1, nconv=None, nguess=None,
                    maxdim=None, maxiter=100, rthresh=1e-5, print_conv=False,
                    disk=False, blsize=None, p_ao=None):
     a, b, ad = build_hessian_blocks(h_ao, r_ao, co, cv, t2)
-    s, sd = build_metric_blocks(t2)
+    s, _ = build_metric_blocks(t2)
+    f = functoolz.compose(numpy.reciprocal, numpy.sqrt)
+    sir, _ = build_metric_function_blocks(t2, f=f)
 
-    e = bmat([[a, b], [b, a]], 2)
-    m = block_diag((s, negative(s)), (len(ad),))
-    ed = numpy.concatenate((+ad, +ad))
-    md = numpy.concatenate((+sd, -sd))
+    h_plus = functoolz.compose(sir, add(a, b), sir)
+    h_minus = functoolz.compose(sir, subtract(a, b), sir)
+
+    h_bar = functoolz.compose(h_minus, h_plus)
+    hd = ad * ad
 
     tm = time.time()
-    w_inv, z, info = eigh(
-            a=m, k=-nroot, ad=md, b=e, bd=ed, nconv=nconv, nguess=nguess,
-            maxdim=maxdim, maxiter=maxiter, tol=rthresh, print_conv=print_conv,
-            printf=numpy.reciprocal)
-    w = numpy.reciprocal(w_inv)
-    x, y = numpy.split(z, 2)
+    if disk:
+        w2, c_plus, info = eig_disk(
+                a=h_bar, k=nroot, ad=hd, nconv=nconv, blsize=blsize,
+                nguess=nguess, maxdim=maxdim, maxiter=maxiter, tol=rthresh,
+                print_conv=print_conv, printf=numpy.sqrt)
+    else:
+        w2, c_plus, info = eig_core(
+                a=h_bar, k=nroot, ad=hd, nconv=nconv, nguess=nguess,
+                maxdim=maxdim, maxiter=maxiter, tol=rthresh,
+                print_conv=print_conv, printf=numpy.sqrt)
+
+    w = numpy.real(numpy.sqrt(w2))
+    c_plus = numpy.real(c_plus)
+
     print("\nOCEPA0 excitation energies (in a.u.):")
     print(w.reshape(-1, 1))
     print("\nOCEPA0 excitation energies (in eV):")
@@ -58,6 +72,9 @@ def solve_spectrum(h_ao, r_ao, co, cv, t2, nroot=1, nconv=None, nguess=None,
     print('\nOCEPA0 linear response total time: {:8.1f}s'
           .format(time.time() - tm))
     sys.stdout.flush()
+
+    x = sir(c_plus + h_plus(c_plus) / cast(w, 1, 2)) / 2.
+    y = sir(c_plus - h_plus(c_plus) / cast(w, 1, 2)) / 2.
 
     if p_ao is not None:
         pg = build_property_gradient_blocks(p_ao, co, cv, t2)
@@ -142,6 +159,18 @@ def build_metric_blocks(t2):
     s = block_diag((s11, eye), (n1,))
     sd = numpy.ones(n1+n2)
     return s, sd
+
+
+def build_metric_function_blocks(t2, f):
+    no, _, nv, _ = t2.shape
+    r1, _, u1, _ = build_ravelers(no, nv)
+    sf11u = onebody_metric_function(t2, f=f)
+    sf11 = functoolz.compose(r1, sf11u, u1)
+
+    n1, n2 = count_excitations(no, nv)
+    sf = block_diag((sf11, eye), (n1,))
+    sfd = numpy.ones(n1+n2)
+    return sf, sfd
 
 
 def build_property_gradient_blocks(p_ao, co, cv, t2):
@@ -318,6 +347,27 @@ def onebody_metric(t2):
             - 1./2 * einsum('mnac,mnbc,ib...->ia...', t2, t2, r1))
 
     return _s11
+
+
+def onebody_metric_function(t2, f):
+    m1oo, m1vv = onebody_density(t2)
+    mo, uo = scipy.linalg.eigh(m1oo)
+    mv, uv = scipy.linalg.eigh(m1vv)
+
+    def _x11(r1):
+        yovOV = einsum('iI,aA->iaIA', uo, uv)
+        zovOV = einsum('iI,aA->IAia', uo, uv)
+        yovOV *= f(cast(mo, 2, 4) - cast(mv, 3, 4))
+        return einsum('iaJB,JBkc,kc...->ia...', yovOV, zovOV, r1)
+
+    return _x11
+
+
+def onebody_density(t2):
+    no, _, nv, _ = t2.shape
+    m1oo = numpy.eye(no) - 1./2 * einsum('ikcd,jkcd->ij', t2, t2)
+    m1vv = 1./2 * einsum('klac,klbc->ab', t2, t2)
+    return m1oo, m1vv
 
 
 # Private

@@ -3,7 +3,6 @@ from . import combinatorics
 from . import asym
 from . import diis
 from . import direct
-from . import disk
 from .ix import cast
 from .ix import diagonal_indices
 from .findif import central_difference
@@ -21,7 +20,6 @@ __all__ = [
         'asym',
         'diis',
         'direct',
-        'disk',
         'tensoralg',
         'transform',
         'cast',
@@ -32,6 +30,4 @@ __all__ = [
         'unravel', 'unraveler',
         'einsum',
         'orth',
-        'expm',
-        'callable_disk_array',
-        'callable_core_array']
+        'expm']

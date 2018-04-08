@@ -28,6 +28,8 @@ def test__main():
     rthresh = 1e-7
     nguess = nroot*8
     maxdim = nroot*10
+    blsize = 5
+    disk = True
 
     h_ao, r_ao, p_ao = drivers.integrals(
             basis, labels, coords, angstrom=False, interface=interface)
@@ -40,10 +42,10 @@ def test__main():
                 h_ao=h_ao, r_ao=r_ao, co_guess=co_guess, cv_guess=cv_guess,
                 t2_guess=t2_guess, maxiter=oo_maxiter, rthresh=oo_rthresh,
                 diis_start=diis_start, diis_nvec=diis_nvec, print_conv=True)
-    w, z, info = fermitools.lr.odc12.solve_spectrum3(
+    w, z, info = fermitools.lr.odc12.solve_spectrum(
             h_ao=h_ao, r_ao=r_ao, co=co, cv=cv, t2=t2, nroot=nroot,
             nconv=nconv, nguess=nguess, maxdim=maxdim, maxiter=maxiter,
-            rthresh=rthresh, print_conv=True)
+            rthresh=rthresh, print_conv=True, disk=disk, blsize=blsize)
 
     w = numpy.sort(w)
     print(W[:nconv])

@@ -7,7 +7,8 @@ import h5py
 import tempfile
 
 from toolz import functoolz
-from .linmap import eye, negative, add, subtract, block_diag, bmat
+from .linmap import eye, add, subtract, block_diag, bmat
+from .diskdave import eig as eig_disk
 from ..math import cast
 from ..math import einsum
 from ..math import transform
@@ -17,7 +18,8 @@ from ..math.asym import megaraveler, megaunraveler
 from ..math.asym import antisymmetrizer_product as asm
 from ..math.spinorb import transform_onebody, transform_twobody
 
-from ..math.direct import eigh, solve, eig
+from ..math.direct import solve
+from ..math.direct import eig as eig_core
 
 from ..oo.odc12 import fock_xy
 from ..oo.odc12 import fancy_property
@@ -44,95 +46,6 @@ def solve_spectrum(h_ao, r_ao, co, cv, t2, nroot=1, nconv=None, nguess=None,
                    maxdim=None, maxiter=100, rthresh=1e-5, print_conv=False,
                    disk=False, blsize=None, p_ao=None):
     a, b, ad = build_hessian_blocks(h_ao, r_ao, co, cv, t2)
-    s, sd = build_metric_blocks(t2)
-
-    e = bmat([[a, b], [b, a]], 2)
-    m = block_diag((s, negative(s)), (len(ad),))
-    ed = numpy.concatenate((+ad, +ad))
-    md = numpy.concatenate((+sd, -sd))
-
-    tm = time.time()
-    w_inv, z, info = eigh(
-            a=m, k=-nroot, ad=md, b=e, bd=ed, nconv=nconv, nguess=nguess,
-            maxdim=maxdim, maxiter=maxiter, tol=rthresh, print_conv=print_conv,
-            printf=numpy.reciprocal)
-    w = numpy.reciprocal(w_inv)
-    x, y = numpy.split(z, 2)
-    print("\nODC-12 excitation energies (in a.u.):")
-    print(w.reshape(-1, 1))
-    print("\nODC-12 excitation energies (in eV):")
-    print(w.reshape(-1, 1)*27.2114)
-    print('\nODC-12 linear response total time: {:8.1f}s'
-          .format(time.time() - tm))
-    sys.stdout.flush()
-
-    if p_ao is not None:
-        pg = build_property_gradient_blocks(p_ao, co, cv, t2)
-        norms = numpy.diag(numpy.dot(x.T, s(x)) - numpy.dot(y.T, s(y)))
-        t = numpy.dot(x.T, pg) + numpy.dot(y.T, pg)
-        mu_trans = t * t / norms[:, None]
-
-        print("\nODC-12 transition dipoles (a.u.):")
-        print(mu_trans.round(12))
-        print("\nODC-12 norm of transition dipoles (a.u.):")
-        print(numpy.sqrt(numpy.diag(numpy.dot(mu_trans, mu_trans.T))
-              .reshape(-1, 1)).round(12))
-        sys.stdout.flush()
-
-    return w, (x, y), info
-
-
-def solve_spectrum2(h_ao, r_ao, co, cv, t2, nroot=1, nconv=None, nguess=None,
-                    maxdim=None, maxiter=100, rthresh=1e-5, print_conv=False,
-                    disk=False, blsize=None, p_ao=None):
-    a, b, ad = build_hessian_blocks(h_ao, r_ao, co, cv, t2)
-    s, _ = build_metric_blocks(t2)
-    si, _ = build_metric_function_blocks(t2, f=numpy.reciprocal)
-
-    h_plus = functoolz.compose(si, add(a, b))
-    h_minus = functoolz.compose(si, subtract(a, b))
-
-    h_bar = functoolz.compose(h_minus, h_plus)
-    hd = ad * ad
-
-    tm = time.time()
-    w2, c_plus, info = eig(
-            a=h_bar, k=nroot, ad=hd, nconv=nconv, nguess=nguess, maxdim=maxdim,
-            maxiter=maxiter, tol=rthresh, print_conv=print_conv,
-            printf=numpy.sqrt)
-
-    w = numpy.real(numpy.sqrt(w2))
-    x = (c_plus + h_plus(c_plus) / cast(w, 1, 2)) / 2.
-    y = (c_plus - h_plus(c_plus) / cast(w, 1, 2)) / 2.
-
-    print("\nODC-12 excitation energies (in a.u.):")
-    print(w.reshape(-1, 1))
-    print("\nODC-12 excitation energies (in eV):")
-    print(w.reshape(-1, 1)*27.2114)
-    print('\nODC-12 linear response total time: {:8.1f}s'
-          .format(time.time() - tm))
-    sys.stdout.flush()
-
-    if p_ao is not None:
-        pg = build_property_gradient_blocks(p_ao, co, cv, t2)
-        norms = numpy.diag(numpy.dot(x.T, s(x)) - numpy.dot(y.T, s(y)))
-        t = numpy.dot(x.T, pg) + numpy.dot(y.T, pg)
-        mu_trans = t * t / norms[:, None]
-
-        print("\nODC-12 transition dipoles (a.u.):")
-        print(mu_trans.round(12))
-        print("\nODC-12 norm of transition dipoles (a.u.):")
-        print(numpy.sqrt(numpy.diag(numpy.dot(mu_trans, mu_trans.T))
-              .reshape(-1, 1)).round(12))
-        sys.stdout.flush()
-
-    return w, (x, y), info
-
-
-def solve_spectrum3(h_ao, r_ao, co, cv, t2, nroot=1, nconv=None, nguess=None,
-                    maxdim=None, maxiter=100, rthresh=1e-5, print_conv=False,
-                    disk=False, blsize=None, p_ao=None):
-    a, b, ad = build_hessian_blocks(h_ao, r_ao, co, cv, t2)
     s, _ = build_metric_blocks(t2)
     f = functoolz.compose(numpy.reciprocal, numpy.sqrt)
     sir, _ = build_metric_function_blocks(t2, f=f)
@@ -144,12 +57,19 @@ def solve_spectrum3(h_ao, r_ao, co, cv, t2, nroot=1, nconv=None, nguess=None,
     hd = ad * ad
 
     tm = time.time()
-    w2, c_plus, info = eig(
-            a=h_bar, k=nroot, ad=hd, nconv=nconv, nguess=nguess, maxdim=maxdim,
-            maxiter=maxiter, tol=rthresh, print_conv=print_conv,
-            printf=numpy.sqrt)
+    if disk:
+        w2, c_plus, info = eig_disk(
+                a=h_bar, k=nroot, ad=hd, nconv=nconv, blsize=blsize,
+                nguess=nguess, maxdim=maxdim, maxiter=maxiter, tol=rthresh,
+                print_conv=print_conv, printf=numpy.sqrt)
+    else:
+        w2, c_plus, info = eig_core(
+                a=h_bar, k=nroot, ad=hd, nconv=nconv, nguess=nguess,
+                maxdim=maxdim, maxiter=maxiter, tol=rthresh,
+                print_conv=print_conv, printf=numpy.sqrt)
 
     w = numpy.real(numpy.sqrt(w2))
+    c_plus = numpy.real(c_plus)
 
     print("\nODC-12 excitation energies (in a.u.):")
     print(w.reshape(-1, 1))
@@ -159,8 +79,8 @@ def solve_spectrum3(h_ao, r_ao, co, cv, t2, nroot=1, nconv=None, nguess=None,
           .format(time.time() - tm))
     sys.stdout.flush()
 
-    x = (sir(c_plus) + sir(h_plus(c_plus)) / cast(w, 1, 2)) / 2.
-    y = (sir(c_plus) - sir(h_plus(c_plus)) / cast(w, 1, 2)) / 2.
+    x = sir(c_plus + h_plus(c_plus) / cast(w, 1, 2)) / 2.
+    y = sir(c_plus - h_plus(c_plus) / cast(w, 1, 2)) / 2.
 
     if p_ao is not None:
         pg = build_property_gradient_blocks(p_ao, co, cv, t2)

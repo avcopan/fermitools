@@ -89,7 +89,7 @@ def spectrum(method, labels, coords, charge, spin, basis, angstrom=False,
                 h_ao=h_ao, r_ao=r_ao, co_guess=co_guess, cv_guess=cv_guess,
                 t2_guess=t2_guess, maxiter=maxiter, rthresh=rthresh,
                 diis_start=diis_start, diis_nvec=diis_nvec, print_conv=True)
-        fermitools.lr.odc12.solve_spectrum3(
+        fermitools.lr.odc12.solve_spectrum(
                 h_ao=h_ao, r_ao=r_ao, co=co, cv=cv, t2=t2, nroot=nroot,
                 nconv=nconv, nguess=nguess, maxdim=maxdim, maxiter=maxiter,
                 rthresh=rthresh, print_conv=True, disk=disk, blsize=blsize,

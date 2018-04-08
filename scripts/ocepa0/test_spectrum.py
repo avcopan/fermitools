@@ -11,7 +11,7 @@ def test__main():
     import drivers
     import interfaces.psi4 as interface
 
-    nroot = 10
+    nroot = 13
     nconv = 8
     labels = ('O', 'H', 'H')
     coords = ((0.000000000000,  0.000000000000, -0.143225816552),
@@ -46,7 +46,7 @@ def test__main():
             rthresh=rthresh, print_conv=True)
 
     w = numpy.sort(w)
-    assert_almost_equal(w[:nconv], W[:nconv], decimal=10)
+    assert_almost_equal(w[:nconv], W[:nconv])
 
 
 if __name__ == '__main__':

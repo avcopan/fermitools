@@ -15,7 +15,7 @@ drivers.spectrum(
         spin=0,
         basis='3-21g',
         angstrom=True,
-        nroot=12,
+        nroot=10,
         nconv=10,
         nguess=10*5,
         maxdim=10*10,
@@ -25,6 +25,6 @@ drivers.spectrum(
         oo_rthresh=1e-8,        # convergence threshold for ground state
         diis_start=3,           # when to start DIIS extrapolations
         diis_nvec=20,           # maximum number of DIIS vectors
-        disk=True,
+        disk=False,
         blsize=6,
         interface=interface)    # interface for computing integrals
