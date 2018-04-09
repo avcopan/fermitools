@@ -236,7 +236,7 @@ def eigh(a, k, ad, b=None, bd=None, nconv=None, nguess=None, maxdim=None,
         if converged:
             break
 
-        if rdim + k > maxdim:
+        if rdim + abs(k) > maxdim:
             bu = au = u = numpy.zeros((dim, 0))
             ui = v
 
