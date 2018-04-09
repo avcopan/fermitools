@@ -32,12 +32,12 @@ def eig(a, k, ad, b=None, bd=None, nconv=None, blsize=None, nguess=None,
     apd = {}
     bpd = {} if b is not None else None
 
-    converged = False
-
     axes = (numpy.argsort(ad/bd)[:nguess] if s > 0 else
             numpy.argsort(ad/bd)[-nguess:])
     blocks = numpy.array_split(axes, block_count(nguess, blsize))
     ds = tuple(standard_basis_vectors(dim, axes=block) for block in blocks)
+
+    converged = False
 
     for iteration in range(maxiter):
         for di in ds:

@@ -9,6 +9,7 @@ import tempfile
 from toolz import functoolz
 from .linmap import eye, negative, add, subtract, block_diag, bmat
 from .diskdave import eig as eig_disk
+from .coredave import eig as eig_core
 from ..math import cast
 from ..math import einsum
 from ..math import transform
@@ -19,8 +20,6 @@ from ..math.asym import antisymmetrizer_product as asm
 from ..math.spinorb import transform_onebody, transform_twobody
 
 from ..math.direct import solve
-from ..math.direct import eig as eig_core
-from ..math.direct import eigh as eigh_core
 
 from ..oo.odc12 import fock_xy
 from ..oo.odc12 import fancy_property
@@ -109,10 +108,10 @@ def solve_spectrum1(h_ao, r_ao, co, cv, t2, nroot=1, nconv=None, nguess=None,
     ed = numpy.concatenate((+ad, +ad))
     md = numpy.concatenate((+sd, -sd))
 
-    wr, z, info = eigh_core(
+    wr, z, info = eig_core(
             a=m, k=-nroot, ad=md, b=e, bd=ed, nconv=nconv, nguess=nguess,
             maxdim=maxdim, maxiter=maxiter, tol=rthresh, print_conv=print_conv,
-            printf=numpy.reciprocal)
+            printf=numpy.reciprocal, sym=True)
 
     w = numpy.reciprocal(wr)
     order = numpy.argsort(w)

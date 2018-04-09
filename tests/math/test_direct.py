@@ -75,7 +75,7 @@ def test__eig():
 
 def test__eigh():
     dim = 2000
-    k = -7
+    k = 7
     noise = numpy.random.uniform(low=-4e-3, high=+4e-3, size=(dim, dim))
 
     a = numpy.eye(dim)
@@ -87,15 +87,16 @@ def test__eigh():
     bd = numpy.diag(b)
 
     vals, vecs = scipy.linalg.eigh(a=a, b=b)
-    W = vals[k:]
-    V = vecs[:, k:]
+    select = numpy.argsort(vals)[-k:]
+    W = vals[select]
+    V = vecs[:, select]
 
     a_ = scipy.sparse.linalg.aslinearoperator(a)
     b_ = scipy.sparse.linalg.aslinearoperator(b)
 
-    w, v, info = direct.eigh(
-            a=a_, k=k, ad=ad, b=b_, bd=bd, nguess=2*abs(k), maxdim=8*abs(k),
-            maxiter=100, tol=1e-8, print_conv=True)
+    w, v, info = direct.eig(
+            a=a_, k=-k, ad=ad, b=b_, bd=bd, nguess=2*k, maxdim=8*k,
+            maxiter=100, tol=1e-8, print_conv=True, sym=True)
     print(w)
 
     assert_almost_equal(w, W)
@@ -106,7 +107,7 @@ def test__eigh():
     from fermitools.lr.coredave import eig as eig_core
 
     w, v, info = eig_core(
-             a=a_, k=k, ad=ad, b=b_, bd=bd, nguess=2*abs(k), maxdim=8*abs(k),
+             a=a_, k=-k, ad=ad, b=b_, bd=bd, nguess=2*k, maxdim=8*k,
              maxiter=100, tol=1e-8, print_conv=True, sym=True)
 
     assert_almost_equal(w, W)
