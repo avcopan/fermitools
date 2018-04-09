@@ -49,7 +49,7 @@ def test__main():
 
     w = numpy.sort(w)
     print(W[:nconv])
-    assert_almost_equal(w[:nconv], W[:nconv], decimal=10)
+    assert_almost_equal(w[:nconv], W[:nconv])
 
 
 if __name__ == '__main__':

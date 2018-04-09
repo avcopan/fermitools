@@ -7,7 +7,7 @@ import h5py
 import tempfile
 
 from toolz import functoolz
-from .linmap import eye, negative, add, subtract, block_diag, bmat
+from .linmap import eye, add, subtract, block_diag, bmat
 from .diskdave import eig as eig_disk
 from .coredave import eig as eig_core
 from ..math import cast
@@ -64,8 +64,8 @@ def solve_spectrum(h_ao, r_ao, co, cv, t2, nroot=1, nconv=None, nguess=None,
                 print_conv=print_conv, printf=numpy.sqrt)
     else:
         w2, c_plus, info = eig_core(
-                a=h_bar, k=nroot, ad=hd, nconv=nconv, nguess=nguess,
-                maxdim=maxdim, maxiter=maxiter, tol=rthresh,
+                a=h_bar, k=nroot, ad=hd, nconv=nconv, blsize=blsize,
+                nguess=nguess, maxdim=maxdim, maxiter=maxiter, tol=rthresh,
                 print_conv=print_conv, printf=numpy.sqrt)
 
     w = numpy.real(numpy.sqrt(w2))
@@ -94,91 +94,6 @@ def solve_spectrum(h_ao, r_ao, co, cv, t2, nroot=1, nconv=None, nguess=None,
         print(numpy.sqrt(numpy.diag(numpy.dot(mu_trans, mu_trans.T))
               .reshape(-1, 1)).round(12))
         sys.stdout.flush()
-
-    return w, (x, y), info
-
-
-def solve_spectrum1(h_ao, r_ao, co, cv, t2, nroot=1, nconv=None, nguess=None,
-                    maxdim=None, maxiter=100, rthresh=1e-5, print_conv=False):
-    a, b, ad = build_hessian_blocks(h_ao, r_ao, co, cv, t2)
-    s, sd = build_metric_blocks(t2)
-
-    e = bmat([[a, b], [b, a]], 2)
-    m = block_diag((s, negative(s)), (len(ad),))
-    ed = numpy.concatenate((+ad, +ad))
-    md = numpy.concatenate((+sd, -sd))
-
-    wr, z, info = eig_core(
-            a=m, k=-nroot, ad=md, b=e, bd=ed, nconv=nconv, nguess=nguess,
-            maxdim=maxdim, maxiter=maxiter, tol=rthresh, print_conv=print_conv,
-            printf=numpy.reciprocal, sym=True)
-
-    w = numpy.reciprocal(wr)
-    order = numpy.argsort(w)
-    w = w[order]
-    z = z[:, order]
-    x, y = numpy.split(z, 2, axis=0)
-
-    return w, (x, y), info
-
-
-def solve_spectrum2(h_ao, r_ao, co, cv, t2, nroot=1, nconv=None, nguess=None,
-                    maxdim=None, maxiter=100, rthresh=1e-5, print_conv=False):
-    a, b, ad = build_hessian_blocks(h_ao, r_ao, co, cv, t2)
-    s, _ = build_metric_blocks(t2)
-    si, _ = build_metric_function_blocks(t2, f=numpy.reciprocal)
-
-    h_plus = functoolz.compose(si, add(a, b))
-    h_minus = functoolz.compose(si, subtract(a, b))
-
-    h_bar = functoolz.compose(h_minus, h_plus)
-    hd = ad * ad
-
-    w2, c_plus, info = eig_core(
-            a=h_bar, k=nroot, ad=hd, nconv=nconv, nguess=nguess, maxdim=maxdim,
-            maxiter=maxiter, tol=rthresh, print_conv=print_conv,
-            printf=numpy.sqrt)
-
-    w = numpy.real(numpy.sqrt(w2))
-    c_plus = numpy.real(c_plus)
-
-    order = numpy.argsort(w)
-    w = w[order]
-    c_plus = c_plus[:, order]
-
-    x = (c_plus + h_plus(c_plus) / cast(w, 1, 2)) / 2.
-    y = (c_plus - h_plus(c_plus) / cast(w, 1, 2)) / 2.
-
-    return w, (x, y), info
-
-
-def solve_spectrum3(h_ao, r_ao, co, cv, t2, nroot=1, nconv=None, nguess=None,
-                    maxdim=None, maxiter=100, rthresh=1e-5, print_conv=False):
-    a, b, ad = build_hessian_blocks(h_ao, r_ao, co, cv, t2)
-    s, _ = build_metric_blocks(t2)
-    f = functoolz.compose(numpy.reciprocal, numpy.sqrt)
-    sir, _ = build_metric_function_blocks(t2, f=f)
-
-    h_plus = functoolz.compose(sir, add(a, b), sir)
-    h_minus = functoolz.compose(sir, subtract(a, b), sir)
-
-    h_bar = functoolz.compose(h_minus, h_plus)
-    hd = ad * ad
-
-    w2, c_plus, info = eig_core(
-            a=h_bar, k=nroot, ad=hd, nconv=nconv, nguess=nguess, maxdim=maxdim,
-            maxiter=maxiter, tol=rthresh, print_conv=print_conv,
-            printf=numpy.sqrt)
-
-    w = numpy.real(numpy.sqrt(w2))
-    c_plus = numpy.real(c_plus)
-
-    order = numpy.argsort(w)
-    w = w[order]
-    c_plus = c_plus[:, order]
-
-    x = sir(c_plus + h_plus(c_plus) / cast(w, 1, 2)) / 2.
-    y = sir(c_plus - h_plus(c_plus) / cast(w, 1, 2)) / 2.
 
     return w, (x, y), info
 

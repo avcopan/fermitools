@@ -88,6 +88,7 @@ def eig(a, k, ad, b=None, bd=None, nconv=None, blsize=None, nguess=None,
         vps = numpy.array_split(vp, block_count(k, blsize), axis=1)
 
         rmaxvs = ()
+        imaxvs = ()
 
         vs = ()
         ds = ()
@@ -101,6 +102,9 @@ def eig(a, k, ad, b=None, bd=None, nconv=None, blsize=None, nguess=None,
             rmaxvi = numpy.amax(numpy.abs(ri), axis=0)
             rmaxvs += (rmaxvi,)
 
+            imaxvi = numpy.amax(numpy.abs(numpy.imag(vi)), axis=0)
+            imaxvs += (imaxvi,)
+
             vi = dataset(f_('v', i), data=vi)
             di = dataset(f_('d', i), data=di)
 
@@ -108,6 +112,7 @@ def eig(a, k, ad, b=None, bd=None, nconv=None, blsize=None, nguess=None,
             ds += (di,)
 
         rmaxv = numpy.concatenate(rmaxvs)
+        imaxv = numpy.concatenate(imaxvs)
         rmax = max(rmaxv[:nconv])
         converged = rmax < tol
         rdim = len(vals)
@@ -140,7 +145,8 @@ def eig(a, k, ad, b=None, bd=None, nconv=None, blsize=None, nguess=None,
         else:
             consume(map(remove_dataset, vs))
 
-    v = empty_dataset(f_('v'), shape=(dim, k))
+    dtype = numpy.float64 if max(imaxv) < tol else numpy.complex128
+    v = empty_dataset(f_('v'), shape=(dim, k), dtype=dtype)
 
     fill_col_slices(v, vs)
 
@@ -161,9 +167,9 @@ def file_name(prefix, label, number=None):
             '{:s}.{:s}.{:d}'.format(prefix, label, number))
 
 
-def empty_dataset(fname, shape):
+def empty_dataset(fname, shape, dtype=numpy.float64):
     f = h5py.File(fname, mode='w')
-    return f.create_dataset('data', shape)
+    return f.create_dataset('data', shape, dtype=dtype)
 
 
 def dataset(fname, data):
@@ -177,6 +183,8 @@ def remove_dataset(dataset):
 
 def fill_col_slices(x, ys):
     stops = accumulate([0] + [numpy.shape(y)[1] for y in ys])
-    for y, bounds in zip(ys, windowed(stops, 2)):
-        x[:, slice(*bounds)] = y
+    for y, (start, stop) in zip(ys, windowed(stops, 2)):
+        if not numpy.iscomplexobj(x):
+            y = numpy.real(y)
+        x[:, start:stop] = y
     return x

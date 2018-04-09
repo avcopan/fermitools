@@ -6,6 +6,7 @@ import time
 
 from toolz import functoolz
 from .linmap import eye, zero, add, subtract, block_diag, bmat
+from .diskdave import eig as eig_core
 from .diskdave import eig as eig_disk
 from ..math import cast
 from ..math import einsum
@@ -15,7 +16,6 @@ from ..math.asym import antisymmetrizer_product as asm
 from ..math.spinorb import transform_onebody, transform_twobody
 
 from ..math.direct import solve
-from ..math.direct import eig as eig_core
 
 from ..oo.ocepa0 import fock_xy
 
@@ -58,8 +58,8 @@ def solve_spectrum(h_ao, r_ao, co, cv, t2, nroot=1, nconv=None, nguess=None,
                 print_conv=print_conv, printf=numpy.sqrt)
     else:
         w2, c_plus, info = eig_core(
-                a=h_bar, k=nroot, ad=hd, nconv=nconv, nguess=nguess,
-                maxdim=maxdim, maxiter=maxiter, tol=rthresh,
+                a=h_bar, k=nroot, ad=hd, nconv=nconv, blsize=blsize,
+                nguess=nguess, maxdim=maxdim, maxiter=maxiter, tol=rthresh,
                 print_conv=print_conv, printf=numpy.sqrt)
 
     w = numpy.real(numpy.sqrt(w2))
