@@ -1,11 +1,12 @@
 import numpy
-import itertools
 import warnings
 import scipy.linalg
 
 from functools import partial
 from more_itertools import consume
 
+from .coredave import block_count, update_block_rep, block_dict_matrix
+from .coredave import split_rdot
 from ..math.ix import cast
 from ..math.direct import standard_basis_vectors
 from ..math.direct import project_out, orth
@@ -287,30 +288,3 @@ def dataset(fname, data):
 
 def remove_dataset(dataset):
     os.remove(dataset.file.filename)
-
-
-def block_count(dim, blsize):
-    return -(-dim // blsize)
-
-
-def update_block_rep(bldict, xi, axi, xs, axs, sym=False):
-    i = len(xs)
-    bldict[i, i] = numpy.dot(numpy.transpose(xi), axi)
-
-    for j, (xj, axj) in enumerate(zip(xs, axs)):
-        bldict[i, j] = numpy.dot(numpy.transpose(xi), axj)
-        bldict[j, i] = (numpy.transpose(bldict[i, j]) if sym else
-                        numpy.dot(numpy.transpose(xj), axi))
-
-    return bldict
-
-
-def block_dict_matrix(bldict, blshape):
-    n, m = blshape
-    return numpy.bmat([[bldict[i, j] for j in range(m)] for i in range(n)])
-
-
-def split_rdot(xs, y):
-    splits = tuple(itertools.accumulate(numpy.shape(x)[-1] for x in xs))[:-1]
-    ys = numpy.split(y, splits, axis=0)
-    return sum(numpy.dot(x, y) for x, y in zip(xs, ys))

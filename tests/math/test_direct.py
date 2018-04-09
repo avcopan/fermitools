@@ -50,6 +50,18 @@ def test__eig():
     assert_almost_equal(w, W)
     assert_almost_equal(numpy.abs(v), numpy.abs(V))
 
+    NITER = info['niter'] + 1
+
+    from fermitools.lr.coredave import eig as eig_core
+
+    w, v, info = eig_core(
+            a=a_, k=k, ad=ad, nguess=2*k, maxdim=8*k, tol=1e-8,
+            print_conv=True, sym=False)
+
+    assert_almost_equal(w, W)
+    assert_almost_equal(numpy.abs(v), numpy.abs(V))
+    assert info['niter'] <= NITER
+
     from fermitools.lr.diskdave import eig as eig_disk
 
     w, v, info = eig_disk(
@@ -58,6 +70,7 @@ def test__eig():
 
     assert_almost_equal(w, W)
     assert_almost_equal(numpy.abs(v), numpy.abs(V))
+    assert info['niter'] <= NITER
 
 
 def test__eigh():
@@ -88,14 +101,26 @@ def test__eigh():
     assert_almost_equal(w, W)
     assert_almost_equal(numpy.abs(v), numpy.abs(V))
 
-    from fermitools.lr.diskdave import eigh as eigh_disk
+    NITER = info['niter'] + 2
 
-    w, v, info = eigh_disk(
-            a=a_, k=k, ad=ad, b=b_, bd=bd, nguess=2*abs(k), maxdim=8*abs(k),
-            maxiter=100, tol=1e-8, print_conv=True)
+    from fermitools.lr.coredave import eig as eig_core
+
+    w, v, info = eig_core(
+             a=a_, k=k, ad=ad, b=b_, bd=bd, nguess=2*abs(k), maxdim=8*abs(k),
+             maxiter=100, tol=1e-8, print_conv=True, sym=True)
 
     assert_almost_equal(w, W)
     assert_almost_equal(numpy.abs(v), numpy.abs(V))
+    assert info['niter'] <= NITER
+
+    # from fermitools.lr.diskdave import eigh as eigh_disk
+
+    # w, v, info = eigh_disk(
+    #         a=a_, k=k, ad=ad, b=b_, bd=bd, nguess=2*abs(k), maxdim=8*abs(k),
+    #         maxiter=100, tol=1e-8, print_conv=True)
+
+    # assert_almost_equal(w, W)
+    # assert_almost_equal(numpy.abs(v), numpy.abs(V))
 
 
 if __name__ == '__main__':
