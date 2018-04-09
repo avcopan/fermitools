@@ -114,14 +114,15 @@ def test__eigh():
     assert_almost_equal(numpy.abs(v), numpy.abs(V))
     assert info['niter'] <= NITER
 
-    # from fermitools.lr.diskdave import eigh as eigh_disk
+    from fermitools.lr.diskdave import eig as eig_disk
 
-    # w, v, info = eigh_disk(
-    #         a=a_, k=k, ad=ad, b=b_, bd=bd, nguess=2*abs(k), maxdim=8*abs(k),
-    #         maxiter=100, tol=1e-8, print_conv=True)
+    w, v, info = eig_disk(
+             a=a_, k=-k, ad=ad, b=b_, bd=bd, nguess=2*k, maxdim=8*k,
+             maxiter=100, tol=1e-8, print_conv=True, sym=True)
 
-    # assert_almost_equal(w, W)
-    # assert_almost_equal(numpy.abs(v), numpy.abs(V))
+    assert_almost_equal(w, W)
+    assert_almost_equal(numpy.abs(v), numpy.abs(V))
+    assert info['niter'] <= NITER
 
 
 if __name__ == '__main__':

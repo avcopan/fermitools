@@ -1,7 +1,7 @@
 import numpy
 import warnings
-import itertools
 import scipy.linalg
+from itertools import accumulate
 from ..math.ix import cast
 from ..math.direct import standard_basis_vectors
 from ..math.direct import project_out, orth
@@ -141,6 +141,13 @@ def block_dict_matrix(bldict, blshape):
 
 
 def split_rdot(xs, y):
-    splits = tuple(itertools.accumulate(numpy.shape(x)[-1] for x in xs))[:-1]
-    ys = numpy.split(y, splits, axis=0)
-    return sum(numpy.dot(x, y) for x, y in zip(xs, ys))
+    stops = tuple(accumulate(numpy.shape(x)[1] for x in xs))
+    ys = numpy.split(y, stops[:-1], axis=0)
+    z = 0.
+    for x, y in zip(xs, ys):
+        xtype = x.dtype if hasattr(x, 'dtype') else numpy.float64
+        ytype = y.dtype if hasattr(y, 'dtype') else numpy.float64
+        x = numpy.array(x, dtype=xtype)
+        y = numpy.array(y, dtype=ytype)
+        z += numpy.dot(x, y)
+    return z
