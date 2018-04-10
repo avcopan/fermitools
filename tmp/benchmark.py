@@ -26,7 +26,7 @@ oo_maxiter = 200
 oo_rthresh = 1e-10
 diis_start = 3
 diis_nvec = 20
-disk = False
+disk = True
 
 h_ao, r_ao, p_ao = drivers.integrals(
         basis=basis, labels=labels, coords=coords, angstrom=False,

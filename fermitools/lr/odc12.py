@@ -3,14 +3,14 @@ import scipy
 
 import sys
 import time
-# import h5py
-# import tempfile
+import tempfile
 
 from toolz import functoolz
 from .linmap import eye, add, subtract
 from .blocker import build_block_vec
 from .blocker import build_block_linmap
 from .blocker import build_block_diag_linmap
+from .diskdave import dataset, remove_dataset, file_name
 from .diskdave import eig as eig_disk
 from .coredave import eig as eig_core
 from ..math import cast
@@ -89,6 +89,8 @@ def solve_static_response(h_ao, p_ao, r_ao, co, cv, t2, maxdim=None,
 def solve_spectrum(h_ao, r_ao, co, cv, t2, nroot=1, nconv=None, nguess=None,
                    maxdim=None, maxiter=100, rthresh=1e-5, print_conv=False,
                    disk=False, blsize=None, p_ao=None):
+    prefix = tempfile.mkstemp()[1] if disk else None
+
     hoo = transform_onebody(h_ao, (co, co))
     hov = transform_onebody(h_ao, (co, cv))
     hvv = transform_onebody(h_ao, (cv, cv))
@@ -98,6 +100,8 @@ def solve_spectrum(h_ao, r_ao, co, cv, t2, nroot=1, nconv=None, nguess=None,
     govov = transform_twobody(r_ao, (co, cv, co, cv))
     govvv = transform_twobody(r_ao, (co, cv, cv, cv))
     gvvvv = transform_twobody(r_ao, (cv, cv, cv, cv))
+    gvvvv = (gvvvv if not disk else
+             dataset(file_name(prefix, 'gvvvv'), data=gvvvv))
 
     m1oo, m1vv = onebody_density(t2)
 
@@ -113,6 +117,8 @@ def solve_spectrum(h_ao, r_ao, co, cv, t2, nroot=1, nconv=None, nguess=None,
     fivv = fancy_property(ivv, m1vv)
     fgoooo, fgovov, fgvvvv = fancy_repulsion(
             foo, fvv, goooo, govov, gvvvv, m1oo, m1vv)
+    fgvvvv = (fgvvvv if not disk else
+              dataset(file_name(prefix, 'fgvvvv'), data=fgvvvv))
 
     ad1 = onebody_hessian_zeroth_order_diagonal(foo, fvv)
     ad2 = twobody_hessian_zeroth_order_diagonal(foo, fvv, t2)
@@ -188,6 +194,10 @@ def solve_spectrum(h_ao, r_ao, co, cv, t2, nroot=1, nconv=None, nguess=None,
         print(numpy.sqrt(numpy.diag(numpy.dot(mu_trans, mu_trans.T))
               .reshape(-1, 1)).round(12))
         sys.stdout.flush()
+
+    if disk:
+        remove_dataset(gvvvv)
+        remove_dataset(fgvvvv)
 
     return w, (x, y), info
 
