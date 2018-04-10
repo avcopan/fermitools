@@ -5,13 +5,15 @@ import sys
 import time
 
 from toolz import functoolz
-from .linmap import eye, zero, add, subtract, block_diag, bmat
+from .linmap import eye, add, subtract
+from .blocker import build_block_vec
+from .blocker import build_block_linmap
+from .blocker import build_block_diag_linmap
 from .diskdave import eig as eig_core
 from .diskdave import eig as eig_disk
+from ..math import diagonal_indices as dix
 from ..math import cast
 from ..math import einsum
-from ..math import raveler, unraveler
-from ..math.asym import megaraveler, megaunraveler
 from ..math.asym import antisymmetrizer_product as asm
 from ..math.spinorb import transform_onebody, transform_twobody
 
@@ -22,9 +24,40 @@ from ..oo.ocepa0 import fock_xy
 
 def solve_static_response(h_ao, p_ao, r_ao, co, cv, t2, maxdim=None,
                           maxiter=20, rthresh=1e-5, print_conv=False):
-    a, b, ad = build_hessian_blocks(h_ao, r_ao, co, cv, t2)
-    s, sd = build_metric_blocks(t2)
-    pg = build_property_gradient_blocks(p_ao, co, cv, t2)
+    hoo = transform_onebody(h_ao, (co, co))
+    hov = transform_onebody(h_ao, (co, cv))
+    hvv = transform_onebody(h_ao, (cv, cv))
+    poo = transform_onebody(p_ao, (co, co))
+    pov = transform_onebody(p_ao, (co, cv))
+    pvv = transform_onebody(p_ao, (cv, cv))
+    goooo = transform_twobody(r_ao, (co, co, co, co))
+    gooov = transform_twobody(r_ao, (co, co, co, cv))
+    goovv = transform_twobody(r_ao, (co, co, cv, cv))
+    govov = transform_twobody(r_ao, (co, cv, co, cv))
+    govvv = transform_twobody(r_ao, (co, cv, cv, cv))
+    gvvvv = transform_twobody(r_ao, (cv, cv, cv, cv))
+
+    foo = fock_xy(hxy=hoo, goxoy=goooo)
+    fov = fock_xy(hxy=hov, goxoy=gooov)
+    fvv = fock_xy(hxy=hvv, goxoy=govov)
+
+    ioo, ivv = mixed_interaction(fov, gooov, govvv)
+
+    pg1 = onebody_property_gradient(pov, t2)
+    pg2 = twobody_property_gradient(poo, pvv, t2)
+
+    ad1 = onebody_hessian_zeroth_order_diagonal(foo, fvv)
+    ad2 = twobody_hessian_zeroth_order_diagonal(foo, fvv)
+
+    a11, b11 = onebody_hessian(foo, fvv, goooo, goovv, govov, gvvvv, t2)
+    a12, b12, a21, b21 = mixed_hessian(ioo, ivv, gooov, govvv, t2)
+    a22 = twobody_hessian(foo, fvv, goooo, govov, gvvvv)
+
+    no, _, nv, _ = t2.shape
+    pg = build_block_vec(no, nv, pg1, pg2)
+    ad = build_block_vec(no, nv, ad1, ad2)
+    a = build_block_linmap(no, nv, l11=a11, l12=a12, l21=a21, l22=a22)
+    b = build_block_linmap(no, nv, l11=b11, l12=b12, l21=b21)
 
     print("Second-order (static) properties:")
     e = add(a, b)
@@ -39,10 +72,39 @@ def solve_static_response(h_ao, p_ao, r_ao, co, cv, t2, maxdim=None,
 def solve_spectrum(h_ao, r_ao, co, cv, t2, nroot=1, nconv=None, nguess=None,
                    maxdim=None, maxiter=100, rthresh=1e-5, print_conv=False,
                    disk=False, blsize=None, p_ao=None):
-    a, b, ad = build_hessian_blocks(h_ao, r_ao, co, cv, t2)
-    s, _ = build_metric_blocks(t2)
-    f = functoolz.compose(numpy.reciprocal, numpy.sqrt)
-    sir, _ = build_metric_function_blocks(t2, f=f)
+    hoo = transform_onebody(h_ao, (co, co))
+    hov = transform_onebody(h_ao, (co, cv))
+    hvv = transform_onebody(h_ao, (cv, cv))
+    goooo = transform_twobody(r_ao, (co, co, co, co))
+    gooov = transform_twobody(r_ao, (co, co, co, cv))
+    goovv = transform_twobody(r_ao, (co, co, cv, cv))
+    govov = transform_twobody(r_ao, (co, cv, co, cv))
+    govvv = transform_twobody(r_ao, (co, cv, cv, cv))
+    gvvvv = transform_twobody(r_ao, (cv, cv, cv, cv))
+
+    foo = fock_xy(hxy=hoo, goxoy=goooo)
+    fov = fock_xy(hxy=hov, goxoy=gooov)
+    fvv = fock_xy(hxy=hvv, goxoy=govov)
+
+    ioo, ivv = mixed_interaction(fov, gooov, govvv)
+
+    ad1 = onebody_hessian_zeroth_order_diagonal(foo, fvv)
+    ad2 = twobody_hessian_zeroth_order_diagonal(foo, fvv)
+
+    a11, b11 = onebody_hessian(foo, fvv, goooo, goovv, govov, gvvvv, t2)
+    a12, b12, a21, b21 = mixed_hessian(ioo, ivv, gooov, govvv, t2)
+    a22 = twobody_hessian(foo, fvv, goooo, govov, gvvvv)
+
+    s11 = onebody_metric(t2)
+    sir11 = onebody_metric_function(
+            t2, f=functoolz.compose(numpy.reciprocal, numpy.sqrt))
+
+    no, _, nv, _ = t2.shape
+    ad = build_block_vec(no, nv, ad1, ad2)
+    a = build_block_linmap(no, nv, l11=a11, l12=a12, l21=a21, l22=a22)
+    b = build_block_linmap(no, nv, l11=b11, l12=b12, l21=b21)
+    s = build_block_diag_linmap(no, nv, l11=s11, l22=eye)
+    sir = build_block_diag_linmap(no, nv, l11=sir11, l22=eye)
 
     h_plus = functoolz.compose(sir, add(a, b), sir)
     h_minus = functoolz.compose(sir, subtract(a, b), sir)
@@ -77,7 +139,15 @@ def solve_spectrum(h_ao, r_ao, co, cv, t2, nroot=1, nconv=None, nguess=None,
     y = sir(c_plus - h_plus(c_plus) / cast(w, 1, 2)) / 2.
 
     if p_ao is not None:
-        pg = build_property_gradient_blocks(p_ao, co, cv, t2)
+        poo = transform_onebody(p_ao, (co, co))
+        pov = transform_onebody(p_ao, (co, cv))
+        pvv = transform_onebody(p_ao, (cv, cv))
+
+        pg1 = onebody_property_gradient(pov, t2)
+        pg2 = twobody_property_gradient(poo, pvv, t2)
+
+        pg = build_block_vec(no, nv, pg1, pg2)
+
         norms = numpy.diag(numpy.dot(x.T, s(x)) - numpy.dot(y.T, s(y)))
         t = numpy.dot(x.T, pg) + numpy.dot(y.T, pg)
         mu_trans = t * t / norms[:, None]
@@ -90,102 +160,6 @@ def solve_spectrum(h_ao, r_ao, co, cv, t2, nroot=1, nconv=None, nguess=None,
         sys.stdout.flush()
 
     return w, (x, y), info
-
-
-# Helper functions for solver
-def count_excitations(no, nv):
-    n1 = no * nv
-    n2 = no * (no - 1) * nv * (nv - 1) // 4
-    return n1, n2
-
-
-def build_ravelers(no, nv):
-    r1 = raveler({0: (0, 1)})
-    u1 = unraveler({0: {0: no, 1: nv}})
-    r2 = megaraveler({0: ((0, 1), (2, 3))})
-    u2 = megaunraveler({0: {(0, 1): no, (2, 3): nv}})
-    return r1, r2, u1, u2
-
-
-def build_hessian_blocks(h_ao, r_ao, co, cv, t2):
-    hoo = transform_onebody(h_ao, (co, co))
-    hov = transform_onebody(h_ao, (co, cv))
-    hvv = transform_onebody(h_ao, (cv, cv))
-    goooo = transform_twobody(r_ao, (co, co, co, co))
-    gooov = transform_twobody(r_ao, (co, co, co, cv))
-    goovv = transform_twobody(r_ao, (co, co, cv, cv))
-    govov = transform_twobody(r_ao, (co, cv, co, cv))
-    govvv = transform_twobody(r_ao, (co, cv, cv, cv))
-    gvvvv = transform_twobody(r_ao, (cv, cv, cv, cv))
-    foo = fock_xy(hxy=hoo, goxoy=goooo)
-    fov = fock_xy(hxy=hov, goxoy=gooov)
-    fvv = fock_xy(hxy=hvv, goxoy=govov)
-
-    ad1u = onebody_hessian_zeroth_order_diagonal(foo, fvv)
-    ad2u = twobody_hessian_zeroth_order_diagonal(foo, fvv)
-    a11u, b11u = onebody_hessian(foo, fvv, goooo, goovv, govov, gvvvv, t2)
-    a12u, b12u, a21u, b21u = mixed_hessian(fov, gooov, govvv, t2)
-    a22u = twobody_hessian(foo, fvv, goooo, govov, gvvvv)
-
-    no, _, nv, _ = t2.shape
-    r1, r2, u1, u2 = build_ravelers(no, nv)
-    ad1 = r1(ad1u)
-    ad2 = r2(ad2u)
-    a11 = functoolz.compose(r1, a11u, u1)
-    b11 = functoolz.compose(r1, b11u, u1)
-    a12 = functoolz.compose(r1, a12u, u2)
-    b12 = functoolz.compose(r1, b12u, u2)
-    a21 = functoolz.compose(r2, a21u, u1)
-    b21 = functoolz.compose(r2, b21u, u1)
-    a22 = functoolz.compose(r2, a22u, u2)
-    b22 = zero
-
-    n1, n2 = count_excitations(no, nv)
-    a = bmat([[a11, a12], [a21, a22]], (n1,))
-    b = bmat([[b11, b12], [b21, b22]], (n1,))
-
-    ad = numpy.concatenate((ad1, ad2), axis=0)
-
-    return a, b, ad
-
-
-def build_metric_blocks(t2):
-    no, _, nv, _ = t2.shape
-    r1, _, u1, _ = build_ravelers(no, nv)
-    s11u = onebody_metric(t2)
-    s11 = functoolz.compose(r1, s11u, u1)
-
-    n1, n2 = count_excitations(no, nv)
-    s = block_diag((s11, eye), (n1,))
-    sd = numpy.ones(n1+n2)
-    return s, sd
-
-
-def build_metric_function_blocks(t2, f):
-    no, _, nv, _ = t2.shape
-    r1, _, u1, _ = build_ravelers(no, nv)
-    sf11u = onebody_metric_function(t2, f=f)
-    sf11 = functoolz.compose(r1, sf11u, u1)
-
-    n1, n2 = count_excitations(no, nv)
-    sf = block_diag((sf11, eye), (n1,))
-    sfd = numpy.ones(n1+n2)
-    return sf, sfd
-
-
-def build_property_gradient_blocks(p_ao, co, cv, t2):
-    poo = transform_onebody(p_ao, (co, co))
-    pov = transform_onebody(p_ao, (co, cv))
-    pvv = transform_onebody(p_ao, (cv, cv))
-    pg1u = onebody_property_gradient(pov, t2)
-    pg2u = twobody_property_gradient(poo, pvv, t2)
-
-    no, _, nv, _ = t2.shape
-    r1, r2, _, _ = build_ravelers(no, nv)
-    pg1 = r1(pg1u)
-    pg2 = r2(pg2u)
-    pg = numpy.concatenate((pg1, pg2), axis=0)
-    return pg
 
 
 # The LR-OCEPA0 equations:
@@ -274,8 +248,7 @@ def onebody_hessian(foo, fvv, goooo, goovv, govov, gvvvv, t2):
     return _a11, _b11
 
 
-def mixed_hessian(fov, gooov, govvv, t2):
-    ioo, ivv = _mixed_interaction(fov, gooov, govvv)
+def mixed_hessian(ioo, ivv, gooov, govvv, t2):
 
     def _a12(r2):
         a12 = (
@@ -371,14 +344,14 @@ def onebody_density(t2):
 
 
 # Private
-def _mixed_interaction(fov, gooov, govvv):
+def mixed_interaction(fov, gooov, govvv):
     no, nv = fov.shape
-    io = numpy.eye(no)
-    iv = numpy.eye(nv)
     ioo = numpy.ascontiguousarray(
-            + einsum('ik,la->iakl', io, fov)
             - einsum('ilka->iakl', gooov))
     ivv = numpy.ascontiguousarray(
-            - einsum('ac,id->iadc', iv, fov)
             + einsum('icad->iadc', govvv))
+    # ioo_iakl * delta_ik += fov_la
+    # ivv_iadc * delta_ac -= fov_id
+    ioo[dix(no, (0, 2))] += cast(fov, (2, 1))
+    ivv[dix(nv, (1, 3))] -= cast(fov, (1, 2))
     return ioo, ivv

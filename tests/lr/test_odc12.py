@@ -22,8 +22,15 @@ M1VV = numpy.load(os.path.join(data_path, 'odc12/m1vv.npy'))
 FOO = numpy.load(os.path.join(data_path, 'odc12/foo.npy'))
 FOV = numpy.load(os.path.join(data_path, 'odc12/fov.npy'))
 FVV = numpy.load(os.path.join(data_path, 'odc12/fvv.npy'))
+FFOO = numpy.load(os.path.join(data_path, 'odc12/ffoo.npy'))
+FFVV = numpy.load(os.path.join(data_path, 'odc12/ffvv.npy'))
+FIOO = numpy.load(os.path.join(data_path, 'odc12/fioo.npy'))
+FIVV = numpy.load(os.path.join(data_path, 'odc12/fivv.npy'))
 FPOO = numpy.load(os.path.join(data_path, 'odc12/fpoo.npy'))
 FPVV = numpy.load(os.path.join(data_path, 'odc12/fpvv.npy'))
+FGOOOO = numpy.load(os.path.join(data_path, 'odc12/fgoooo.npy'))
+FGOVOV = numpy.load(os.path.join(data_path, 'odc12/fgovov.npy'))
+FGVVVV = numpy.load(os.path.join(data_path, 'odc12/fgvvvv.npy'))
 T2 = numpy.load(os.path.join(data_path, 'odc12/t2.npy'))
 PG1 = -numpy.load(os.path.join(data_path, 'odc12/pg1.npy'))
 PG2 = numpy.load(os.path.join(data_path, 'odc12/pg2.npy'))
@@ -78,7 +85,7 @@ def test__onebody_hessian():
 
 
 def test__mixed_hessian():
-    a12, b12, a21, b21 = odc12.mixed_hessian(FOV, GOOOV, GOVVV, T2)
+    a12, b12, a21, b21 = odc12.mixed_hessian(FIOO, FIVV, GOOOV, GOVVV, T2)
     assert_almost_equal(a12(I2U), A12, decimal=10)
     assert_almost_equal(b12(I2U), B12, decimal=10)
     assert_almost_equal(a21(I1U), A21, decimal=10)
@@ -87,7 +94,7 @@ def test__mixed_hessian():
 
 def test__twobody_hessian():
     a22, b22 = odc12.twobody_hessian(
-            FOO, FVV, GOOOO, GOVOV, GVVVV, T2)
+            FFOO, FFVV, GOOOO, GOVOV, GVVVV, FGOOOO, FGOVOV, FGVVVV, T2)
     assert_almost_equal(a22(I2U), A22, decimal=10)
     assert_almost_equal(b22(I2U), B22, decimal=10)
 

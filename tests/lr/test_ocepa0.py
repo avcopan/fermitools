@@ -18,6 +18,8 @@ GVVVV = numpy.load(os.path.join(data_path, 'ocepa0/gvvvv.npy'))
 FOO = numpy.load(os.path.join(data_path, 'ocepa0/foo.npy'))
 FOV = numpy.load(os.path.join(data_path, 'ocepa0/fov.npy'))
 FVV = numpy.load(os.path.join(data_path, 'ocepa0/fvv.npy'))
+IOO = numpy.load(os.path.join(data_path, 'ocepa0/ioo.npy'))
+IVV = numpy.load(os.path.join(data_path, 'ocepa0/ivv.npy'))
 T2 = numpy.load(os.path.join(data_path, 'ocepa0/t2.npy'))
 PG1 = -numpy.load(os.path.join(data_path, 'ocepa0/pg1.npy'))
 PG2 = numpy.load(os.path.join(data_path, 'ocepa0/pg2.npy'))
@@ -51,7 +53,7 @@ def test__onebody_hessian():
 
 
 def test__mixed_hessian():
-    a12, b12, a21, b21 = ocepa0.mixed_hessian(FOV, GOOOV, GOVVV, T2)
+    a12, b12, a21, b21 = ocepa0.mixed_hessian(IOO, IVV, GOOOV, GOVVV, T2)
     assert_almost_equal(a12(I2U), A12, decimal=10)
     assert_almost_equal(b12(I2U), B12, decimal=10)
     assert_almost_equal(a21(I1U), A21, decimal=10)
