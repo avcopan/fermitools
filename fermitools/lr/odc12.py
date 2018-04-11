@@ -6,9 +6,8 @@ import time
 import tempfile
 
 from toolz import functoolz
-# from .linmap import diagonal
 from .linmap import eye, add, subtract
-# from .blocker import count_excitations
+from .blocker import count_excitations
 from .blocker import build_block_vec
 from .blocker import build_block_linmap
 from .blocker import build_block_diag_linmap
@@ -19,6 +18,7 @@ from ..math import cast
 from ..math import einsum
 from ..math import transform
 from ..math import diagonal_indices as dix
+from ..math.asym import symmetrizer_product as sm
 from ..math.asym import antisymmetrizer_product as asm
 from ..math.spinorb import transform_onebody, transform_twobody
 
@@ -71,8 +71,8 @@ def solve_static_response(h_ao, p_ao, r_ao, co, cv, t2, maxdim=None,
     pg1 = onebody_property_gradient(pov, m1oo, m1vv)
     pg2 = twobody_property_gradient(fpoo, fpvv, t2)
 
-    ad1 = onebody_hessian_zeroth_order_diagonal(foo, fvv)
-    ad2 = twobody_hessian_zeroth_order_diagonal(ffoo, ffvv)
+    ad1z = onebody_hessian_zeroth_order_diagonal(foo, fvv)
+    ad2z = twobody_hessian_zeroth_order_diagonal(ffoo, ffvv)
 
     a11, b11 = onebody_hessian(foo, fvv, cfoo, cfvv, goooo, goovv, govov,
                                gvvvv, t2, m1oo, m1vv)
@@ -82,14 +82,14 @@ def solve_static_response(h_ao, p_ao, r_ao, co, cv, t2, maxdim=None,
 
     no, _, nv, _ = t2.shape
     pg = build_block_vec(no, nv, pg1, pg2)
-    ad = build_block_vec(no, nv, ad1, ad2)
+    adz = build_block_vec(no, nv, ad1z, ad2z)
     a = build_block_linmap(no, nv, l11=a11, l12=a12, l21=a21, l22=a22)
     b = build_block_linmap(no, nv, l11=b11, l12=b12, l21=b21, l22=b22)
 
     print("Second-order (static) properties:")
     e = add(a, b)
     v = -2*pg
-    r, info = solve(a=e, b=v, ad=ad, maxdim=maxdim, tol=rthresh,
+    r, info = solve(a=e, b=v, ad=adz, maxdim=maxdim, tol=rthresh,
                     print_conv=True)
     alpha = numpy.dot(r.T, pg)
     print(alpha.round(12))
@@ -98,7 +98,7 @@ def solve_static_response(h_ao, p_ao, r_ao, co, cv, t2, maxdim=None,
 
 def solve_spectrum(h_ao, r_ao, co, cv, t2, nroot=1, nconv=None, nguess=None,
                    maxdim=None, maxiter=100, rthresh=1e-5, print_conv=False,
-                   disk=False, blsize=None, p_ao=None):
+                   disk=False, blsize=None, p_ao=None, exact_diagonal=False):
     prefix = tempfile.mkstemp()[1] if disk else None
 
     hoo = transform_onebody(h_ao, (co, co))
@@ -137,8 +137,13 @@ def solve_spectrum(h_ao, r_ao, co, cv, t2, nroot=1, nconv=None, nguess=None,
     fgvvvv = (fgvvvv if not disk else
               dataset(file_name(prefix, 'fgvvvv'), data=fgvvvv))
 
-    ad1 = onebody_hessian_zeroth_order_diagonal(foo, fvv)
-    ad2 = twobody_hessian_zeroth_order_diagonal(ffoo, ffvv)
+    ad1z = onebody_hessian_zeroth_order_diagonal(foo, fvv)
+    ad2z = twobody_hessian_zeroth_order_diagonal(ffoo, ffvv)
+
+    ad1, bd1 = onebody_hessian_diagonal(foo, fvv, cfoo, cfvv, goooo, goovv,
+                                        govov, gvvvv, t2, m1oo, m1vv)
+    ad2, bd2 = twobody_hessian_diagonal(ffoo, ffvv, goooo, govov, gvvvv,
+                                        fgoooo, fgovov, fgvvvv, t2)
 
     a11, b11 = onebody_hessian(foo, fvv, cfoo, cfvv, goooo, goovv, govov,
                                gvvvv, t2, m1oo, m1vv)
@@ -146,12 +151,18 @@ def solve_spectrum(h_ao, r_ao, co, cv, t2, nroot=1, nconv=None, nguess=None,
     a22, b22 = twobody_hessian(ffoo, ffvv, goooo, govov, gvvvv, fgoooo,
                                fgovov, fgvvvv, t2)
 
-    s11 = onebody_metric(t2)
+    sd1 = onebody_metric_diagonal(m1oo, m1vv)
+    sd2 = numpy.ones_like(ad2)
+
+    s11 = onebody_metric(m1oo, m1vv)
     sir11 = onebody_metric_function(
-            t2, f=functoolz.compose(numpy.reciprocal, numpy.sqrt))
+            m1oo, m1vv, f=functoolz.compose(numpy.reciprocal, numpy.sqrt))
 
     no, _, nv, _ = t2.shape
+    adz = build_block_vec(no, nv, ad1z, ad2z)
     ad = build_block_vec(no, nv, ad1, ad2)
+    bd = build_block_vec(no, nv, bd1, bd2)
+    sd = build_block_vec(no, nv, sd1, sd2)
     a = build_block_linmap(no, nv, l11=a11, l12=a12, l21=a21, l22=a22)
     b = build_block_linmap(no, nv, l11=b11, l12=b12, l21=b21, l22=b22)
     s = build_block_diag_linmap(no, nv, l11=s11, l22=eye)
@@ -161,7 +172,8 @@ def solve_spectrum(h_ao, r_ao, co, cv, t2, nroot=1, nconv=None, nguess=None,
     h_minus = functoolz.compose(sir, subtract(a, b), sir)
 
     h_bar = functoolz.compose(h_minus, h_plus)
-    hd = ad * ad
+    n1, n2 = count_excitations(no, nv)
+    hd = adz * adz if not exact_diagonal else (ad - bd) * (ad + bd) / sd**2
 
     tm = time.time()
     if disk:
@@ -216,6 +228,283 @@ def solve_spectrum(h_ao, r_ao, co, cv, t2, nroot=1, nconv=None, nguess=None,
     if disk:
         remove_dataset(gvvvv)
         remove_dataset(fgvvvv)
+
+    return w, (x, y), info
+
+
+def solve_spectrum1(h_ao, r_ao, co, cv, t2, nroot=1, nconv=None, nguess=None,
+                    maxdim=None, maxiter=100, rthresh=1e-5, print_conv=False,
+                    blsize=None, exact_diagonal=False):
+    from .linmap import negative, bmat, block_diag
+
+    hoo = transform_onebody(h_ao, (co, co))
+    hov = transform_onebody(h_ao, (co, cv))
+    hvv = transform_onebody(h_ao, (cv, cv))
+    goooo = transform_twobody(r_ao, (co, co, co, co))
+    gooov = transform_twobody(r_ao, (co, co, co, cv))
+    goovv = transform_twobody(r_ao, (co, co, cv, cv))
+    govov = transform_twobody(r_ao, (co, cv, co, cv))
+    govvv = transform_twobody(r_ao, (co, cv, cv, cv))
+    gvvvv = transform_twobody(r_ao, (cv, cv, cv, cv))
+
+    m1oo, m1vv = onebody_density(t2)
+
+    foo = fock_xy(hxy=hoo, goxoy=goooo, gxvyv=govov, m1oo=m1oo, m1vv=m1vv)
+    fov = fock_xy(hxy=hov, goxoy=gooov, gxvyv=govvv, m1oo=m1oo, m1vv=m1vv)
+    fvv = fock_xy(hxy=hvv, goxoy=govov, gxvyv=gvvvv, m1oo=m1oo, m1vv=m1vv)
+
+    cfoo = orbital_gradient_intermediate_xo(fox=foo, gooox=goooo, goxvv=goovv,
+                                            govxv=govov, t2=t2, m1oo=m1oo)
+    cfvv = orbital_gradient_intermediate_xv(fxv=fvv, gooxv=goovv, goxov=govov,
+                                            gxvvv=gvvvv, t2=t2, m1vv=m1vv)
+
+    ioo, ivv = mixed_interaction(fov, gooov, govvv, m1oo, m1vv)
+
+    ffoo = fancy_property(foo, m1oo)
+    ffvv = fancy_property(fvv, m1vv)
+
+    fioo = fancy_property(ioo, m1oo)
+    fivv = fancy_property(ivv, m1vv)
+
+    fgoooo, fgovov, fgvvvv = fancy_repulsion(
+            foo, fvv, goooo, govov, gvvvv, m1oo, m1vv)
+
+    ad1z = onebody_hessian_zeroth_order_diagonal(foo, fvv)
+    ad2z = twobody_hessian_zeroth_order_diagonal(ffoo, ffvv)
+
+    ad1, bd1 = onebody_hessian_diagonal(foo, fvv, cfoo, cfvv, goooo, goovv,
+                                        govov, gvvvv, t2, m1oo, m1vv)
+    ad2, bd2 = twobody_hessian_diagonal(ffoo, ffvv, goooo, govov, gvvvv,
+                                        fgoooo, fgovov, fgvvvv, t2)
+
+    a11, b11 = onebody_hessian(foo, fvv, cfoo, cfvv, goooo, goovv, govov,
+                               gvvvv, t2, m1oo, m1vv)
+    a12, b12, a21, b21 = mixed_hessian(fioo, fivv, gooov, govvv, t2)
+    a22, b22 = twobody_hessian(ffoo, ffvv, goooo, govov, gvvvv, fgoooo,
+                               fgovov, fgvvvv, t2)
+
+    sd1 = onebody_metric_diagonal(m1oo, m1vv)
+    sd2 = numpy.ones_like(ad2)
+
+    s11 = onebody_metric(m1oo, m1vv)
+
+    no, _, nv, _ = t2.shape
+    adz = build_block_vec(no, nv, ad1z, ad2z)
+    ad = build_block_vec(no, nv, ad1, ad2)
+    sd = build_block_vec(no, nv, sd1, sd2)
+    a = build_block_linmap(no, nv, l11=a11, l12=a12, l21=a21, l22=a22)
+    b = build_block_linmap(no, nv, l11=b11, l12=b12, l21=b21, l22=b22)
+    s = build_block_diag_linmap(no, nv, l11=s11, l22=eye)
+
+    e = bmat([[a, b], [b, a]], 2)
+    m = block_diag((s, negative(s)), (len(ad),))
+    ed = (numpy.concatenate((+ad, +ad)) if exact_diagonal else
+          numpy.concatenate((+adz, +adz)))
+    md = (numpy.concatenate((+sd, -sd)) if exact_diagonal else
+          numpy.ones_like(ed))
+
+    tm = time.time()
+    wr, z, info = eig_core(
+            a=m, k=-nroot, ad=md, b=e, bd=ed, nconv=nconv, blsize=blsize,
+            nguess=nguess, maxdim=maxdim, maxiter=maxiter, tol=rthresh,
+            print_conv=print_conv, printf=numpy.sqrt, sym=True)
+    w = numpy.reciprocal(wr)
+    x, y = numpy.split(z, 2)
+
+    print("\nODC-12 excitation energies (in a.u.):")
+    print(w.reshape(-1, 1))
+    print("\nODC-12 excitation energies (in eV):")
+    print(w.reshape(-1, 1)*27.2114)
+    print('\nODC-12 linear response total time: {:8.1f}s'
+          .format(time.time() - tm))
+    sys.stdout.flush()
+
+    return w, (x, y), info
+
+
+def solve_spectrum2(h_ao, r_ao, co, cv, t2, nroot=1, nconv=None, nguess=None,
+                    maxdim=None, maxiter=100, rthresh=1e-5, print_conv=False,
+                    blsize=None, exact_diagonal=False):
+    hoo = transform_onebody(h_ao, (co, co))
+    hov = transform_onebody(h_ao, (co, cv))
+    hvv = transform_onebody(h_ao, (cv, cv))
+    goooo = transform_twobody(r_ao, (co, co, co, co))
+    gooov = transform_twobody(r_ao, (co, co, co, cv))
+    goovv = transform_twobody(r_ao, (co, co, cv, cv))
+    govov = transform_twobody(r_ao, (co, cv, co, cv))
+    govvv = transform_twobody(r_ao, (co, cv, cv, cv))
+    gvvvv = transform_twobody(r_ao, (cv, cv, cv, cv))
+
+    m1oo, m1vv = onebody_density(t2)
+
+    foo = fock_xy(hxy=hoo, goxoy=goooo, gxvyv=govov, m1oo=m1oo, m1vv=m1vv)
+    fov = fock_xy(hxy=hov, goxoy=gooov, gxvyv=govvv, m1oo=m1oo, m1vv=m1vv)
+    fvv = fock_xy(hxy=hvv, goxoy=govov, gxvyv=gvvvv, m1oo=m1oo, m1vv=m1vv)
+
+    cfoo = orbital_gradient_intermediate_xo(fox=foo, gooox=goooo, goxvv=goovv,
+                                            govxv=govov, t2=t2, m1oo=m1oo)
+    cfvv = orbital_gradient_intermediate_xv(fxv=fvv, gooxv=goovv, goxov=govov,
+                                            gxvvv=gvvvv, t2=t2, m1vv=m1vv)
+
+    ioo, ivv = mixed_interaction(fov, gooov, govvv, m1oo, m1vv)
+
+    ffoo = fancy_property(foo, m1oo)
+    ffvv = fancy_property(fvv, m1vv)
+
+    fioo = fancy_property(ioo, m1oo)
+    fivv = fancy_property(ivv, m1vv)
+
+    fgoooo, fgovov, fgvvvv = fancy_repulsion(
+            foo, fvv, goooo, govov, gvvvv, m1oo, m1vv)
+
+    ad1z = onebody_hessian_zeroth_order_diagonal(foo, fvv)
+    ad2z = twobody_hessian_zeroth_order_diagonal(ffoo, ffvv)
+
+    ad1, bd1 = onebody_hessian_diagonal(foo, fvv, cfoo, cfvv, goooo, goovv,
+                                        govov, gvvvv, t2, m1oo, m1vv)
+    ad2, bd2 = twobody_hessian_diagonal(ffoo, ffvv, goooo, govov, gvvvv,
+                                        fgoooo, fgovov, fgvvvv, t2)
+
+    a11, b11 = onebody_hessian(foo, fvv, cfoo, cfvv, goooo, goovv, govov,
+                               gvvvv, t2, m1oo, m1vv)
+    a12, b12, a21, b21 = mixed_hessian(fioo, fivv, gooov, govvv, t2)
+    a22, b22 = twobody_hessian(ffoo, ffvv, goooo, govov, gvvvv, fgoooo,
+                               fgovov, fgvvvv, t2)
+
+    sd1 = onebody_metric_diagonal(m1oo, m1vv)
+    sd2 = numpy.ones_like(ad2)
+
+    si11 = onebody_metric_function(m1oo, m1vv, f=numpy.reciprocal)
+
+    no, _, nv, _ = t2.shape
+    adz = build_block_vec(no, nv, ad1z, ad2z)
+    ad = build_block_vec(no, nv, ad1, ad2)
+    bd = build_block_vec(no, nv, bd1, bd2)
+    sd = build_block_vec(no, nv, sd1, sd2)
+    a = build_block_linmap(no, nv, l11=a11, l12=a12, l21=a21, l22=a22)
+    b = build_block_linmap(no, nv, l11=b11, l12=b12, l21=b21, l22=b22)
+    si = build_block_diag_linmap(no, nv, l11=si11, l22=eye)
+
+    h_plus = functoolz.compose(si, add(a, b))
+    h_minus = functoolz.compose(si, subtract(a, b))
+
+    h_bar = functoolz.compose(h_minus, h_plus)
+    n1, n2 = count_excitations(no, nv)
+    hd = adz * adz if not exact_diagonal else (ad - bd) * (ad + bd) / sd**2
+
+    tm = time.time()
+    w2, c_plus, info = eig_core(
+            a=h_bar, k=nroot, ad=hd, nconv=nconv, blsize=blsize,
+            nguess=nguess, maxdim=maxdim, maxiter=maxiter, tol=rthresh,
+            print_conv=print_conv, printf=numpy.sqrt)
+
+    w = numpy.real(numpy.sqrt(w2))
+    c_plus = numpy.real(c_plus)
+
+    print("\nODC-12 excitation energies (in a.u.):")
+    print(w.reshape(-1, 1))
+    print("\nODC-12 excitation energies (in eV):")
+    print(w.reshape(-1, 1)*27.2114)
+    print('\nODC-12 linear response total time: {:8.1f}s'
+          .format(time.time() - tm))
+    sys.stdout.flush()
+
+    x = (c_plus + h_plus(c_plus) / cast(w, 1, 2)) / 2.
+    y = (c_plus - h_plus(c_plus) / cast(w, 1, 2)) / 2.
+
+    return w, (x, y), info
+
+
+def solve_spectrum3(h_ao, r_ao, co, cv, t2, nroot=1, nconv=None, nguess=None,
+                    maxdim=None, maxiter=100, rthresh=1e-5, print_conv=False,
+                    blsize=None, exact_diagonal=False):
+    hoo = transform_onebody(h_ao, (co, co))
+    hov = transform_onebody(h_ao, (co, cv))
+    hvv = transform_onebody(h_ao, (cv, cv))
+    goooo = transform_twobody(r_ao, (co, co, co, co))
+    gooov = transform_twobody(r_ao, (co, co, co, cv))
+    goovv = transform_twobody(r_ao, (co, co, cv, cv))
+    govov = transform_twobody(r_ao, (co, cv, co, cv))
+    govvv = transform_twobody(r_ao, (co, cv, cv, cv))
+    gvvvv = transform_twobody(r_ao, (cv, cv, cv, cv))
+
+    m1oo, m1vv = onebody_density(t2)
+
+    foo = fock_xy(hxy=hoo, goxoy=goooo, gxvyv=govov, m1oo=m1oo, m1vv=m1vv)
+    fov = fock_xy(hxy=hov, goxoy=gooov, gxvyv=govvv, m1oo=m1oo, m1vv=m1vv)
+    fvv = fock_xy(hxy=hvv, goxoy=govov, gxvyv=gvvvv, m1oo=m1oo, m1vv=m1vv)
+
+    cfoo = orbital_gradient_intermediate_xo(fox=foo, gooox=goooo, goxvv=goovv,
+                                            govxv=govov, t2=t2, m1oo=m1oo)
+    cfvv = orbital_gradient_intermediate_xv(fxv=fvv, gooxv=goovv, goxov=govov,
+                                            gxvvv=gvvvv, t2=t2, m1vv=m1vv)
+
+    ioo, ivv = mixed_interaction(fov, gooov, govvv, m1oo, m1vv)
+
+    ffoo = fancy_property(foo, m1oo)
+    ffvv = fancy_property(fvv, m1vv)
+
+    fioo = fancy_property(ioo, m1oo)
+    fivv = fancy_property(ivv, m1vv)
+
+    fgoooo, fgovov, fgvvvv = fancy_repulsion(
+            foo, fvv, goooo, govov, gvvvv, m1oo, m1vv)
+
+    ad1z = onebody_hessian_zeroth_order_diagonal(foo, fvv)
+    ad2z = twobody_hessian_zeroth_order_diagonal(ffoo, ffvv)
+
+    ad1, bd1 = onebody_hessian_diagonal(foo, fvv, cfoo, cfvv, goooo, goovv,
+                                        govov, gvvvv, t2, m1oo, m1vv)
+    ad2, bd2 = twobody_hessian_diagonal(ffoo, ffvv, goooo, govov, gvvvv,
+                                        fgoooo, fgovov, fgvvvv, t2)
+
+    a11, b11 = onebody_hessian(foo, fvv, cfoo, cfvv, goooo, goovv, govov,
+                               gvvvv, t2, m1oo, m1vv)
+    a12, b12, a21, b21 = mixed_hessian(fioo, fivv, gooov, govvv, t2)
+    a22, b22 = twobody_hessian(ffoo, ffvv, goooo, govov, gvvvv, fgoooo,
+                               fgovov, fgvvvv, t2)
+
+    sd1 = onebody_metric_diagonal(m1oo, m1vv)
+    sd2 = numpy.ones_like(ad2)
+
+    sir11 = onebody_metric_function(
+            m1oo, m1vv, f=functoolz.compose(numpy.reciprocal, numpy.sqrt))
+
+    no, _, nv, _ = t2.shape
+    adz = build_block_vec(no, nv, ad1z, ad2z)
+    ad = build_block_vec(no, nv, ad1, ad2)
+    bd = build_block_vec(no, nv, bd1, bd2)
+    sd = build_block_vec(no, nv, sd1, sd2)
+    a = build_block_linmap(no, nv, l11=a11, l12=a12, l21=a21, l22=a22)
+    b = build_block_linmap(no, nv, l11=b11, l12=b12, l21=b21, l22=b22)
+    sir = build_block_diag_linmap(no, nv, l11=sir11, l22=eye)
+
+    h_plus = functoolz.compose(sir, add(a, b), sir)
+    h_minus = functoolz.compose(sir, subtract(a, b), sir)
+
+    h_bar = functoolz.compose(h_minus, h_plus)
+    n1, n2 = count_excitations(no, nv)
+    hd = adz * adz if not exact_diagonal else (ad - bd) * (ad + bd) / sd**2
+
+    tm = time.time()
+    w2, c_plus, info = eig_core(
+            a=h_bar, k=nroot, ad=hd, nconv=nconv, blsize=blsize,
+            nguess=nguess, maxdim=maxdim, maxiter=maxiter, tol=rthresh,
+            print_conv=print_conv, printf=numpy.sqrt)
+
+    w = numpy.real(numpy.sqrt(w2))
+    c_plus = numpy.real(c_plus)
+
+    print("\nODC-12 excitation energies (in a.u.):")
+    print(w.reshape(-1, 1))
+    print("\nODC-12 excitation energies (in eV):")
+    print(w.reshape(-1, 1)*27.2114)
+    print('\nODC-12 linear response total time: {:8.1f}s'
+          .format(time.time() - tm))
+    sys.stdout.flush()
+
+    x = sir(c_plus + h_plus(c_plus) / cast(w, 1, 2)) / 2.
+    y = sir(c_plus - h_plus(c_plus) / cast(w, 1, 2)) / 2.
 
     return w, (x, y), info
 
@@ -288,6 +577,48 @@ def onebody_hessian_diagonal(foo, fvv, cfoo, cfvv, goooo, goovv, govov, gvvvv,
         + 1./4 * numpy.einsum('iief,klef,klaa->ia', goovv, t2, t2))
 
     return ad1, bd1
+
+
+def twobody_hessian_diagonal(ffoo, ffvv, goooo, govov, gvvvv, fgoooo, fgovov,
+                             fgvvvv, t2):
+    feo = numpy.diag(ffoo)
+    fev = numpy.diag(ffvv)
+
+    goo = numpy.diagonal(
+            numpy.diagonal(goooo, axis1=0, axis2=2), axis1=0, axis2=1)
+    gvv = numpy.diagonal(
+            numpy.diagonal(gvvvv, axis1=0, axis2=2), axis1=0, axis2=1)
+    gov = numpy.diagonal(
+            numpy.diagonal(govov, axis1=0, axis2=2), axis1=0, axis2=1)
+
+    ad2 = (- cast(feo, 0, 4) - cast(feo, 1, 4)
+           - cast(fev, 2, 4) - cast(fev, 3, 4)
+           + cast(goo, (0, 1), 4) + cast(gvv, (2, 3), 4))
+
+    ad2 += sm('0/1|2/3')(
+        - cast(gov, (0, 2), 4)
+        + 1./2 * numpy.einsum('afea,ijeb,ijfb->ijab', fgvvvv, t2, t2)
+        - 1./2 * numpy.einsum('afeb,ijeb,ijfa->ijab', fgvvvv, t2, t2)
+        + numpy.einsum('iame,ijeb,mjab->ijab', fgovov, t2, t2)
+        + numpy.einsum('meia,mjab,ijeb->ijab', fgovov, t2, t2)
+        + 1./2 * numpy.einsum('miin,mjab,njab->ijab', fgoooo, t2, t2)
+        - 1./2 * numpy.einsum('mijn,miab,njab->ijab', fgoooo, t2, t2))
+
+    bd2 = sm('0/1|2/3')(
+        + 1/2. * numpy.einsum('aaef,ijeb,ijfb->ijab', fgvvvv, t2, t2)
+        - 1/2. * numpy.einsum('baef,ijea,ijfb->ijab', fgvvvv, t2, t2)
+        + numpy.einsum('naie,ijeb,njab->ijab', fgovov, t2, t2)
+        + numpy.einsum('maif,mjab,ijfb->ijab', fgovov, t2, t2)
+        + 1/2. * numpy.einsum('mnii,mjab,njab->ijab', fgoooo, t2, t2)
+        - 1/2. * numpy.einsum('mnij,mjab,niab->ijab', fgoooo, t2, t2))
+
+    return ad2, bd2
+
+
+def onebody_metric_diagonal(m1oo, m1vv):
+    m1o = numpy.diag(m1oo)
+    m1v = numpy.diag(m1vv)
+    return cast(m1o, 0, 2) - cast(m1v, 1, 2)
 
 
 def onebody_hessian(foo, fvv, fcoo, fcvv, goooo, goovv, govov, gvvvv, t2,
@@ -416,8 +747,7 @@ def twobody_hessian(ffoo, ffvv, goooo, govov, gvvvv, fgoooo, fgovov,
     return _a22, _b22
 
 
-def onebody_metric(t2):
-    m1oo, m1vv = onebody_density(t2)
+def onebody_metric(m1oo, m1vv):
 
     def _s11(r1):
         return (
@@ -427,8 +757,7 @@ def onebody_metric(t2):
     return _s11
 
 
-def onebody_metric_function(t2, f):
-    m1oo, m1vv = onebody_density(t2)
+def onebody_metric_function(m1oo, m1vv, f):
     mo, uo = scipy.linalg.eigh(m1oo)
     mv, uv = scipy.linalg.eigh(m1vv)
 

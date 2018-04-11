@@ -12,6 +12,11 @@ def antisymmetrizer_product(bs):
     return ftz.compose(*map(antisymmetrizer, args))
 
 
+def symmetrizer_product(bs):
+    args = _process_bartlett_string(bs)
+    return ftz.compose(*map(symmetrizer, args))
+
+
 def antisymmetrizer(axes):
     """antisymmetrizes an array over permutations or riffle-shuffles of axes
 
@@ -23,6 +28,19 @@ def antisymmetrizer(axes):
     :rtype: numpy.ndarray
     """
     return ft.partial(antisymmetrize, axes=axes)
+
+
+def symmetrizer(axes):
+    """symmetrizes an array over permutations or riffle-shuffles of axes
+
+    :param a: array
+    :type a: numpy.ndarray
+    :param axes: axes
+    :type axes: tuple[int or tuple[int], ...]
+
+    :rtype: numpy.ndarray
+    """
+    return ft.partial(symmetrize, axes=axes)
 
 
 def antisymmetrize(a, axes):
@@ -52,6 +70,29 @@ def antisymmetrize(a, axes):
     allaxes = tuple(range(a.ndim))
 
     return sum(sgn(p) * numpy.transpose(a, per(p)(allaxes)) for p in
+               riffle_shuffles(i=i, ksizes=ksizes))
+
+
+def symmetrize(a, axes):
+    """symmetrize an array over permutations or riffle-shuffles of axes
+
+    :param a: array
+    :type a: numpy.ndarray
+    :param axes: axes
+    :type axes: tuple[int or tuple[int], ...]
+
+    :rtype: numpy.ndarray
+    """
+    groups = tuple(map(tuple, map(mit.always_iterable, axes)))
+    i = sum(groups, ())
+
+    ksizes = tuple(len(g) for g in groups)
+
+    per = ft.partial(permuter, i=i)
+
+    allaxes = tuple(range(a.ndim))
+
+    return sum(numpy.transpose(a, per(p)(allaxes)) for p in
                riffle_shuffles(i=i, ksizes=ksizes))
 
 

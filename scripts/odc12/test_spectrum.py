@@ -45,7 +45,8 @@ def test__main():
     w, z, info = fermitools.lr.odc12.solve_spectrum(
             h_ao=h_ao, r_ao=r_ao, co=co, cv=cv, t2=t2, nroot=nroot,
             nconv=nconv, nguess=nguess, maxdim=maxdim, maxiter=maxiter,
-            rthresh=rthresh, print_conv=True, disk=disk, blsize=blsize)
+            rthresh=rthresh, print_conv=True, disk=disk, blsize=blsize,
+            exact_diagonal=True)
 
     w = numpy.sort(w)
     print(W[:nconv])
