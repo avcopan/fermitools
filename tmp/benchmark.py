@@ -48,7 +48,7 @@ def run_test(labels, coords, outfile, exact_diagonal=False):
     dt = time.time() - t
     niter = info['niter']
     nstates = sum(numpy.any(numpy.isclose(wi, W, atol=10*rthresh)) for wi in w)
-    outfile.write('{:5d} {:5.2f} {:5d}'.format(niter, dt / niter, nstates))
+    outfile.write('{:5d} {:5.2f} {:5d}'.format(niter, dt, nstates))
     outfile.flush()
 
     t = time.time()
@@ -60,7 +60,7 @@ def run_test(labels, coords, outfile, exact_diagonal=False):
     dt = time.time() - t
     niter = info['niter']
     nstates = sum(numpy.any(numpy.isclose(wi, W, atol=10*rthresh)) for wi in w)
-    outfile.write('{:5d} {:5.2f} {:5d}'.format(niter, dt / niter, nstates))
+    outfile.write('{:5d} {:5.2f} {:5d}'.format(niter, dt, nstates))
     outfile.flush()
 
     t = time.time()
@@ -72,7 +72,7 @@ def run_test(labels, coords, outfile, exact_diagonal=False):
     dt = time.time() - t
     niter = info['niter']
     nstates = sum(numpy.any(numpy.isclose(wi, W, atol=10*rthresh)) for wi in w)
-    outfile.write('{:5d} {:5.2f} {:5d}'.format(niter, dt / niter, nstates))
+    outfile.write('{:5d} {:5.2f} {:5d}'.format(niter, dt, nstates))
     outfile.flush()
 
 
@@ -103,19 +103,20 @@ if __name__ == '__main__':
                  (0.,  1.761718374921, -2.227902775989))
             ],
             [
-                ('C', 'C', 'H', 'H', 'H', 'H'),
-                ((0.,  0.000000000000,  1.257707399600),
-                 (0.,  0.000000000000, -1.257707399600),
-                 (0.,  1.733261359900,  2.319645032500),
-                 (0., -1.733261359900,  2.319645032500),
-                 (0.,  1.733261359900, -2.319645032500),
-                 (0., -1.733261359900, -2.319645032500))
+                ('C', 'C', 'H', 'H', 'O', 'H', 'H'),
+                ((0.,  2.308607877028, -0.693815416341),
+                 (0., -0.217883674964, -0.800960002254),
+                 (0.,  3.328678970321,  1.091346846579),
+                 (0.,  3.397177089758, -2.429376646356),
+                 (0., -1.858030821325,  1.195561345788),
+                 (0., -1.239760617162, -2.580619135922),
+                 (0., -0.891692867584,  2.742257610364))
             ]
     )
 
     f = open('benchmark.dat', 'w+')
     for d in [True, False]:
-        for labels, coords in molecules:
+        for labels, coords in molecules[-1:]:
             f.write(str(labels))
             f.write('\n')
             f.flush()
