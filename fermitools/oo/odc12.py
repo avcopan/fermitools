@@ -140,14 +140,27 @@ def onebody_density(t2):
 
 
 def orbital_gradient(fov, gooov, govvv, m1oo, m1vv, t2):
-    return (+ einsum('ma,im->ia', fov, m1oo)
-            - einsum('ie,ae->ia', fov, m1vv)
-            - 1./2 * einsum('mnie,mnae->ia', gooov, t2)
-            + 1./2 * einsum('maef,mief->ia', govvv, t2)
-            + 1./4 * einsum('mlna,mlcd,nicd->ia', gooov, t2, t2)
-            - 1./4 * einsum('ifed,klaf,kled->ia', govvv, t2, t2)
-            - einsum('mfae,ikfc,mkec->ia', govvv, t2, t2)
-            + einsum('mine,nkac,mkec->ia', gooov, t2, t2))
+    cfov = orbital_gradient_intermediate_xv(
+            fxv=fov, gooxv=gooov, goxov=gooov, gxvvv=govvv, t2=t2, m1vv=m1vv)
+    cfvo = orbital_gradient_intermediate_xo(
+            fox=fov, gooox=gooov, goxvv=govvv, govxv=govvv, t2=t2, m1oo=m1oo)
+    return numpy.transpose(cfvo) - cfov
+
+
+def orbital_gradient_intermediate_xo(fox, gooox, goxvv, govxv, t2, m1oo):
+    cfxo = (numpy.tensordot(fox, m1oo, axes=(0, 0))
+            - 1./2 * einsum('mpef,imef->pi', goxvv, t2)
+            - 1./4 * einsum('nomp,imcd,nocd->pi', gooox, t2, t2)
+            - einsum('mfpe,mkec,ikfc->pi', govxv, t2, t2))
+    return cfxo
+
+
+def orbital_gradient_intermediate_xv(fxv, gooxv, goxov, gxvvv, t2, m1vv):
+    cfxv = (numpy.dot(fxv, m1vv)
+            + 1./2 * einsum('mnpe,mnae->pa', gooxv, t2)
+            + 1./4 * einsum('pefg,klae,klfg->pa', gxvvv, t2, t2)
+            - einsum('mpne,mkec,nkac->pa', goxov, t2, t2))
+    return cfxv
 
 
 def electronic_energy(hoo, hvv, goooo, goovv, govov, gvvvv, m1oo, m1vv, t2):

@@ -25,6 +25,8 @@ from ..math.direct import solve
 from ..oo.odc12 import fock_xy
 from ..oo.odc12 import fancy_property
 from ..oo.odc12 import onebody_density
+from ..oo.odc12 import orbital_gradient_intermediate_xo
+from ..oo.odc12 import orbital_gradient_intermediate_xv
 
 
 def solve_static_response(h_ao, p_ao, r_ao, co, cv, t2, maxdim=None,
@@ -48,6 +50,11 @@ def solve_static_response(h_ao, p_ao, r_ao, co, cv, t2, maxdim=None,
     fov = fock_xy(hxy=hov, goxoy=gooov, gxvyv=govvv, m1oo=m1oo, m1vv=m1vv)
     fvv = fock_xy(hxy=hvv, goxoy=govov, gxvyv=gvvvv, m1oo=m1oo, m1vv=m1vv)
 
+    cfoo = orbital_gradient_intermediate_xo(fox=foo, gooox=goooo, goxvv=goovv,
+                                            govxv=govov, t2=t2, m1oo=m1oo)
+    cfvv = orbital_gradient_intermediate_xv(fxv=fvv, gooxv=goovv, goxov=govov,
+                                            gxvvv=gvvvv, t2=t2, m1vv=m1vv)
+
     ioo, ivv = mixed_interaction(fov, gooov, govvv, m1oo, m1vv)
 
     ffoo = fancy_property(foo, m1oo)
@@ -60,12 +67,13 @@ def solve_static_response(h_ao, p_ao, r_ao, co, cv, t2, maxdim=None,
             foo, fvv, goooo, govov, gvvvv, m1oo, m1vv)
 
     pg1 = onebody_property_gradient(pov, m1oo, m1vv)
-    pg2 = twobody_property_gradient(fpoo, -fpvv, t2)
+    pg2 = twobody_property_gradient(fpoo, fpvv, t2)
 
     ad1 = onebody_hessian_zeroth_order_diagonal(foo, fvv)
-    ad2 = twobody_hessian_zeroth_order_diagonal(foo, fvv, t2)
+    ad2 = twobody_hessian_zeroth_order_diagonal(ffoo, ffvv)
 
-    a11, b11 = onebody_hessian(foo, fvv, goooo, goovv, govov, gvvvv, t2)
+    a11, b11 = onebody_hessian(foo, fvv, cfoo, cfvv, goooo, goovv, govov,
+                               gvvvv, t2, m1oo, m1vv)
     a12, b12, a21, b21 = mixed_hessian(fioo, fivv, gooov, govvv, t2)
     a22, b22 = twobody_hessian(ffoo, ffvv, goooo, govov, gvvvv, fgoooo,
                                fgovov, fgvvvv, t2)
@@ -109,21 +117,29 @@ def solve_spectrum(h_ao, r_ao, co, cv, t2, nroot=1, nconv=None, nguess=None,
     fov = fock_xy(hxy=hov, goxoy=gooov, gxvyv=govvv, m1oo=m1oo, m1vv=m1vv)
     fvv = fock_xy(hxy=hvv, goxoy=govov, gxvyv=gvvvv, m1oo=m1oo, m1vv=m1vv)
 
+    cfoo = orbital_gradient_intermediate_xo(fox=foo, gooox=goooo, goxvv=goovv,
+                                            govxv=govov, t2=t2, m1oo=m1oo)
+    cfvv = orbital_gradient_intermediate_xv(fxv=fvv, gooxv=goovv, goxov=govov,
+                                            gxvvv=gvvvv, t2=t2, m1vv=m1vv)
+
     ioo, ivv = mixed_interaction(fov, gooov, govvv, m1oo, m1vv)
 
     ffoo = fancy_property(foo, m1oo)
     ffvv = fancy_property(fvv, m1vv)
+
     fioo = fancy_property(ioo, m1oo)
     fivv = fancy_property(ivv, m1vv)
+
     fgoooo, fgovov, fgvvvv = fancy_repulsion(
             foo, fvv, goooo, govov, gvvvv, m1oo, m1vv)
     fgvvvv = (fgvvvv if not disk else
               dataset(file_name(prefix, 'fgvvvv'), data=fgvvvv))
 
     ad1 = onebody_hessian_zeroth_order_diagonal(foo, fvv)
-    ad2 = twobody_hessian_zeroth_order_diagonal(foo, fvv, t2)
+    ad2 = twobody_hessian_zeroth_order_diagonal(ffoo, ffvv)
 
-    a11, b11 = onebody_hessian(foo, fvv, goooo, goovv, govov, gvvvv, t2)
+    a11, b11 = onebody_hessian(foo, fvv, cfoo, cfvv, goooo, goovv, govov,
+                               gvvvv, t2, m1oo, m1vv)
     a12, b12, a21, b21 = mixed_hessian(fioo, fivv, gooov, govvv, t2)
     a22, b22 = twobody_hessian(ffoo, ffvv, goooo, govov, gvvvv, fgoooo,
                                fgovov, fgvvvv, t2)
@@ -180,7 +196,7 @@ def solve_spectrum(h_ao, r_ao, co, cv, t2, nroot=1, nconv=None, nguess=None,
         fpvv = fancy_property(pvv, m1vv)
 
         pg1 = onebody_property_gradient(pov, m1oo, m1vv)
-        pg2 = twobody_property_gradient(fpoo, -fpvv, t2)
+        pg2 = twobody_property_gradient(fpoo, fpvv, t2)
 
         pg = build_block_vec(no, nv, pg1, pg2)
 
@@ -209,10 +225,7 @@ def onebody_hessian_zeroth_order_diagonal(foo, fvv):
     return - cast(eo, 0, 2) + cast(ev, 1, 2)
 
 
-def twobody_hessian_zeroth_order_diagonal(foo, fvv, t2):
-    m1oo, m1vv = onebody_density(t2)
-    ffoo = fancy_property(foo, m1oo)
-    ffvv = fancy_property(fvv, m1vv)
+def twobody_hessian_zeroth_order_diagonal(ffoo, ffvv):
     efo = numpy.diagonal(ffoo)
     efv = numpy.diagonal(ffvv)
     return (- cast(efo, 0, 4) - cast(efo, 1, 4)
@@ -225,24 +238,58 @@ def onebody_property_gradient(pov, m1oo, m1vv):
         - einsum('...ie,ea->ia...', pov, m1vv))
 
 
-def twobody_property_gradient(poo, pvv, t2):
+def twobody_property_gradient(fpoo, fpvv, t2):
     return (
-        + asm('2/3')(
-              einsum('...ac,ijcb->ijab...', pvv, t2))
+        - asm('2/3')(
+              einsum('...ac,ijcb->ijab...', fpvv, t2))
         - asm('0/1')(
-              einsum('...ik,kjab->ijab...', poo, t2)))
+              einsum('...ik,kjab->ijab...', fpoo, t2)))
 
 
-def onebody_hessian(foo, fvv, goooo, goovv, govov, gvvvv, t2):
-    m1oo, m1vv = onebody_density(t2)
-    fcoo = (numpy.dot(foo, m1oo)
-            + 1./2 * einsum('imef,jmef->ij', goovv, t2)
-            + 1./4 * einsum('imno,jmcd,nocd->ij', goooo, t2, t2)
-            - einsum('iemf,mkec,jkfc->ij', govov, t2, t2))
-    fcvv = (numpy.dot(fvv, m1vv)
-            + 1./2 * einsum('mnae,mnbe->ab', goovv, t2)
-            + 1./4 * einsum('aefg,klbe,klfg->ab', gvvvv, t2, t2)
-            - einsum('nema,mkec,nkbc->ab', govov, t2, t2))
+def onebody_hessian_diagonal(foo, fvv, cfoo, cfvv, goooo, goovv, govov, gvvvv,
+                             t2, m1oo, m1vv):
+    eo = numpy.diag(foo)
+    ev = numpy.diag(fvv)
+    ceo = numpy.diag(cfoo)
+    cev = numpy.diag(cfvv)
+    m1o = numpy.diag(m1oo)
+    m1v = numpy.diag(m1vv)
+
+    ad1 = (cast(eo, 0, 2) * cast(m1v, 1, 2)
+           + cast(ev, 1, 2) * cast(m1o, 0, 2)
+           - cast(cev, 1, 2) - cast(ceo, 0, 2))
+
+    ad1 += (
+        - numpy.einsum('mana,mi,in->ia', govov, m1oo, m1oo)
+        - numpy.einsum('ieif,af,ea->ia', govov, m1vv, m1vv)
+        + numpy.einsum('iame,im,ae->ia', govov, m1oo, m1vv)
+        + numpy.einsum('iame,im,ae->ia', govov, m1oo, m1vv)
+        - numpy.einsum('mini,nkac,mkac->ia', goooo, t2, t2)
+        + 1./2 * numpy.einsum('mana,micd,nicd->ia', govov, t2, t2)
+        + 1./2 * numpy.einsum('ieif,klae,klaf->ia', govov, t2, t2)
+        - numpy.einsum('aeaf,ikec,ikfc->ia', gvvvv, t2, t2)
+        - numpy.einsum('iame,mkac,ikec->ia', govov, t2, t2)
+        - numpy.einsum('iame,mkac,ikec->ia', govov, t2, t2))
+
+    bd1 = (
+        + numpy.einsum('iema,imae->ia', govov, t2)
+        + numpy.einsum('iema,imae->ia', govov, t2)
+        + 1./2 * numpy.einsum('iimn,mnaa->ia', goooo, t2)
+        + 1./2 * numpy.einsum('efaa,iief->ia', gvvvv, t2)
+        + numpy.einsum('imae,im,ea->ia', goovv, m1oo, m1vv)
+        + numpy.einsum('imae,im,ea->ia', goovv, m1oo, m1vv)
+        + numpy.einsum('mnaa,im,in->ia', goovv, m1oo, m1oo)
+        + numpy.einsum('iief,ea,fa->ia', goovv, m1vv, m1vv)
+        + 1./4 * numpy.einsum('mnaa,iicd,mncd->ia', goovv, t2, t2)
+        - numpy.einsum('imae,mkec,ikac->ia', goovv, t2, t2)
+        - numpy.einsum('imae,mkec,ikac->ia', goovv, t2, t2)
+        + 1./4 * numpy.einsum('iief,klef,klaa->ia', goovv, t2, t2))
+
+    return ad1, bd1
+
+
+def onebody_hessian(foo, fvv, fcoo, fcvv, goooo, goovv, govov, gvvvv, t2,
+                    m1oo, m1vv):
     fsoo = (fcoo + numpy.transpose(fcoo)) / 2.
     fsvv = (fcvv + numpy.transpose(fcvv)) / 2.
 
@@ -392,6 +439,21 @@ def onebody_metric_function(t2, f):
     return _x11
 
 
+def mixed_interaction(fov, gooov, govvv, m1oo, m1vv):
+    no, nv = fov.shape
+    ioo = numpy.ascontiguousarray(
+           - einsum('mlka,im->iakl', gooov, m1oo)
+           + einsum('ilke,ae->iakl', gooov, m1vv))
+    ivv = numpy.ascontiguousarray(
+           + einsum('mcad,im->iadc', govvv, m1oo)
+           - einsum('iced,ae->iadc', govvv, m1vv))
+    # ioo_iakl * delta_ik += fov_la
+    # ivv_iadc * delta_ac -= fov_id
+    ioo[dix(no, (0, 2))] += cast(fov, (2, 1))
+    ivv[dix(nv, (1, 3))] -= cast(fov, (1, 2))
+    return ioo, ivv
+
+
 def fancy_repulsion(foo, fvv, goooo, govov, gvvvv, m1oo, m1vv):
     mo, uo = scipy.linalg.eigh(m1oo)
     mv, uv = scipy.linalg.eigh(m1vv)
@@ -425,18 +487,3 @@ def fancy_repulsion(foo, fvv, goooo, govov, gvvvv, m1oo, m1vv):
     fgvvvv /= (cast(mv, 1, 4) + cast(mv, 3, 4) - 1)
     fgvvvv = transform(fgvvvv, (uvt, uvt, uvt, uvt))
     return fgoooo, fgovov, fgvvvv
-
-
-def mixed_interaction(fov, gooov, govvv, m1oo, m1vv):
-    no, nv = fov.shape
-    ioo = numpy.ascontiguousarray(
-           - einsum('mlka,im->iakl', gooov, m1oo)
-           + einsum('ilke,ae->iakl', gooov, m1vv))
-    ivv = numpy.ascontiguousarray(
-           + einsum('mcad,im->iadc', govvv, m1oo)
-           - einsum('iced,ae->iadc', govvv, m1vv))
-    # ioo_iakl * delta_ik += fov_la
-    # ivv_iadc * delta_ac -= fov_id
-    ioo[dix(no, (0, 2))] += cast(fov, (2, 1))
-    ivv[dix(nv, (1, 3))] -= cast(fov, (1, 2))
-    return ioo, ivv

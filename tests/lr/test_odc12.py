@@ -22,6 +22,8 @@ M1VV = numpy.load(os.path.join(data_path, 'odc12/m1vv.npy'))
 FOO = numpy.load(os.path.join(data_path, 'odc12/foo.npy'))
 FOV = numpy.load(os.path.join(data_path, 'odc12/fov.npy'))
 FVV = numpy.load(os.path.join(data_path, 'odc12/fvv.npy'))
+CFOO = numpy.load(os.path.join(data_path, 'odc12/cfoo.npy'))
+CFVV = numpy.load(os.path.join(data_path, 'odc12/cfvv.npy'))
 FFOO = numpy.load(os.path.join(data_path, 'odc12/ffoo.npy'))
 FFVV = numpy.load(os.path.join(data_path, 'odc12/ffvv.npy'))
 FIOO = numpy.load(os.path.join(data_path, 'odc12/fioo.npy'))
@@ -63,7 +65,7 @@ def test__onebody_hessian_zeroth_order_diagonal():
 
 
 def test__twobody_hessian_zeroth_order_diagonal():
-    ad2 = odc12.twobody_hessian_zeroth_order_diagonal(FOO, FVV, T2)
+    ad2 = odc12.twobody_hessian_zeroth_order_diagonal(FFOO, FFVV)
     assert_almost_equal(ad2, AD2, decimal=10)
 
 
@@ -73,13 +75,13 @@ def test__onebody_property_gradient():
 
 
 def test__twobody_property_gradient():
-    pg2 = odc12.twobody_property_gradient(FPOO, -FPVV, T2)
+    pg2 = odc12.twobody_property_gradient(FPOO, FPVV, T2)
     assert_almost_equal(pg2, PG2, decimal=10)
 
 
 def test__onebody_hessian():
     a11, b11 = odc12.onebody_hessian(
-            FOO, FVV, GOOOO, GOOVV, GOVOV, GVVVV, T2)
+            FOO, FVV, CFOO, CFVV, GOOOO, GOOVV, GOVOV, GVVVV, T2, M1OO, M1VV)
     assert_almost_equal(a11(I1U), A11, decimal=10)
     assert_almost_equal(b11(I1U), B11, decimal=10)
 
