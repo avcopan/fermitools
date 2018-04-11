@@ -6,7 +6,9 @@ import time
 import tempfile
 
 from toolz import functoolz
+# from .linmap import diagonal
 from .linmap import eye, add, subtract
+# from .blocker import count_excitations
 from .blocker import build_block_vec
 from .blocker import build_block_linmap
 from .blocker import build_block_diag_linmap

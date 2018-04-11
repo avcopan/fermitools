@@ -19,7 +19,7 @@ drivers.spectrum(
         nconv=10,
         nguess=10*5,
         maxdim=10*10,
-        maxiter=50,
+        maxiter=1,
         rthresh=1e-6,
         oo_maxiter=200,         # number of iterations for ground state
         oo_rthresh=1e-8,        # convergence threshold for ground state

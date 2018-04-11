@@ -33,6 +33,19 @@ def subtract(f, g):
     return _f_minus_g
 
 
+def diagonal(f, dim):
+
+    fd = numpy.zeros(dim)
+    e = numpy.zeros(dim)
+
+    for i in range(dim):
+        e[i] = 1.
+        fd[i] = numpy.dot(e, f(e))
+        e[i] = 0.
+
+    return fd
+
+
 def block_diag(fs, indices_or_sections):
 
     def _bdiag(x):
