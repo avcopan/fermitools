@@ -546,11 +546,11 @@ def onebody_hessian_diagonal(foo, fvv, cfoo, cfvv, goooo, goovv, govov, gvvvv,
     m1o = numpy.diag(m1oo)
     m1v = numpy.diag(m1vv)
 
-    ad1 = (cast(eo, 0, 2) * cast(m1v, 1, 2)
-           + cast(ev, 1, 2) * cast(m1o, 0, 2)
-           - cast(cev, 1, 2) - cast(ceo, 0, 2))
+    a11d = (cast(eo, 0, 2) * cast(m1v, 1, 2)
+            + cast(ev, 1, 2) * cast(m1o, 0, 2)
+            - cast(cev, 1, 2) - cast(ceo, 0, 2))
 
-    ad1 += (
+    a11d += (
         - numpy.einsum('mana,mi,in->ia', govov, m1oo, m1oo)
         - numpy.einsum('ieif,af,ea->ia', govov, m1vv, m1vv)
         + numpy.einsum('iame,im,ae->ia', govov, m1oo, m1vv)
@@ -562,7 +562,7 @@ def onebody_hessian_diagonal(foo, fvv, cfoo, cfvv, goooo, goovv, govov, gvvvv,
         - numpy.einsum('iame,mkac,ikec->ia', govov, t2, t2)
         - numpy.einsum('iame,mkac,ikec->ia', govov, t2, t2))
 
-    bd1 = (
+    b11d = (
         + numpy.einsum('iema,imae->ia', govov, t2)
         + numpy.einsum('iema,imae->ia', govov, t2)
         + 1./2 * numpy.einsum('iimn,mnaa->ia', goooo, t2)
@@ -576,7 +576,7 @@ def onebody_hessian_diagonal(foo, fvv, cfoo, cfvv, goooo, goovv, govov, gvvvv,
         - numpy.einsum('imae,mkec,ikac->ia', goovv, t2, t2)
         + 1./4 * numpy.einsum('iief,klef,klaa->ia', goovv, t2, t2))
 
-    return ad1, bd1
+    return a11d, b11d
 
 
 def twobody_hessian_diagonal(ffoo, ffvv, goooo, govov, gvvvv, fgoooo, fgovov,
@@ -591,36 +591,33 @@ def twobody_hessian_diagonal(ffoo, ffvv, goooo, govov, gvvvv, fgoooo, fgovov,
     gov = numpy.diagonal(
             numpy.diagonal(govov, axis1=0, axis2=2), axis1=0, axis2=1)
 
-    ad2 = (- cast(feo, 0, 4) - cast(feo, 1, 4)
-           - cast(fev, 2, 4) - cast(fev, 3, 4)
-           + cast(goo, (0, 1), 4) + cast(gvv, (2, 3), 4))
+    a22d = (- cast(feo, 0, 4) - cast(feo, 1, 4)
+            - cast(fev, 2, 4) - cast(fev, 3, 4)
+            + cast(goo, (0, 1), 4) + cast(gvv, (2, 3), 4))
 
-    ad2 += sm('0/1|2/3')(
+    a22d += sm('0/1|2/3')(
         - cast(gov, (0, 2), 4)
         + 1./2 * numpy.einsum('afea,ijeb,ijfb->ijab', fgvvvv, t2, t2)
         - 1./2 * numpy.einsum('afeb,ijeb,ijfa->ijab', fgvvvv, t2, t2)
-        # I think these next two are equal, but I still need to implement tests
-        + numpy.einsum('iame,ijeb,mjab->ijab', fgovov, t2, t2)
-        + numpy.einsum('meia,mjab,ijeb->ijab', fgovov, t2, t2)
+        + 2 * numpy.einsum('iame,ijeb,mjab->ijab', fgovov, t2, t2)
         + 1./2 * numpy.einsum('miin,mjab,njab->ijab', fgoooo, t2, t2)
         - 1./2 * numpy.einsum('mijn,miab,njab->ijab', fgoooo, t2, t2))
 
-    bd2 = sm('0/1|2/3')(
+    b22d = sm('0/1|2/3')(
         + 1/2. * numpy.einsum('aaef,ijeb,ijfb->ijab', fgvvvv, t2, t2)
         - 1/2. * numpy.einsum('baef,ijea,ijfb->ijab', fgvvvv, t2, t2)
-        # I think these next two are equal, but I still need to implement tests
-        + numpy.einsum('maie,ijeb,mjab->ijab', fgovov, t2, t2)
-        + numpy.einsum('maie,mjab,ijeb->ijab', fgovov, t2, t2)
+        + 2 * numpy.einsum('maie,ijeb,mjab->ijab', fgovov, t2, t2)
         + 1/2. * numpy.einsum('mnii,mjab,njab->ijab', fgoooo, t2, t2)
         - 1/2. * numpy.einsum('mnij,mjab,niab->ijab', fgoooo, t2, t2))
 
-    return ad2, bd2
+    return a22d, b22d
 
 
 def onebody_metric_diagonal(m1oo, m1vv):
     m1o = numpy.diag(m1oo)
     m1v = numpy.diag(m1vv)
-    return cast(m1o, 0, 2) - cast(m1v, 1, 2)
+    s11d = cast(m1o, 0, 2) - cast(m1v, 1, 2)
+    return s11d
 
 
 def onebody_hessian(foo, fvv, fcoo, fcvv, goooo, goovv, govov, gvvvv, t2,

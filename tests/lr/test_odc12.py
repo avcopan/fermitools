@@ -42,6 +42,11 @@ I1U = numpy.load(os.path.join(data_path, 'i1u.npy'))
 I2U = numpy.load(os.path.join(data_path, 'i2u.npy'))
 AD1 = numpy.load(os.path.join(data_path, 'odc12/ad1.npy'))
 AD2 = numpy.load(os.path.join(data_path, 'odc12/ad2.npy'))
+A11D = numpy.load(os.path.join(data_path, 'odc12/a11d.npy'))
+B11D = numpy.load(os.path.join(data_path, 'odc12/b11d.npy'))
+A22D = numpy.load(os.path.join(data_path, 'odc12/a22d.npy'))
+B22D = numpy.load(os.path.join(data_path, 'odc12/b22d.npy'))
+S11D = numpy.load(os.path.join(data_path, 'odc12/s11d.npy'))
 A11 = numpy.load(os.path.join(data_path, 'odc12/a11.npy'))
 B11 = numpy.load(os.path.join(data_path, 'odc12/b11.npy'))
 A12 = -numpy.load(os.path.join(data_path, 'odc12/a12.npy'))
@@ -67,6 +72,25 @@ def test__onebody_hessian_zeroth_order_diagonal():
 def test__twobody_hessian_zeroth_order_diagonal():
     ad2 = odc12.twobody_hessian_zeroth_order_diagonal(FFOO, FFVV)
     assert_almost_equal(ad2, AD2, decimal=10)
+
+
+def test__onebody_hessian_diagonal():
+    a11d, b11d = odc12.onebody_hessian_diagonal(
+            FOO, FVV, CFOO, CFVV, GOOOO, GOOVV, GOVOV, GVVVV, T2, M1OO, M1VV)
+    assert_almost_equal(a11d, A11D, decimal=10)
+    assert_almost_equal(b11d, B11D, decimal=10)
+
+
+def test__twobody_hessian_diagonal():
+    a22d, b22d = odc12.twobody_hessian_diagonal(
+            FFOO, FFVV, GOOOO, GOVOV, GVVVV, FGOOOO, FGOVOV, FGVVVV, T2)
+    assert_almost_equal(a22d, A22D, decimal=10)
+    assert_almost_equal(b22d, B22D, decimal=10)
+
+
+def test__onebody_metric_diagonal():
+    s11d = odc12.onebody_metric_diagonal(M1OO, M1VV)
+    assert_almost_equal(s11d, S11D, decimal=10)
 
 
 def test__onebody_property_gradient():
@@ -102,14 +126,14 @@ def test__twobody_hessian():
 
 
 def test__onebody_metric():
-    s11 = odc12.onebody_metric(T2)
+    s11 = odc12.onebody_metric(M1OO, M1VV)
     assert_almost_equal(s11(I1U), S11, decimal=10)
 
 
 def test__onebody_metric_function():
-    x11 = odc12.onebody_metric_function(T2, f=numpy.reciprocal)
+    x11 = odc12.onebody_metric_function(M1OO, M1VV, f=numpy.reciprocal)
     assert_almost_equal(x11(S11), I1U, decimal=10)
 
 
 if __name__ == '__main__':
-    test__twobody_hessian()
+    test__onebody_metric()
