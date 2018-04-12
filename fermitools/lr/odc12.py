@@ -553,27 +553,22 @@ def onebody_hessian_diagonal(foo, fvv, cfoo, cfvv, goooo, goovv, govov, gvvvv,
     a11d += (
         - numpy.einsum('mana,mi,in->ia', govov, m1oo, m1oo)
         - numpy.einsum('ieif,af,ea->ia', govov, m1vv, m1vv)
-        + numpy.einsum('iame,im,ae->ia', govov, m1oo, m1vv)
-        + numpy.einsum('iame,im,ae->ia', govov, m1oo, m1vv)
+        + 2. * numpy.einsum('iame,im,ae->ia', govov, m1oo, m1vv)
         - numpy.einsum('mini,nkac,mkac->ia', goooo, t2, t2)
         + 1./2 * numpy.einsum('mana,micd,nicd->ia', govov, t2, t2)
         + 1./2 * numpy.einsum('ieif,klae,klaf->ia', govov, t2, t2)
         - numpy.einsum('aeaf,ikec,ikfc->ia', gvvvv, t2, t2)
-        - numpy.einsum('iame,mkac,ikec->ia', govov, t2, t2)
-        - numpy.einsum('iame,mkac,ikec->ia', govov, t2, t2))
+        - 2. * numpy.einsum('iame,mkac,ikec->ia', govov, t2, t2))
 
     b11d = (
-        + numpy.einsum('iema,imae->ia', govov, t2)
-        + numpy.einsum('iema,imae->ia', govov, t2)
+        + 2. * numpy.einsum('iema,imae->ia', govov, t2)
         + 1./2 * numpy.einsum('iimn,mnaa->ia', goooo, t2)
         + 1./2 * numpy.einsum('efaa,iief->ia', gvvvv, t2)
-        + numpy.einsum('imae,im,ea->ia', goovv, m1oo, m1vv)
-        + numpy.einsum('imae,im,ea->ia', goovv, m1oo, m1vv)
+        + 2. * numpy.einsum('imae,im,ea->ia', goovv, m1oo, m1vv)
         + numpy.einsum('mnaa,im,in->ia', goovv, m1oo, m1oo)
         + numpy.einsum('iief,ea,fa->ia', goovv, m1vv, m1vv)
         + 1./4 * numpy.einsum('mnaa,iicd,mncd->ia', goovv, t2, t2)
-        - numpy.einsum('imae,mkec,ikac->ia', goovv, t2, t2)
-        - numpy.einsum('imae,mkec,ikac->ia', goovv, t2, t2)
+        - 2. * numpy.einsum('imae,mkec,ikac->ia', goovv, t2, t2)
         + 1./4 * numpy.einsum('iief,klef,klaa->ia', goovv, t2, t2))
 
     return a11d, b11d
