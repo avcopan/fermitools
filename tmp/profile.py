@@ -13,13 +13,13 @@ coords = ((0.,  0.000000000000,  1.257707399600),
           (0., -1.733261359900, -2.319645032500))
 charge = 0
 spin = 0
-# basis = 'def2-sv(p)'
-basis = 'sto-3g'
+basis = 'def2-sv(p)'
+# basis = 'sto-3g'
 nconv = 10
 nroot = 2*nconv
 nguess = 10*nconv
 maxdim = 20*nconv
-blsize = nroot // 2
+blsize = nroot // 4
 maxiter = 100
 rthresh = 1e-5
 oo_maxiter = 200
@@ -45,4 +45,4 @@ fermitools.lr.odc12.solve_spectrum(
         h_ao=h_ao, r_ao=r_ao, co=co, cv=cv, t2=t2, nroot=nroot,
         nconv=nconv, nguess=nguess, maxdim=maxdim, maxiter=maxiter,
         rthresh=rthresh, print_conv=True, disk=disk, blsize=blsize,
-        exact_diagonal=True)
+        exact_diagonal=False)

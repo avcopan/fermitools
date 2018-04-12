@@ -599,6 +599,7 @@ def twobody_hessian_diagonal(ffoo, ffvv, goooo, govov, gvvvv, fgoooo, fgovov,
         - cast(gov, (0, 2), 4)
         + 1./2 * numpy.einsum('afea,ijeb,ijfb->ijab', fgvvvv, t2, t2)
         - 1./2 * numpy.einsum('afeb,ijeb,ijfa->ijab', fgvvvv, t2, t2)
+        # I think these next two are equal, but I still need to implement tests
         + numpy.einsum('iame,ijeb,mjab->ijab', fgovov, t2, t2)
         + numpy.einsum('meia,mjab,ijeb->ijab', fgovov, t2, t2)
         + 1./2 * numpy.einsum('miin,mjab,njab->ijab', fgoooo, t2, t2)
@@ -607,8 +608,9 @@ def twobody_hessian_diagonal(ffoo, ffvv, goooo, govov, gvvvv, fgoooo, fgovov,
     bd2 = sm('0/1|2/3')(
         + 1/2. * numpy.einsum('aaef,ijeb,ijfb->ijab', fgvvvv, t2, t2)
         - 1/2. * numpy.einsum('baef,ijea,ijfb->ijab', fgvvvv, t2, t2)
-        + numpy.einsum('naie,ijeb,njab->ijab', fgovov, t2, t2)
-        + numpy.einsum('maif,mjab,ijfb->ijab', fgovov, t2, t2)
+        # I think these next two are equal, but I still need to implement tests
+        + numpy.einsum('maie,ijeb,mjab->ijab', fgovov, t2, t2)
+        + numpy.einsum('maie,mjab,ijeb->ijab', fgovov, t2, t2)
         + 1/2. * numpy.einsum('mnii,mjab,njab->ijab', fgoooo, t2, t2)
         - 1/2. * numpy.einsum('mnij,mjab,niab->ijab', fgoooo, t2, t2))
 
