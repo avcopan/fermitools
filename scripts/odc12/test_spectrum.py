@@ -32,10 +32,9 @@ def test__main():
     disk = True
 
     h_ao, r_ao, p_ao = drivers.integrals(
-            basis, labels, coords, angstrom=False, interface=interface)
+            basis, labels, coords, interface=interface)
     co_guess, cv_guess, no, nv = drivers.hf_orbitals(
-            labels, coords, charge, spin, basis, angstrom=False,
-            interface=interface)
+            labels, coords, charge, spin, basis, interface=interface)
     t2_guess = numpy.zeros((no, no, nv, nv))
 
     en_elec, co, cv, t2, info = fermitools.oo.odc12.solve(
